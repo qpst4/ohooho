@@ -74,6 +74,7 @@ class ContinuousIndexOverlayView(
     private val gridIconLabelGap get() = dp(3f)
     private val gridCellInset get() = dp(4f)
     private val bubbleRadius get() = dp(24f)
+    private val bubblePanelGap get() = dp(10f)
     private val railCorner get() = dp(14f)
     private val panelCorner get() = dp(18f)
     private val railVisualWidth get() = dp(22f)
@@ -168,8 +169,8 @@ class ContinuousIndexOverlayView(
         if (!sessionActive) return
         drawLetterRail(canvas)
         selectedLetter?.let {
-            drawLetterBubble(canvas)
             drawAppGrid(canvas)
+            drawLetterBubble(canvas)
         }
     }
 
@@ -362,13 +363,30 @@ class ContinuousIndexOverlayView(
         return rail.top + slotHeight * index + slotHeight * 0.65f
     }
 
+    private fun anchorColumnIndex(layout: GridLayoutInfo): Int {
+        return when (side) {
+            PanelSide.LEFT -> 0
+            PanelSide.RIGHT -> layout.panelColumns - 1
+        }
+    }
+
+    private fun columnCenterX(grid: RectF, columnIndex: Int): Float {
+        return grid.left + gridPadding + columnIndex * cellWidth + cellWidth / 2f
+    }
+
     private fun bubbleCenter(): PointF {
+        if (filteredApps.isNotEmpty()) {
+            val grid = gridPopupRect()
+            val layout = gridLayoutInfo(filteredApps.size)
+            val cx = columnCenterX(grid, anchorColumnIndex(layout))
+            val cy = grid.top - bubbleRadius - bubblePanelGap
+            return PointF(cx, cy)
+        }
         val rail = indexRailRect()
         val cy = selectedLetterCenterY() ?: rail.centerY()
-        val cx = if (side == PanelSide.LEFT) {
-            rail.right + bubbleRadius + dp(4f)
-        } else {
-            rail.left - bubbleRadius - dp(4f)
+        val cx = when (side) {
+            PanelSide.LEFT -> rail.right + bubbleRadius + dp(4f)
+            PanelSide.RIGHT -> rail.left - bubbleRadius - dp(4f)
         }
         return PointF(cx, cy)
     }
@@ -377,14 +395,15 @@ class ContinuousIndexOverlayView(
         val layout = gridLayoutInfo(filteredApps.size)
         val gh = layout.rows * cellHeight + gridPadding * 2
         val gw = layout.panelWidth
-        val bubble = bubbleCenter()
-        val letterY = selectedLetterCenterY() ?: bubble.y
+        val rail = indexRailRect()
+        val letterY = selectedLetterCenterY() ?: rail.centerY()
+        val bubbleReserve = bubbleRadius * 2 + bubblePanelGap + dp(8f)
         var top = letterY - gh / 2f
-        top = top.coerceIn(dp(16f), height - gh - dp(16f))
-        val left = if (side == PanelSide.LEFT) {
-            bubble.x + bubbleRadius + dp(8f)
-        } else {
-            bubble.x - bubbleRadius - gw - dp(8f)
+        top = top.coerceIn(bubbleReserve + dp(8f), height - gh - dp(16f))
+        val gap = dp(8f)
+        val left = when (side) {
+            PanelSide.LEFT -> rail.right + gap
+            PanelSide.RIGHT -> rail.left - gap - gw
         }
         return RectF(left, top, left + gw, top + gh)
     }
