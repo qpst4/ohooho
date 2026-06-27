@@ -153,32 +153,73 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         return try {
             val taskId = taskIdStr?.toIntOrNull()?.takeIf { it > 0 } ?: return false
             val bounds = Rect(left, top, right, bottom)
-            Log.i(TAG, "moveTaskToFreeWindow taskId=$taskId mode=$windowingMode bounds=$bounds")
-            for (mode in candidateWindowingModes(windowingMode)) {
-                if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) {
-                    Log.i(TAG, "moveTaskToFreeWindow($taskId) via recents mode=$mode succeeded")
-                    return true
-                }
+            val frontTaskId = readFrontTask()?.taskId
+            val isFrontTask = frontTaskId == taskId
+            Log.i(
+                TAG,
+                "moveTaskToFreeWindow taskId=$taskId frontTaskId=$frontTaskId isFront=$isFrontTask mode=$windowingMode bounds=$bounds",
+            )
+            if (isFrontTask) {
+                moveFrontTaskToFreeWindow(taskId, windowingMode, bounds)
+            } else {
+                moveBackgroundTaskToFreeWindow(taskId, windowingMode, bounds)
             }
-            for (mode in candidateWindowingModes(windowingMode)) {
-                if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) {
-                    Log.i(TAG, "moveTaskToFreeWindow($taskId) via ATM mode=$mode succeeded")
-                    return true
-                }
-            }
-            for (mode in candidateWindowingModes(windowingMode)) {
-                if (relaunchViaShell(taskId, mode, bounds)) {
-                    Log.i(TAG, "moveTaskToFreeWindow($taskId) via am start mode=$mode succeeded")
-                    return true
-                }
-            }
-            val shellResized = moveTaskToFreeWindowViaShell(taskId, bounds)
-            Log.i(TAG, "moveTaskToFreeWindow($taskId) shell resize success=$shellResized")
-            return shellResized
         } catch (error: Exception) {
             Log.e(TAG, "moveTaskToFreeWindow failed", error)
             false
         }
+    }
+
+    private fun moveFrontTaskToFreeWindow(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) {
+                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via recents mode=$mode succeeded")
+                return true
+            }
+        }
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) {
+                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via ATM mode=$mode succeeded")
+                return true
+            }
+        }
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (relaunchViaShell(taskId, mode, bounds)) {
+                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via am start mode=$mode succeeded")
+                return true
+            }
+        }
+        val shellResized = moveTaskToFreeWindowViaShell(taskId, bounds)
+        Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) shell resize success=$shellResized")
+        return shellResized
+    }
+
+    private fun moveBackgroundTaskToFreeWindow(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (relaunchViaShell(taskId, mode, bounds)) {
+                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via am start mode=$mode succeeded")
+                return true
+            }
+        }
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) {
+                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via ATM mode=$mode succeeded")
+                return true
+            }
+        }
+        if (focusAndResizeTaskViaShell(taskId, bounds)) {
+            Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via shell focus+resize succeeded")
+            return true
+        }
+        for (mode in candidateWindowingModes(windowingMode)) {
+            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) {
+                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via recents mode=$mode succeeded")
+                return true
+            }
+        }
+        val shellResized = moveTaskToFreeWindowViaShell(taskId, bounds)
+        Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) shell resize success=$shellResized")
+        return shellResized
     }
 
     private fun readFrontTask(): ShellTaskEntry? {
@@ -225,7 +266,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
     private fun moveTaskToFreeWindowViaSystemApi(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
         return try {
             val atm = activityTaskManager()
-            var changed = false
+            var windowingApplied = false
             runCatching {
                 atm.javaClass.getMethod(
                     "setTaskWindowingMode",
@@ -233,7 +274,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
                     Int::class.javaPrimitiveType,
                     Boolean::class.javaPrimitiveType,
                 ).invoke(atm, taskId, windowingMode, true)
-                changed = true
+                windowingApplied = true
             }
             runCatching {
                 atm.javaClass.getMethod(
@@ -242,21 +283,37 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
                     Rect::class.java,
                     Int::class.javaPrimitiveType,
                 ).invoke(atm, taskId, bounds, RESIZE_MODE_SYSTEM)
-                changed = true
             }
-            runCatching {
+            val options = ActivityOptions.makeBasic()
+            applyLaunchWindowingMode(options, windowingMode)
+            options.setLaunchBounds(bounds)
+            val bundle = options.toBundle() ?: Bundle()
+            if (bundle.getInt(KEY_WINDOWING_MODE, -1) == -1) {
+                bundle.putInt(KEY_WINDOWING_MODE, windowingMode)
+            }
+            val movedToFront = runCatching {
                 atm.javaClass.getMethod(
                     "moveTaskToFront",
                     Int::class.javaPrimitiveType,
                     Int::class.javaPrimitiveType,
                     Bundle::class.java,
-                ).invoke(atm, taskId, 0, null)
-            }
-            changed
+                ).invoke(atm, taskId, 0, bundle) as? Boolean
+            }.getOrNull() == true
+            windowingApplied || movedToFront
         } catch (e: Exception) {
             Log.w(TAG, "moveTaskToFreeWindowViaSystemApi failed taskId=$taskId", e)
             false
         }
+    }
+
+    private fun focusAndResizeTaskViaShell(taskId: Int, bounds: Rect): Boolean {
+        val focused = focusTaskViaShell(taskId)
+        val resized = moveTaskToFreeWindowViaShell(taskId, bounds)
+        return focused && resized
+    }
+
+    private fun focusTaskViaShell(taskId: Int): Boolean {
+        return shellCommand("cmd", "activity", "task", "focus", taskId.toString())
     }
 
     private fun moveTaskToFreeWindowViaShell(taskId: Int, bounds: Rect): Boolean {

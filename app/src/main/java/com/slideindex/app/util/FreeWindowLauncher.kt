@@ -13,6 +13,9 @@ object FreeWindowLauncher {
 
     fun launch(context: Context, intent: Intent, settings: AppSettings, fullscreen: Boolean) {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (!fullscreen && settings.freeWindowEnabled) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
         if (fullscreen || !settings.freeWindowEnabled) {
             context.startActivity(intent)
             return

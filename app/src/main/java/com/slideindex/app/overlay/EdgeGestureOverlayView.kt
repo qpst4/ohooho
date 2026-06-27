@@ -431,16 +431,23 @@ class EdgeGestureOverlayView(
                         dismissTaskCards(packages)
                     }
                     taskSwitcherFreeWindowHighlight >= 0 -> {
-                        layout.rows.getOrNull(taskSwitcherFreeWindowHighlight)?.entry?.app?.packageName?.let { packageName ->
+                        val app = layout.rows
+                            .getOrNull(taskSwitcherFreeWindowHighlight)
+                            ?.entry
+                            ?.app
+                        if (app != null) {
                             HapticHelper.confirmLaunch(this, settings)
                             TaskSwitcherMenuActions.openInFreeWindow(
                                 context,
-                                packageName,
+                                app.packageName,
                                 settings,
                                 appRepository,
+                                app = app,
+                                onSessionEnd = { gestureSession.endSession() },
                             )
+                        } else {
+                            gestureSession.endSession()
                         }
-                        gestureSession.endSession()
                     }
                     taskSwitcherRowHighlight >= 0 && !taskSwitcherRowLongPressTriggered -> {
                         layout.rows.getOrNull(taskSwitcherRowHighlight)?.entry?.let { entry ->
@@ -632,9 +639,10 @@ class EdgeGestureOverlayView(
                     }
                 }
             },
+            onSessionEnd = { gestureSession.endSession() },
         )
         when (item.type) {
-            TaskSwitcherMenuItemType.FORCE_STOP -> Unit
+            TaskSwitcherMenuItemType.FORCE_STOP, TaskSwitcherMenuItemType.FREE_WINDOW -> Unit
             else -> gestureSession.endSession()
         }
     }

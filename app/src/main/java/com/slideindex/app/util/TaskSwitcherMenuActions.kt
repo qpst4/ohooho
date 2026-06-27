@@ -3,8 +3,11 @@ package com.slideindex.app.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import com.slideindex.app.data.AppInfo
 import com.slideindex.app.data.AppRepository
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
@@ -13,6 +16,7 @@ import com.slideindex.app.R
 
 object TaskSwitcherMenuActions {
     private const val TAG = "TaskSwitcherMenuActions"
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun buildFixedMenuItems(context: Context): List<TaskSwitcherMenuItem> {
         return listOf(
@@ -47,13 +51,21 @@ object TaskSwitcherMenuActions {
         settings: AppSettings,
         appRepository: AppRepository,
         onTaskRemoved: () -> Unit,
+        onSessionEnd: (() -> Unit)? = null,
     ) {
         when (item.type) {
             TaskSwitcherMenuItemType.SHORTCUT -> {
                 AppShortcutLoader.launchShortcut(context, packageName, item)
             }
             TaskSwitcherMenuItemType.FREE_WINDOW -> {
-                launchInFreeWindow(context, packageName, settings, appRepository)
+                launchInFreeWindow(
+                    context,
+                    packageName,
+                    settings,
+                    appRepository,
+                    app = null,
+                    onSessionEnd = onSessionEnd,
+                )
             }
             TaskSwitcherMenuItemType.APP_INFO -> {
                 openAppInfo(context, packageName)
@@ -87,8 +99,10 @@ object TaskSwitcherMenuActions {
         packageName: String,
         settings: AppSettings,
         appRepository: AppRepository,
+        app: AppInfo? = null,
+        onSessionEnd: (() -> Unit)? = null,
     ) {
-        launchInFreeWindow(context, packageName, settings, appRepository)
+        launchInFreeWindow(context, packageName, settings, appRepository, app, onSessionEnd)
     }
 
     private fun launchInFreeWindow(
@@ -96,13 +110,27 @@ object TaskSwitcherMenuActions {
         packageName: String,
         settings: AppSettings,
         appRepository: AppRepository,
+        app: AppInfo?,
+        onSessionEnd: (() -> Unit)?,
     ) {
         val effective = settings.copy(freeWindowEnabled = true)
+        val target = app ?: appRepository.lookupApp(packageName)
+        if (target != null) {
+            appRepository.launchApp(target, effective, fullscreen = false)
+            onSessionEnd?.invoke()
+            return
+        }
         Thread {
-            val moved = TaskManagerUtil.movePackageToFreeWindow(packageName, effective)
-            if (!moved) {
-                val app = appRepository.lookupApp(packageName) ?: return@Thread
-                appRepository.launchApp(app, effective, fullscreen = false)
+            val moved = runCatching {
+                TaskManagerUtil.movePackageToFreeWindow(packageName, effective)
+            }.getOrDefault(false)
+            mainHandler.post {
+                if (!moved) {
+                    appRepository.lookupApp(packageName)?.let {
+                        appRepository.launchApp(it, effective, fullscreen = false)
+                    }
+                }
+                onSessionEnd?.invoke()
             }
         }.start()
     }
