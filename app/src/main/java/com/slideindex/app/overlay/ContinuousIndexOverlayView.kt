@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
 import com.slideindex.app.data.AppInfo
@@ -484,5 +485,6 @@ class ContinuousIndexOverlayView(
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
-    private fun sp(value: Float): Float = value * resources.displayMetrics.scaledDensity
+    private fun sp(value: Float): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
 }
