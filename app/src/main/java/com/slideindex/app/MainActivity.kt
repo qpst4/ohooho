@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.ExcludedAppsScreen
@@ -158,7 +159,10 @@ class MainActivity : ComponentActivity() {
                             lifecycleScope.launch { app.settingsRepository.setPanelOpacity(value) }
                         },
                         onLayoutPreviewStart = {
-                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_START)
+                            sendOverlayPreviewIntent(
+                                OverlayService.ACTION_PREVIEW_START,
+                                LayoutPreviewContent.INDEX_ONLY,
+                            )
                         },
                         onLayoutPreviewStop = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
@@ -277,7 +281,10 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onLayoutPreviewStart = {
-                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_START)
+                            sendOverlayPreviewIntent(
+                                OverlayService.ACTION_PREVIEW_START,
+                                LayoutPreviewContent.TRIGGER_ONLY,
+                            )
                         },
                         onLayoutPreviewStop = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
@@ -326,7 +333,10 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onLayoutPreviewStart = {
-                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_START)
+                            sendOverlayPreviewIntent(
+                                OverlayService.ACTION_PREVIEW_START,
+                                LayoutPreviewContent.TRIGGER_ONLY,
+                            )
                         },
                         onLayoutPreviewStop = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
@@ -375,9 +385,14 @@ class MainActivity : ComponentActivity() {
         super.onPause()
     }
 
-    private fun sendOverlayPreviewIntent(action: String) {
+    private fun sendOverlayPreviewIntent(
+        action: String,
+        content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,
+    ) {
         if (!overlayGranted) return
-        val intent = Intent(this, OverlayService::class.java).setAction(action)
+        val intent = Intent(this, OverlayService::class.java)
+            .setAction(action)
+            .putExtra(OverlayService.EXTRA_PREVIEW_CONTENT, content.name)
         startService(intent)
     }
 

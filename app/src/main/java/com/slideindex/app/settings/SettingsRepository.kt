@@ -79,7 +79,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setTriggerTopFraction(side: PanelSide, value: Float) = edit { prefs ->
-        val top = value.coerceIn(0.05f, 0.65f)
+        val top = value.coerceIn(0.05f, 0.80f)
         when (side) {
             PanelSide.LEFT -> prefs[LEFT_TRIGGER_TOP] = top
             PanelSide.RIGHT -> prefs[RIGHT_TRIGGER_TOP] = top
@@ -91,7 +91,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setTriggerHeightFraction(side: PanelSide, value: Float) = edit { prefs ->
-        val height = value.coerceIn(0.15f, 0.55f)
+        val height = value.coerceIn(0.15f, 0.90f)
         when (side) {
             PanelSide.LEFT -> prefs[LEFT_TRIGGER_HEIGHT] = height
             PanelSide.RIGHT -> prefs[RIGHT_TRIGGER_HEIGHT] = height
@@ -102,11 +102,33 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun setTriggerVerticalRange(side: PanelSide, topFraction: Float, bottomFraction: Float) {
-        val top = topFraction.coerceIn(0.05f, 0.80f)
-        val bottom = bottomFraction.coerceIn(top + 0.15f, 0.95f)
-        setTriggerTopFraction(side, top)
-        setTriggerHeightFraction(side, bottom - top)
+    suspend fun setTriggerVerticalRange(side: PanelSide, topFraction: Float, bottomFraction: Float) = edit { prefs ->
+        val minTop = 0.05f
+        val maxBottom = 0.95f
+        val minHeight = 0.15f
+        var top = topFraction.coerceIn(minTop, maxBottom - minHeight)
+        var bottom = bottomFraction.coerceIn(top + minHeight, maxBottom)
+        if (bottom - top < minHeight) {
+            bottom = (top + minHeight).coerceAtMost(maxBottom)
+            top = (bottom - minHeight).coerceAtLeast(minTop)
+        }
+        val height = bottom - top
+        when (side) {
+            PanelSide.LEFT -> {
+                prefs[LEFT_TRIGGER_TOP] = top
+                prefs[LEFT_TRIGGER_HEIGHT] = height
+            }
+            PanelSide.RIGHT -> {
+                prefs[RIGHT_TRIGGER_TOP] = top
+                prefs[RIGHT_TRIGGER_HEIGHT] = height
+            }
+        }
+        if (prefs[ALIGN_HANDLES_ENABLED] != false) {
+            prefs[LEFT_TRIGGER_TOP] = top
+            prefs[RIGHT_TRIGGER_TOP] = top
+            prefs[LEFT_TRIGGER_HEIGHT] = height
+            prefs[RIGHT_TRIGGER_HEIGHT] = height
+        }
     }
 
     suspend fun setAlignHandlesEnabled(enabled: Boolean) = edit { prefs ->

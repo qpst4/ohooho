@@ -24,6 +24,7 @@ import com.slideindex.app.R
 
 import com.slideindex.app.SlideIndexApp
 
+import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.overlay.OverlayManager
 
 import com.slideindex.app.util.ForegroundAppTracker
@@ -52,6 +53,7 @@ class OverlayService : LifecycleService() {
     private var overlayManager: OverlayManager? = null
     private var foregroundTracker: ForegroundAppTracker? = null
     private var previewActive = false
+    private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
 
 
 
@@ -114,7 +116,7 @@ class OverlayService : LifecycleService() {
 
                 overlayManager?.applySettings(settings)
                 if (previewActive) {
-                    overlayManager?.setPreviewMode(true)
+                    overlayManager?.setPreviewMode(true, previewContent)
                 }
 
             }
@@ -133,7 +135,10 @@ class OverlayService : LifecycleService() {
             ACTION_RELOAD_APPS -> overlayManager?.reloadApps()
             ACTION_PREVIEW_START -> {
                 previewActive = true
-                overlayManager?.setPreviewMode(true)
+                previewContent = intent?.getStringExtra(EXTRA_PREVIEW_CONTENT)
+                    ?.let { runCatching { LayoutPreviewContent.valueOf(it) }.getOrNull() }
+                    ?: LayoutPreviewContent.TRIGGER_ONLY
+                overlayManager?.setPreviewMode(true, previewContent)
             }
             ACTION_PREVIEW_STOP -> {
                 previewActive = false
@@ -227,6 +232,7 @@ class OverlayService : LifecycleService() {
         const val ACTION_RELOAD_APPS = "com.slideindex.app.RELOAD_APPS"
         const val ACTION_PREVIEW_START = "com.slideindex.app.PREVIEW_START"
         const val ACTION_PREVIEW_STOP = "com.slideindex.app.PREVIEW_STOP"
+        const val EXTRA_PREVIEW_CONTENT = "preview_content"
 
         @Volatile
         var foregroundPackage: String? = null

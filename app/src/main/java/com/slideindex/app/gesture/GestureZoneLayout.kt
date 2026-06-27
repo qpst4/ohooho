@@ -51,8 +51,7 @@ class GestureZoneLayout(
         if (viewWidth <= 0 || viewHeight <= 0) return RectF()
         val w = railVisualWidth().coerceAtMost(edgeWidthPx().toFloat())
         val indexH = viewHeight * settings.indexHeightFraction
-        val trigger = triggerZoneRect()
-        var top = trigger.centerY() - indexH / 2f
+        var top = (viewHeight - indexH) / 2f
         top = top.coerceSafe(dp(8f), viewHeight - indexH - dp(8f))
         return when (side) {
             PanelSide.LEFT -> RectF(0f, top, w, top + indexH)

@@ -47,6 +47,7 @@ class EdgeGestureOverlayView(
     private var settings = AppSettings()
     private var apps: List<AppInfo> = emptyList()
     private var previewMode = false
+    private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
 
     private val zoneLayout = GestureZoneLayout(side)
     private val indexSession = SlideAlongRailSession(side, zoneLayout, this)
@@ -139,9 +140,11 @@ class EdgeGestureOverlayView(
 
     fun isPreviewMode(): Boolean = previewMode
 
-    fun setPreviewMode(enabled: Boolean) {
-        if (previewMode == enabled) return
+    fun setPreviewMode(enabled: Boolean, content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY) {
+        val changed = previewMode != enabled || previewContent != content
+        if (!changed) return
         previewMode = enabled
+        previewContent = content
         syncZoneLayout()
         invalidate()
     }
@@ -462,8 +465,10 @@ class EdgeGestureOverlayView(
         if (width <= 0 || height <= 0) return
         syncZoneLayout()
         if (previewMode) {
-            drawTriggerZonePreview(canvas)
-            drawLetterRail(canvas)
+            when (previewContent) {
+                LayoutPreviewContent.TRIGGER_ONLY -> drawTriggerZonePreview(canvas)
+                LayoutPreviewContent.INDEX_ONLY -> drawLetterRail(canvas)
+            }
             return
         }
         if (!gestureSession.isActive()) return

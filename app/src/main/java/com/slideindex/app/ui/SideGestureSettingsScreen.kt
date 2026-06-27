@@ -150,8 +150,6 @@ fun SideGestureSettingsScreen(
                     startLabel = stringResource(R.string.handle_length_small),
                     endLabel = stringResource(R.string.handle_length_large),
                     enabled = serviceEnabled,
-                    valueLabel = "${(settings.triggerTopFraction(side) * 100).roundToInt()}% – " +
-                        "${(settings.triggerBottomFraction(side) * 100).roundToInt()}%",
                     triggersLayoutPreview = true,
                     onLayoutPreviewStart = onLayoutPreviewStart,
                     onLayoutPreviewStop = onLayoutPreviewStop,

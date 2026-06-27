@@ -26,6 +26,7 @@ class SideOverlayController(
     private var screenHeightPx: Int = 0
     private var screenWidthPx: Int = 0
     private var previewMode = false
+    private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
 
     private val overlayContext = OverlayCompose.themedContext(context)
     private var overlayView: EdgeGestureOverlayView? = null
@@ -55,11 +56,13 @@ class SideOverlayController(
         }
     }
 
-    fun setPreviewMode(enabled: Boolean) {
-        if (previewMode == enabled) return
+    fun setPreviewMode(enabled: Boolean, content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY) {
+        val changed = previewMode != enabled || previewContent != content
+        if (!changed) return
         previewMode = enabled
+        previewContent = content
         val view = overlayView ?: return
-        view.setPreviewMode(enabled)
+        view.setPreviewMode(enabled, content)
         if (enabled) {
             expandPreviewWindow()
         } else if (!view.isSessionActive()) {
@@ -82,7 +85,7 @@ class SideOverlayController(
             },
             onSessionEndCallback = {
                 if (previewMode) {
-                    overlayView?.setPreviewMode(true)
+                    overlayView?.setPreviewMode(true, previewContent)
                     expandPreviewWindow()
                 } else {
                     collapseWindow()
@@ -97,6 +100,10 @@ class SideOverlayController(
             windowParams = params
             TaskManagerUtil.prefetchRecentTasks()
             preloadApps()
+            if (previewMode) {
+                view.setPreviewMode(true, previewContent)
+                expandPreviewWindow()
+            }
         }.onFailure {
             Log.e(TAG, "Failed to show overlay", it)
         }

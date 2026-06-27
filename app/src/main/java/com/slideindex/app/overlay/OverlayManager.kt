@@ -17,6 +17,7 @@ class OverlayManager(
     private var rightController: SideOverlayController? = null
     private var currentSettings: AppSettings = AppSettings()
     private var previewMode = false
+    private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
     private var foregroundPackage: String? = null
 
     fun applySettings(settings: AppSettings) {
@@ -41,8 +42,12 @@ class OverlayManager(
         refreshTriggerVisibility()
     }
 
-    fun setPreviewMode(enabled: Boolean) {
+    fun setPreviewMode(
+        enabled: Boolean,
+        content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,
+    ) {
         previewMode = enabled
+        previewContent = content
         applyPreviewToControllers()
         refreshTriggerVisibility()
     }
@@ -110,8 +115,15 @@ class OverlayManager(
 
     private fun applyPreviewToControllers() {
         if (!currentSettings.serviceEnabled) return
-        leftController?.setPreviewMode(previewMode && currentSettings.leftEdgeEnabled)
-        rightController?.setPreviewMode(previewMode && currentSettings.rightEdgeEnabled)
+        val content = previewContent
+        leftController?.setPreviewMode(
+            previewMode && currentSettings.leftEdgeEnabled,
+            content,
+        )
+        rightController?.setPreviewMode(
+            previewMode && currentSettings.rightEdgeEnabled,
+            content,
+        )
     }
 
     fun reloadApps() {

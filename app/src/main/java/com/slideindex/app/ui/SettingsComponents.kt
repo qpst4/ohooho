@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsSectionTitle(title: String, modifier: Modifier = Modifier) {
@@ -212,6 +213,11 @@ fun SettingsSliderRow(
     onValueChange: (Float) -> Unit,
 ) {
     var previewActive by remember { mutableStateOf(false) }
+    var localValue by remember { mutableStateOf(value) }
+    var dragging by remember { mutableStateOf(false) }
+    if (!dragging) {
+        localValue = value
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -249,15 +255,18 @@ fun SettingsSliderRow(
             }
         }
         Slider(
-            value = value,
+            value = localValue,
             onValueChange = {
+                dragging = true
                 if (triggersLayoutPreview && !previewActive) {
                     previewActive = true
                     onLayoutPreviewStart()
                 }
+                localValue = it
                 onValueChange(it)
             },
             onValueChangeFinished = {
+                dragging = false
                 if (triggersLayoutPreview && previewActive) {
                     previewActive = false
                     onLayoutPreviewStop()
@@ -278,13 +287,17 @@ fun SettingsRangeSliderRow(
     startLabel: String,
     endLabel: String,
     enabled: Boolean,
-    valueLabel: String,
     triggersLayoutPreview: Boolean = false,
     onLayoutPreviewStart: () -> Unit = {},
     onLayoutPreviewStop: () -> Unit = {},
     onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
 ) {
     var previewActive by remember { mutableStateOf(false) }
+    var localValues by remember { mutableStateOf(values) }
+    var dragging by remember { mutableStateOf(false) }
+    if (!dragging) {
+        localValues = values
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -302,7 +315,11 @@ fun SettingsRangeSliderRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 },
             )
-            Text(valueLabel, color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = "${(localValues.start * 100).roundToInt()}% – " +
+                    "${(localValues.endInclusive * 100).roundToInt()}%",
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -320,15 +337,18 @@ fun SettingsRangeSliderRow(
             )
         }
         RangeSlider(
-            value = values,
+            value = localValues,
             onValueChange = {
+                dragging = true
                 if (triggersLayoutPreview && !previewActive) {
                     previewActive = true
                     onLayoutPreviewStart()
                 }
+                localValues = it
                 onValueChange(it)
             },
             onValueChangeFinished = {
+                dragging = false
                 if (triggersLayoutPreview && previewActive) {
                     previewActive = false
                     onLayoutPreviewStop()
