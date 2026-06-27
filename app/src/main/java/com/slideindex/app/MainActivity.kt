@@ -2,6 +2,7 @@ package com.slideindex.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,17 +23,30 @@ import com.slideindex.app.ui.FreeWindowSettingsScreen
 import com.slideindex.app.ui.HiddenAppsScreen
 import com.slideindex.app.ui.LayoutSettingsScreen
 import com.slideindex.app.ui.MainScreen
+import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.SettingsDestination
+import com.slideindex.app.ui.SideGestureSettingsScreen
 import com.slideindex.app.ui.theme.SlideIndexTheme
+import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.util.HapticHelper
 import com.slideindex.app.util.PermissionHelper
+import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
     private var overlayGranted by mutableStateOf(false)
     private var notificationGranted by mutableStateOf(true)
     private var usageAccessGranted by mutableStateOf(false)
+    private var shizukuGranted by mutableStateOf(false)
+
+    private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+        shizukuGranted = grantResult == PackageManager.PERMISSION_GRANTED
+        if (shizukuGranted) {
+            TaskManagerUtil.warmUp()
+        }
+    }
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -43,6 +57,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         enableEdgeToEdge()
         refreshPermissionState()
 
@@ -60,6 +75,7 @@ class MainActivity : ComponentActivity() {
                         settings = settings,
                         overlayGranted = overlayGranted,
                         notificationGranted = notificationGranted,
+                        shizukuGranted = shizukuGranted,
                         onRequestOverlay = {
                             startActivity(PermissionHelper.overlaySettingsIntent(this))
                         },
@@ -67,6 +83,9 @@ class MainActivity : ComponentActivity() {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                             }
+                        },
+                        onRequestShizuku = {
+                            TaskManagerUtil.requestPermission()
                         },
                         onServiceEnabledChange = { enabled ->
                             lifecycleScope.launch {
@@ -104,6 +123,12 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenExcludedAppsSettings = {
                             destination = SettingsDestination.ExcludedApps
+                        },
+                        onOpenSideGesturesLeft = {
+                            destination = SettingsDestination.SideGesturesLeft
+                        },
+                        onOpenSideGesturesRight = {
+                            destination = SettingsDestination.SideGesturesRight
                         },
                         onThemeColorChange = { color ->
                             lifecycleScope.launch { app.settingsRepository.setThemeColor(color) }
@@ -218,6 +243,56 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                     )
+
+                    SettingsDestination.SideGesturesLeft -> SideGestureSettingsScreen(
+                        side = PanelSide.LEFT,
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.Main },
+                        onSlotActionChange = { trigger, action ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setSlotAction(PanelSide.LEFT, trigger, action)
+                            }
+                        },
+                        onOpenQuickLauncherEditor = {
+                            destination = SettingsDestination.QuickLauncherLeft
+                        },
+                    )
+
+                    SettingsDestination.SideGesturesRight -> SideGestureSettingsScreen(
+                        side = PanelSide.RIGHT,
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.Main },
+                        onSlotActionChange = { trigger, action ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setSlotAction(PanelSide.RIGHT, trigger, action)
+                            }
+                        },
+                        onOpenQuickLauncherEditor = {
+                            destination = SettingsDestination.QuickLauncherRight
+                        },
+                    )
+
+                    SettingsDestination.QuickLauncherLeft -> QuickLauncherEditorScreen(
+                        side = PanelSide.LEFT,
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.SideGesturesLeft },
+                        onSaveItems = { items ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherItems(PanelSide.LEFT, items)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.QuickLauncherRight -> QuickLauncherEditorScreen(
+                        side = PanelSide.RIGHT,
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.SideGesturesRight },
+                        onSaveItems = { items ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherItems(PanelSide.RIGHT, items)
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -227,6 +302,11 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshPermissionState()
         refreshServiceState()
+    }
+
+    override fun onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+        super.onDestroy()
     }
 
     override fun onPause() {
@@ -244,6 +324,10 @@ class MainActivity : ComponentActivity() {
         overlayGranted = PermissionHelper.canDrawOverlays(this)
         notificationGranted = PermissionHelper.hasNotificationPermission(this)
         usageAccessGranted = PermissionHelper.hasUsageAccess(this)
+        shizukuGranted = TaskManagerUtil.hasPermission()
+        if (shizukuGranted) {
+            TaskManagerUtil.warmUp()
+        }
     }
 
     private fun refreshServiceState() {

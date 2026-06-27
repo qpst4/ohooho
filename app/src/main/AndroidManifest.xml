@@ -47,6 +47,31 @@
                 android:value="overlay_sidebar" />
         </service>
 
+        <service
+            android:name=".service.SlideIndexAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <service
+            android:name=".shizuku.TaskManagerUserService"
+            android:exported="false"
+            android:process=":task_manager_v10" />
+
         <receiver
             android:name=".receiver.PackageChangeReceiver"
             android:exported="false">

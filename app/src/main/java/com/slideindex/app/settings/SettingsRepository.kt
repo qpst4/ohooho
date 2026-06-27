@@ -10,6 +10,13 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.gesture.GestureRule
+import com.slideindex.app.gesture.GestureRuleCodec
+import com.slideindex.app.gesture.GestureTriggerType
+import com.slideindex.app.gesture.withSlotAction
+import com.slideindex.app.launcher.QuickLauncherItemCodec
+import com.slideindex.app.overlay.PanelSide
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -39,6 +46,9 @@ class SettingsRepository(private val context: Context) {
             longPressLaunchDurationMs = prefs[LONG_PRESS_LAUNCH_DURATION] ?: 450,
             hiddenAppPackages = prefs[HIDDEN_APP_PACKAGES] ?: emptySet(),
             excludedTriggerAppPackages = prefs[EXCLUDED_TRIGGER_APP_PACKAGES] ?: emptySet(),
+            gestureRules = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet()),
+            quickLauncherLeft = QuickLauncherItemCodec.decodeAll(prefs[QUICK_LAUNCHER_LEFT] ?: emptySet()),
+            quickLauncherRight = QuickLauncherItemCodec.decodeAll(prefs[QUICK_LAUNCHER_RIGHT] ?: emptySet()),
             themeColorArgb = prefs[THEME_COLOR] ?: 0xFF6750A4.toInt(),
         )
     }
@@ -102,6 +112,42 @@ class SettingsRepository(private val context: Context) {
     }
     suspend fun setThemeColor(argb: Int) = edit { it[THEME_COLOR] = argb }
 
+    suspend fun upsertGestureRule(rule: GestureRule) = edit { prefs ->
+        val current = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet())
+            .filterNot { it.id == rule.id }
+        prefs[GESTURE_RULES] = GestureRuleCodec.encodeAll(current + rule)
+    }
+
+    suspend fun removeGestureRule(id: String) = edit { prefs ->
+        val current = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet())
+            .filterNot { it.id == id }
+        prefs[GESTURE_RULES] = GestureRuleCodec.encodeAll(current)
+    }
+
+    suspend fun setSlotAction(
+        side: PanelSide,
+        trigger: GestureTriggerType,
+        action: GestureAction,
+    ) = edit { prefs ->
+        val current = AppSettings(
+            gestureRules = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet()),
+        )
+        prefs[GESTURE_RULES] = GestureRuleCodec.encodeAll(
+            current.withSlotAction(side, trigger, action).gestureRules,
+        )
+    }
+
+    suspend fun setQuickLauncherItems(
+        side: PanelSide,
+        items: List<com.slideindex.app.launcher.QuickLauncherItem>,
+    ) = edit { prefs ->
+        val encoded = QuickLauncherItemCodec.encodeAll(items)
+        when (side) {
+            PanelSide.LEFT -> prefs[QUICK_LAUNCHER_LEFT] = encoded
+            PanelSide.RIGHT -> prefs[QUICK_LAUNCHER_RIGHT] = encoded
+        }
+    }
+
     private fun legacyLaunchPolicy(prefs: Preferences): Int {
         return if (prefs[FREE_WINDOW_ENABLED] == true) {
             AppLaunchPolicy.ALWAYS_FREE_WINDOW.id
@@ -138,6 +184,9 @@ class SettingsRepository(private val context: Context) {
         private val LONG_PRESS_LAUNCH_DURATION = intPreferencesKey("long_press_launch_duration_ms")
         private val HIDDEN_APP_PACKAGES = stringSetPreferencesKey("hidden_app_packages")
         private val EXCLUDED_TRIGGER_APP_PACKAGES = stringSetPreferencesKey("excluded_trigger_app_packages")
+        private val GESTURE_RULES = stringSetPreferencesKey("gesture_rules")
+        private val QUICK_LAUNCHER_LEFT = stringSetPreferencesKey("quick_launcher_left")
+        private val QUICK_LAUNCHER_RIGHT = stringSetPreferencesKey("quick_launcher_right")
         private val THEME_COLOR = intPreferencesKey("theme_color_argb")
     }
 }

@@ -29,6 +29,7 @@ import com.slideindex.app.overlay.OverlayManager
 import com.slideindex.app.util.ForegroundAppTracker
 
 import com.slideindex.app.util.PermissionHelper
+import com.slideindex.app.util.TaskManagerUtil
 
 import kotlinx.coroutines.CoroutineScope
 
@@ -78,10 +79,15 @@ class OverlayService : LifecycleService() {
 
         foregroundTracker = ForegroundAppTracker(this, serviceScope)
 
+        if (TaskManagerUtil.hasPermission()) {
+            TaskManagerUtil.warmUp()
+        }
+
         serviceScope.launch {
 
             foregroundTracker!!.foregroundPackage.collectLatest { packageName ->
 
+                OverlayService.foregroundPackage = packageName
                 overlayManager?.updateForegroundPackage(packageName)
 
             }
@@ -139,6 +145,7 @@ class OverlayService : LifecycleService() {
 
     override fun onDestroy() {
 
+        OverlayService.foregroundPackage = null
         foregroundTracker?.stop()
 
         foregroundTracker = null
@@ -216,6 +223,16 @@ class OverlayService : LifecycleService() {
         const val ACTION_RELOAD_APPS = "com.slideindex.app.RELOAD_APPS"
         const val ACTION_PREVIEW_START = "com.slideindex.app.PREVIEW_START"
         const val ACTION_PREVIEW_STOP = "com.slideindex.app.PREVIEW_STOP"
+
+        @Volatile
+        var foregroundPackage: String? = null
+
+        @Volatile
+        var gestureForegroundPackage: String? = null
+
+        fun captureGestureForegroundPackage() {
+            gestureForegroundPackage = foregroundPackage
+        }
 
         private const val CHANNEL_ID = "slide_index_service"
 

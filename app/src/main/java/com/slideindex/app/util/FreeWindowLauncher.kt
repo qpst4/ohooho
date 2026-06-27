@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
+import android.os.Bundle
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.resolvedFreeWindowMode
 
@@ -21,6 +22,21 @@ object FreeWindowLauncher {
         val mode = settings.resolvedFreeWindowMode().windowingMode
         applyWindowingMode(options, mode)
 
+        val bounds = launchBounds(context, settings)
+        options.setLaunchBounds(bounds)
+
+        val bundle = options.toBundle() ?: Bundle()
+        if (bundle.getInt(KEY_WINDOWING_MODE, -1) == -1) {
+            bundle.putInt(KEY_WINDOWING_MODE, mode)
+        }
+        runCatching {
+            context.startActivity(intent, bundle)
+        }.onFailure { error ->
+            android.util.Log.e("FreeWindowLauncher", "startActivity failed", error)
+        }
+    }
+
+    fun launchBounds(context: Context, settings: AppSettings): Rect {
         val metrics = context.resources.displayMetrics
         val widthPx = (metrics.widthPixels * settings.freeWindowWidthFraction).toInt()
             .coerceAtLeast(1)
@@ -30,14 +46,7 @@ object FreeWindowLauncher {
             .coerceIn(0, (metrics.widthPixels - widthPx).coerceAtLeast(0))
         val topPx = (metrics.heightPixels * settings.freeWindowTopFraction).toInt()
             .coerceIn(0, (metrics.heightPixels - heightPx).coerceAtLeast(0))
-
-        options.setLaunchBounds(Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx))
-
-        val bundle = options.toBundle()
-        if (bundle.getInt(KEY_WINDOWING_MODE, -1) == -1) {
-            bundle.putInt(KEY_WINDOWING_MODE, mode)
-        }
-        context.startActivity(intent, bundle)
+        return Rect(leftPx, topPx, leftPx + widthPx, topPx + heightPx)
     }
 
     private fun applyWindowingMode(options: ActivityOptions, mode: Int) {

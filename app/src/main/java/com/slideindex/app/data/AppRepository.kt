@@ -23,6 +23,12 @@ class AppRepository(private val context: Context) {
 
     fun getCachedApps(): List<AppInfo> = cachedApps
 
+    fun lookupApp(packageName: String): AppInfo? {
+        if (packageName == context.packageName) return null
+        getCachedApps().firstOrNull { it.packageName == packageName }?.let { return it }
+        return queryAppInfo(packageName)
+    }
+
     fun invalidate() {
         cachedApps = emptyList()
     }
@@ -98,5 +104,21 @@ class AppRepository(private val context: Context) {
             )
         }
         return apps
+    }
+
+    private fun queryAppInfo(packageName: String): AppInfo? {
+        val pm = context.packageManager
+        return try {
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            val label = pm.getApplicationLabel(appInfo).toString()
+            AppInfo(
+                packageName = packageName,
+                label = label,
+                letter = PinyinHelper.firstLetter(label),
+                icon = pm.getApplicationIcon(appInfo),
+            )
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
     }
 }

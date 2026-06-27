@@ -1,0 +1,941 @@
+package com.slideindex.app.overlay
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PointF
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.util.TypedValue
+import android.view.MotionEvent
+import android.view.View
+import com.slideindex.app.R
+import com.slideindex.app.data.AppInfo
+import com.slideindex.app.data.AppRepository
+import com.slideindex.app.gesture.ActionExecutor
+import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.gesture.GestureSession
+import com.slideindex.app.gesture.GestureZoneLayout
+import com.slideindex.app.gesture.IndexSessionHost
+import com.slideindex.app.gesture.PanelGridSession
+import com.slideindex.app.gesture.SlideAlongRailSession
+import com.slideindex.app.gesture.SwipePathRecognizer
+import com.slideindex.app.launcher.QuickLauncherItem
+import com.slideindex.app.launcher.QuickLauncherItemType
+import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.util.HapticHelper
+import com.slideindex.app.util.RecentAppEntry
+import com.slideindex.app.util.RecentTasksLoader
+import com.slideindex.app.util.TaskManagerUtil
+import com.slideindex.app.util.coerceSafe
+import kotlin.math.ceil
+
+/**
+ * 边缘手势 Overlay：识别层（GestureSession）+ 索引 UI（Canvas 绘制）。
+ */
+class EdgeGestureOverlayView(
+    context: Context,
+    private val side: PanelSide,
+    private val appRepository: AppRepository,
+    private val onSessionStartCallback: () -> Unit,
+    private val onSessionEndCallback: () -> Unit,
+) : View(context), IndexSessionHost, GestureSession.Callbacks {
+
+    private var settings = AppSettings()
+    private var apps: List<AppInfo> = emptyList()
+    private var previewMode = false
+
+    private val zoneLayout = GestureZoneLayout(side)
+    private val indexSession = SlideAlongRailSession(side, zoneLayout, this)
+    private val panelGridSession = PanelGridSession()
+    private val actionExecutor = ActionExecutor(context, appRepository)
+    private val pathRecognizer = SwipePathRecognizer(side, resources.displayMetrics.density)
+    private val gestureSession = GestureSession(
+        side = side,
+        zoneLayout = zoneLayout,
+        indexSession = indexSession,
+        pathRecognizer = pathRecognizer,
+        actionExecutor = actionExecutor,
+        callbacks = this,
+    )
+
+    private var recentApps = mutableListOf<RecentAppEntry>()
+    private var panelContentRect = RectF()
+    private var taskSwitcherLayout: TaskSwitcherPanelLayout? = null
+    private var taskSwitcherRowHighlight = -1
+    private var taskSwitcherCloseHighlight = -1
+    private var taskSwitcherCloseAllHighlight = false
+    private var taskSwitcherLoadGeneration = 0
+
+    private val railLetters: List<Char> = ('A'..'Z').toList() + '#'
+    private val iconCache = mutableMapOf<String, Bitmap>()
+
+    private val railBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val panelBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bubblePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val letterCirclePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val letterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT
+    }
+    private val bubbleLetterPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+        color = Color.WHITE
+    }
+    private val appLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = sp(11f)
+        color = Color.argb(230, 255, 255, 255)
+    }
+    private val cellHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cellLongPressHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val triggerPreviewFillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val triggerPreviewStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+    }
+
+    private val tmpRect = RectF()
+
+    private val cellHeight get() = dp(72f)
+    private val cellWidth get() = dp(68f)
+    private val gridIconSize get() = dp(44f)
+    private val gridPadding get() = dp(10f)
+    private val gridIconTopInset get() = dp(6f)
+    private val gridIconLabelGap get() = dp(3f)
+    private val gridCellInset get() = dp(4f)
+    private val bubbleRadius get() = dp(24f)
+    private val bubblePanelGap get() = dp(10f)
+    private val railCorner get() = dp(14f)
+    private val panelCorner get() = dp(18f)
+
+    private data class GridLayoutInfo(
+        val appsPerRow: Int,
+        val panelColumns: Int,
+        val rows: Int,
+        val panelWidth: Float,
+    )
+
+    fun applySettings(newSettings: AppSettings, screenWidth: Int) {
+        settings = newSettings
+        gestureSession.applySettings(newSettings)
+        cellHighlightPaint.color = Color.argb(70, 255, 255, 255)
+        cellLongPressHighlightPaint.color = Color.argb(110, 66, 133, 244)
+        syncZoneLayout()
+        invalidate()
+    }
+
+    fun isSessionActive(): Boolean = gestureSession.isActive()
+
+    fun isPreviewMode(): Boolean = previewMode
+
+    fun setPreviewMode(enabled: Boolean) {
+        if (previewMode == enabled) return
+        previewMode = enabled
+        syncZoneLayout()
+        invalidate()
+    }
+
+    fun setApps(newApps: List<AppInfo>) {
+        apps = newApps
+        indexSession.setApps(newApps)
+        iconCache.clear()
+        invalidate()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        syncZoneLayout()
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (previewMode) return false
+        val (localX, localY) = rawToLocal(event.rawX, event.rawY)
+        when (gestureSession.panelMode()) {
+            OverlayPanelMode.QUICK_LAUNCHER ->
+                return handleQuickLauncherTouch(event, localX, localY)
+            OverlayPanelMode.TASK_SWITCHER ->
+                return handleTaskSwitcherTouch(event, localX, localY)
+            OverlayPanelMode.INDEX -> return handleIndexTouch(event, localX, localY)
+            OverlayPanelMode.NONE -> Unit
+        }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (gestureSession.isActive()) return true
+                if (!gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) return false
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (!gestureSession.isActive()) return false
+                gestureSession.onTouchMove(event.rawX, event.rawY, localX, localY)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (!gestureSession.isActive()) return false
+                gestureSession.onTouchUp(event.rawX, event.rawY, localX, localY)
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun handleIndexTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (!isInsideIndexInteractiveArea(localX, localY)) {
+                    gestureSession.endSession()
+                    return false
+                }
+                indexSession.updateSelection(localX, localY)
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                indexSession.updateSelection(localX, localY)
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                gestureSession.onTouchUp(event.rawX, event.rawY, localX, localY)
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun isInsideIndexInteractiveArea(localX: Float, localY: Float): Boolean {
+        if (zoneLayout.isInRailZone(localX)) return true
+        if (indexSession.selectedLetter != null) {
+            indexSession.gridCellBounds.forEach { (_, rect) ->
+                if (rect.contains(localX, localY)) return true
+            }
+            val grid = gridPopupRect()
+            if (grid.contains(localX, localY)) return true
+        }
+        return false
+    }
+
+    private fun handleQuickLauncherTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                panelGridSession.updateHighlight(localX, localY)
+                if (panelGridSession.highlightedIndex < 0 && !panelContentRect.contains(localX, localY)) {
+                    gestureSession.endSession()
+                } else if (panelGridSession.highlightedIndex >= 0) {
+                    HapticHelper.appTick(this, settings)
+                }
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val prev = panelGridSession.highlightedIndex
+                panelGridSession.updateHighlight(localX, localY)
+                if (panelGridSession.highlightedIndex != prev && panelGridSession.highlightedIndex >= 0) {
+                    HapticHelper.appTick(this, settings)
+                }
+                invalidate()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                panelGridSession.highlightedQuickItem()?.let { item ->
+                    HapticHelper.confirmLaunch(this, settings)
+                    actionExecutor.launchQuickItem(item, settings)
+                }
+                gestureSession.endSession()
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun handleTaskSwitcherTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
+        val layout = taskSwitcherLayout ?: computeTaskSwitcherLayout().also { taskSwitcherLayout = it }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                taskSwitcherRowHighlight = -1
+                taskSwitcherCloseHighlight = -1
+                taskSwitcherCloseAllHighlight = false
+                if (!layout.panelRect.contains(localX, localY)) {
+                    gestureSession.endSession()
+                    return true
+                }
+                layout.rows.forEachIndexed { index, row ->
+                    if (row.closeRect.contains(localX, localY)) {
+                        taskSwitcherCloseHighlight = index
+                        HapticHelper.appTick(this, settings)
+                        invalidate()
+                        return true
+                    }
+                    if (row.rowRect.contains(localX, localY)) {
+                        taskSwitcherRowHighlight = index
+                        HapticHelper.appTick(this, settings)
+                        invalidate()
+                        return true
+                    }
+                }
+                if (layout.closeAllRect.contains(localX, localY)) {
+                    taskSwitcherCloseAllHighlight = true
+                    HapticHelper.appTick(this, settings)
+                    invalidate()
+                }
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val prevRow = taskSwitcherRowHighlight
+                val prevClose = taskSwitcherCloseHighlight
+                val prevCloseAll = taskSwitcherCloseAllHighlight
+                taskSwitcherRowHighlight = -1
+                taskSwitcherCloseHighlight = -1
+                taskSwitcherCloseAllHighlight = false
+                layout.rows.forEachIndexed { index, row ->
+                    if (row.closeRect.contains(localX, localY)) taskSwitcherCloseHighlight = index
+                    else if (row.rowRect.contains(localX, localY)) taskSwitcherRowHighlight = index
+                }
+                if (layout.closeAllRect.contains(localX, localY)) {
+                    taskSwitcherCloseAllHighlight = true
+                }
+                if (taskSwitcherRowHighlight != prevRow ||
+                    taskSwitcherCloseHighlight != prevClose ||
+                    taskSwitcherCloseAllHighlight != prevCloseAll
+                ) {
+                    if (taskSwitcherRowHighlight >= 0 ||
+                        taskSwitcherCloseHighlight >= 0 ||
+                        taskSwitcherCloseAllHighlight
+                    ) {
+                        HapticHelper.appTick(this, settings)
+                    }
+                    invalidate()
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                when {
+                    taskSwitcherCloseHighlight >= 0 -> {
+                        val closeIndex = taskSwitcherCloseHighlight
+                        val packageName = layout.rows.getOrNull(closeIndex)?.entry?.app?.packageName
+                        if (packageName != null) {
+                            dismissTaskCards(listOf(packageName)) {
+                                recentApps.removeAll { it.app.packageName == packageName }
+                                TaskManagerUtil.removePackageFromCache(packageName)
+                                taskSwitcherLayout = null
+                                if (recentApps.isEmpty()) {
+                                    gestureSession.endSession()
+                                } else {
+                                    invalidate()
+                                }
+                            }
+                        }
+                    }
+                    taskSwitcherCloseAllHighlight -> {
+                        val packages = recentApps.map { it.app.packageName }
+                        dismissTaskCards(packages) {
+                            recentApps.clear()
+                            TaskManagerUtil.runOnTaskWorker {
+                                TaskManagerUtil.refreshRecentTaskPackages()
+                            }
+                            gestureSession.endSession()
+                        }
+                    }
+                    taskSwitcherRowHighlight >= 0 -> {
+                        layout.rows.getOrNull(taskSwitcherRowHighlight)?.entry?.let { entry ->
+                            HapticHelper.confirmLaunch(this, settings)
+                            actionExecutor.execute(
+                                GestureAction.LaunchApp(entry.app.packageName),
+                                settings,
+                            )
+                        }
+                        gestureSession.endSession()
+                    }
+                }
+                taskSwitcherRowHighlight = -1
+                taskSwitcherCloseHighlight = -1
+                taskSwitcherCloseAllHighlight = false
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun dismissTaskCards(packages: List<String>, onComplete: () -> Unit) {
+        if (packages.isEmpty() || !TaskManagerUtil.hasPermission()) {
+            return
+        }
+        Thread {
+            val removed = packages.distinct().any { TaskManagerUtil.removeTaskByPackage(it) }
+            if (removed) {
+                post {
+                    taskSwitcherLoadGeneration++
+                    onComplete()
+                }
+            }
+        }.start()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        if (width <= 0 || height <= 0) return
+        syncZoneLayout()
+        if (previewMode) {
+            drawTriggerZonePreview(canvas)
+            drawLetterRail(canvas)
+            return
+        }
+        if (!gestureSession.isActive()) return
+        when (gestureSession.panelMode()) {
+            OverlayPanelMode.INDEX -> {
+                drawLetterRail(canvas)
+                if (indexSession.selectedLetter != null) {
+                    drawAppGrid(canvas)
+                    drawLetterBubble(canvas)
+                }
+            }
+            OverlayPanelMode.QUICK_LAUNCHER -> drawQuickLauncherPanel(canvas)
+            OverlayPanelMode.TASK_SWITCHER -> drawTaskSwitcherPanel(canvas)
+            OverlayPanelMode.NONE -> Unit
+        }
+    }
+
+    override fun hapticLetterTick() {
+        HapticHelper.letterTick(this, settings)
+    }
+
+    override fun hapticAppTick() {
+        HapticHelper.appTick(this, settings)
+    }
+
+    override fun hapticConfirmLaunch() {
+        HapticHelper.confirmLaunch(this, settings)
+    }
+
+    override fun scheduleDelayed(runnable: Runnable, delayMs: Long) {
+        postDelayed(runnable, delayMs)
+    }
+
+    override fun cancelDelayed(runnable: Runnable) {
+        removeCallbacks(runnable)
+    }
+
+    override fun requestInvalidate() {
+        invalidate()
+    }
+
+    override fun onSessionStart(mode: OverlayPanelMode) {
+        syncZoneLayout()
+        if (mode == OverlayPanelMode.TASK_SWITCHER) {
+            loadTaskSwitcherApps()
+        }
+        panelGridSession.reset()
+        onSessionStartCallback()
+    }
+
+    private fun loadTaskSwitcherApps() {
+        taskSwitcherLayout = null
+        taskSwitcherRowHighlight = -1
+        taskSwitcherCloseHighlight = -1
+        taskSwitcherCloseAllHighlight = false
+
+        recentApps = if (TaskManagerUtil.hasPermission()) {
+            RecentTasksLoader.loadCached(appRepository).toMutableList()
+        } else {
+            mutableListOf()
+        }
+
+        val generation = ++taskSwitcherLoadGeneration
+        if (!TaskManagerUtil.hasPermission()) return
+
+        Thread {
+            val fresh = TaskManagerUtil.runOnTaskWorker {
+                RecentTasksLoader.load(appRepository)
+            }
+            post {
+                if (generation != taskSwitcherLoadGeneration) return@post
+                if (gestureSession.panelMode() != OverlayPanelMode.TASK_SWITCHER) return@post
+                recentApps = fresh.toMutableList()
+                taskSwitcherLayout = null
+                invalidate()
+            }
+        }.start()
+    }
+
+    override fun onSessionEnd() {
+        taskSwitcherLoadGeneration++
+        syncZoneLayout()
+        panelGridSession.reset()
+        recentApps.clear()
+        taskSwitcherLayout = null
+        taskSwitcherRowHighlight = -1
+        taskSwitcherCloseHighlight = -1
+        taskSwitcherCloseAllHighlight = false
+        post { onSessionEndCallback() }
+    }
+
+    override fun onRequestInvalidate() {
+        invalidate()
+    }
+
+    override fun hapticGestureStart() {
+        HapticHelper.gestureStart(this, settings)
+    }
+
+    private fun syncZoneLayout() {
+        zoneLayout.update(
+            settings = settings,
+            viewWidth = width,
+            viewHeight = height,
+            density = resources.displayMetrics.density,
+            sessionActive = gestureSession.isActive(),
+            previewMode = previewMode,
+        )
+    }
+
+    private fun rawToLocal(rawX: Float, rawY: Float): Pair<Float, Float> {
+        val loc = IntArray(2)
+        getLocationOnScreen(loc)
+        return rawX - loc[0] to rawY - loc[1]
+    }
+
+    private fun appsPerRow(): Int = settings.appsPerRow.coerceIn(2, 5)
+
+    private fun gridLayoutInfo(appCount: Int): GridLayoutInfo {
+        val m = appsPerRow()
+        val panelColumns = if (appCount in 1 until m) appCount else m
+        val rows = if (appCount == 0) 1 else ceil(appCount / m.toFloat()).toInt()
+        val panelWidth = panelColumns * cellWidth + gridPadding * 2
+        return GridLayoutInfo(m, panelColumns, rows, panelWidth)
+    }
+
+    private fun visualColumn(index: Int, m: Int, appCount: Int): Int {
+        val colInRow = index % m
+        val row = index / m
+        val appsInRow = minOf(m, appCount - row * m)
+        return when (side) {
+            PanelSide.RIGHT -> when {
+                appCount < m -> appCount - 1 - colInRow
+                appsInRow == m -> m - 1 - colInRow
+                else -> m - appsInRow + colInRow
+            }
+            PanelSide.LEFT -> colInRow
+        }
+    }
+
+    private fun drawTriggerZonePreview(canvas: Canvas) {
+        val zone = zoneLayout.triggerZoneRect()
+        triggerPreviewFillPaint.color = Color.argb(72, 255, 152, 0)
+        canvas.drawRoundRect(zone, dp(6f), dp(6f), triggerPreviewFillPaint)
+        triggerPreviewStrokePaint.color = Color.argb(210, 255, 167, 38)
+        triggerPreviewStrokePaint.strokeWidth = dp(2f)
+        canvas.drawRoundRect(zone, dp(6f), dp(6f), triggerPreviewStrokePaint)
+    }
+
+    private fun drawLetterRail(canvas: Canvas) {
+        val rail = zoneLayout.indexRailRect()
+        val alphaScale = settings.panelOpacity.coerceIn(0.6f, 1f)
+        railBgPaint.color = Color.argb((200 * alphaScale).toInt(), 38, 38, 42)
+        canvas.drawRoundRect(rail, railCorner, railCorner, railBgPaint)
+
+        val slotHeight = rail.height() / railLetters.size
+        val letterSize = slotHeight.coerceAtMost(dp(11.5f))
+        val selectedLetter = indexSession.selectedLetter
+
+        railLetters.forEachIndexed { index, letter ->
+            val centerY = rail.top + slotHeight * index + slotHeight * 0.65f
+            val centerX = rail.centerX()
+            val selected = letter == selectedLetter
+            if (selected) {
+                letterCirclePaint.color = Color.argb(90, 255, 255, 255)
+                canvas.drawCircle(centerX, centerY - letterSize * 0.15f, letterSize * 0.85f, letterCirclePaint)
+                letterPaint.color = Color.WHITE
+                letterPaint.textSize = letterSize * 1.05f
+                letterPaint.typeface = Typeface.DEFAULT_BOLD
+            } else {
+                letterPaint.color = Color.argb(200, 220, 220, 220)
+                letterPaint.textSize = letterSize
+                letterPaint.typeface = Typeface.DEFAULT
+            }
+            canvas.drawText(letter.toString(), centerX, centerY, letterPaint)
+        }
+    }
+
+    private fun drawLetterBubble(canvas: Canvas) {
+        val letter = indexSession.selectedLetter ?: return
+        val center = bubbleCenter()
+        bubblePaint.color = Color.argb((240 * settings.panelOpacity).toInt().coerceIn(150, 240), 52, 52, 56)
+        canvas.drawCircle(center.x, center.y, bubbleRadius, bubblePaint)
+        bubbleLetterPaint.textSize = sp(22f)
+        canvas.drawText(
+            letter.toString(),
+            center.x,
+            center.y + sp(22f) * 0.35f,
+            bubbleLetterPaint,
+        )
+    }
+
+    private fun drawAppGrid(canvas: Canvas) {
+        val filteredApps = indexSession.filteredApps
+        if (filteredApps.isEmpty()) return
+        val appCount = filteredApps.size
+        val layout = gridLayoutInfo(appCount)
+        val m = layout.appsPerRow
+        val grid = gridPopupRect()
+        panelBgPaint.color = Color.argb((215 * settings.panelOpacity).toInt().coerceIn(140, 215), 48, 48, 52)
+        canvas.drawRoundRect(grid, panelCorner, panelCorner, panelBgPaint)
+
+        indexSession.gridCellBounds.clear()
+        filteredApps.forEachIndexed { index, app ->
+            val row = index / m
+            val visualCol = visualColumn(index, m, appCount)
+            val left = grid.left + gridPadding + visualCol * cellWidth
+            val top = grid.top + gridPadding + row * cellHeight
+            val cell = RectF(left, top, left + cellWidth, top + cellHeight)
+            indexSession.gridCellBounds += app to cell
+
+            if (app == indexSession.highlightedApp) {
+                tmpRect.set(cell.left + dp(3f), cell.top + dp(2f), cell.right - dp(3f), cell.bottom - dp(2f))
+                val paint = if (indexSession.longPressArmed) {
+                    cellLongPressHighlightPaint
+                } else {
+                    cellHighlightPaint
+                }
+                canvas.drawRoundRect(tmpRect, dp(10f), dp(10f), paint)
+            }
+
+            val icon = iconFor(app)
+            val iconTop = cell.top + gridIconTopInset
+            val label = ellipsize(app.label, cellWidth - gridCellInset * 2)
+            val labelBaseline = iconTop + gridIconSize + gridIconLabelGap - appLabelPaint.fontMetrics.ascent
+            val iconCenterX = cell.centerX()
+            canvas.drawBitmap(icon, iconCenterX - gridIconSize / 2f, iconTop, null)
+            canvas.drawText(label, iconCenterX, labelBaseline, appLabelPaint)
+        }
+    }
+
+    private fun anchorColumnIndex(layout: GridLayoutInfo): Int {
+        return when (side) {
+            PanelSide.LEFT -> 0
+            PanelSide.RIGHT -> layout.panelColumns - 1
+        }
+    }
+
+    private fun columnCenterX(grid: RectF, columnIndex: Int): Float {
+        return grid.left + gridPadding + columnIndex * cellWidth + cellWidth / 2f
+    }
+
+    private fun bubbleCenter(): PointF {
+        val filteredApps = indexSession.filteredApps
+        if (filteredApps.isNotEmpty()) {
+            val grid = gridPopupRect()
+            val layout = gridLayoutInfo(filteredApps.size)
+            val cx = columnCenterX(grid, anchorColumnIndex(layout))
+            val cy = grid.top - bubbleRadius - bubblePanelGap
+            return PointF(cx, cy)
+        }
+        val rail = zoneLayout.indexRailRect()
+        val cy = indexSession.selectedLetterCenterY() ?: rail.centerY()
+        val cx = when (side) {
+            PanelSide.LEFT -> rail.right + bubbleRadius + dp(4f)
+            PanelSide.RIGHT -> rail.left - bubbleRadius - dp(4f)
+        }
+        return PointF(cx, cy)
+    }
+
+    private fun gridPopupRect(): RectF {
+        val filteredApps = indexSession.filteredApps
+        val layout = gridLayoutInfo(filteredApps.size)
+        val gh = layout.rows * cellHeight + gridPadding * 2
+        val gw = layout.panelWidth
+        val rail = zoneLayout.indexRailRect()
+        val letterY = indexSession.selectedLetterCenterY() ?: rail.centerY()
+        val bubbleReserve = bubbleRadius * 2 + bubblePanelGap + dp(8f)
+        var top = letterY - gh / 2f
+        top = top.coerceSafe(bubbleReserve + dp(8f), height - gh - dp(16f))
+        val gap = dp(8f)
+        val left = when (side) {
+            PanelSide.LEFT -> rail.right + gap
+            PanelSide.RIGHT -> rail.left - gap - gw
+        }
+        return RectF(left, top, left + gw, top + gh)
+    }
+
+    private fun ellipsize(text: String, maxWidth: Float): String {
+        if (appLabelPaint.measureText(text) <= maxWidth) return text
+        var end = text.length
+        while (end > 1 && appLabelPaint.measureText(text.substring(0, end) + "…") > maxWidth) end--
+        return text.substring(0, end.coerceAtLeast(1)) + "…"
+    }
+
+    private fun iconFor(app: AppInfo): Bitmap {
+        return iconCache.getOrPut(app.packageName) {
+            val size = gridIconSize.toInt().coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val drawable = app.icon.constantState?.newDrawable()?.mutate() ?: app.icon.mutate()
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            bitmap
+        }
+    }
+
+    private fun quickLauncherItems(): List<QuickLauncherItem> {
+        val configured = when (side) {
+            PanelSide.LEFT -> settings.quickLauncherLeft
+            PanelSide.RIGHT -> settings.quickLauncherRight
+        }
+        if (configured.isNotEmpty()) return configured
+        return apps.take(9).map { QuickLauncherItem.app(it.packageName, it.label) }
+    }
+
+    private fun drawQuickLauncherPanel(canvas: Canvas) {
+        drawUtilityGrid(
+            canvas = canvas,
+            title = "快速启动器",
+            entries = quickLauncherItems(),
+        ) { item, cell, index ->
+            panelGridSession.cellBounds.add(item to cell)
+            val label = when (item.type) {
+                QuickLauncherItemType.APP -> apps.find { it.packageName == item.payload }?.label ?: item.label
+                QuickLauncherItemType.SHORTCUT -> item.label.ifBlank { "快捷方式" }
+                QuickLauncherItemType.WIDGET -> item.label.ifBlank { "小组件" }
+            }
+            drawGridCell(canvas, cell, index, label) {
+                when (item.type) {
+                    QuickLauncherItemType.APP -> apps.find { it.packageName == item.payload }?.let { iconFor(it) }
+                    else -> null
+                }
+            }
+        }
+    }
+
+    private fun drawTaskSwitcherPanel(canvas: Canvas) {
+        val layout = computeTaskSwitcherLayout()
+        taskSwitcherLayout = layout
+        panelContentRect.set(layout.panelRect)
+        if (layout.rows.isEmpty()) return
+
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(48, 0, 0, 0)
+        }
+        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        val rowHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(28, 0, 0, 0) }
+        val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(40, 0, 0, 0) }
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(230, 30, 30, 30)
+            textSize = sp(15f)
+        }
+        val closeAllPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(255, 0, 122, 255)
+            textSize = sp(14f)
+            textAlign = Paint.Align.CENTER
+        }
+        val closeIconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(160, 60, 60, 60)
+            strokeWidth = dp(1.6f)
+            strokeCap = Paint.Cap.ROUND
+        }
+        val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 120, 120, 120) }
+
+        val panel = layout.panelRect
+        canvas.drawRoundRect(
+            panel.left + dp(2f),
+            panel.top + dp(3f),
+            panel.right + dp(2f),
+            panel.bottom + dp(3f),
+            dp(14f),
+            dp(14f),
+            shadowPaint,
+        )
+        canvas.drawRoundRect(panel, dp(14f), dp(14f), cardPaint)
+
+        if (layout.rows.isEmpty()) {
+            val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(140, 80, 80, 80)
+                textSize = sp(13f)
+                textAlign = Paint.Align.CENTER
+            }
+            val hint = if (TaskManagerUtil.hasPermission()) {
+                context.getString(R.string.task_switcher_empty)
+            } else {
+                context.getString(R.string.task_switcher_no_shizuku)
+            }
+            canvas.drawText(
+                hint,
+                panel.centerX(),
+                panel.top + (panel.height() - layout.closeAllRect.height()) / 2f -
+                    (hintPaint.descent() + hintPaint.ascent()) / 2f,
+                hintPaint,
+            )
+        }
+
+        layout.rows.forEachIndexed { index, row ->
+            if (index == taskSwitcherRowHighlight || index == taskSwitcherCloseHighlight) {
+                canvas.drawRect(row.rowRect, rowHighlightPaint)
+            }
+            drawGripDots(canvas, row.rowRect.left + dp(10f), row.rowRect.centerY(), gripPaint)
+            val icon = iconFor(row.entry.app)
+            val iconSize = dp(34f)
+            val iconLeft = row.rowRect.left + dp(28f)
+            val iconTop = row.rowRect.centerY() - iconSize / 2f
+            canvas.drawBitmap(icon, iconLeft, iconTop, null)
+            val label = ellipsize(row.entry.app.label, row.closeRect.left - iconLeft - iconSize - dp(16f), labelPaint)
+            val labelX = iconLeft + iconSize + dp(12f)
+            val labelBaseline = row.rowRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
+            canvas.drawText(label, labelX, labelBaseline, labelPaint)
+            drawCloseIcon(canvas, row.closeRect, closeIconPaint)
+            if (index < layout.rows.lastIndex) {
+                canvas.drawLine(
+                    row.rowRect.left + dp(12f),
+                    row.rowRect.bottom,
+                    row.rowRect.right - dp(12f),
+                    row.rowRect.bottom,
+                    dividerPaint,
+                )
+            }
+        }
+
+        if (taskSwitcherCloseAllHighlight) {
+            canvas.drawRect(layout.closeAllRect, rowHighlightPaint)
+        }
+        val closeAllText = context.getString(R.string.task_switcher_close_all)
+        canvas.drawText(
+            closeAllText,
+            layout.closeAllRect.centerX(),
+            layout.closeAllRect.centerY() - (closeAllPaint.descent() + closeAllPaint.ascent()) / 2f,
+            closeAllPaint,
+        )
+    }
+
+    private fun computeTaskSwitcherLayout(): TaskSwitcherPanelLayout {
+        val rowHeight = dp(52f)
+        val footerHeight = dp(44f)
+        val panelWidth = dp(268f)
+        val rowCount = recentApps.size.coerceAtLeast(if (recentApps.isEmpty()) 0 else 1)
+        val panelHeight = (if (rowCount == 0) dp(72f) else rowCount * rowHeight) + footerHeight
+        val rail = zoneLayout.indexRailRect()
+        var top = rail.centerY() - panelHeight / 2f
+        top = top.coerceSafe(dp(16f), height - panelHeight - dp(16f))
+        val gap = dp(10f)
+        val left = when (side) {
+            PanelSide.LEFT -> rail.right + gap
+            PanelSide.RIGHT -> rail.left - gap - panelWidth
+        }
+        val panelRect = RectF(left, top, left + panelWidth, top + panelHeight)
+        val closeAllRect = RectF(
+            panelRect.left,
+            panelRect.bottom - footerHeight,
+            panelRect.right,
+            panelRect.bottom,
+        )
+        val rows = recentApps.mapIndexed { index, entry ->
+            val rowTop = panelRect.top + index * rowHeight
+            val rowRect = RectF(panelRect.left, rowTop, panelRect.right, rowTop + rowHeight)
+            val closeSize = dp(36f)
+            val closeRect = RectF(
+                rowRect.right - closeSize - dp(8f),
+                rowRect.centerY() - closeSize / 2f,
+                rowRect.right - dp(8f),
+                rowRect.centerY() + closeSize / 2f,
+            )
+            TaskSwitcherRowLayout(entry, rowRect, closeRect)
+        }
+        return TaskSwitcherPanelLayout(panelRect, rows, closeAllRect)
+    }
+
+    private fun drawGripDots(canvas: Canvas, x: Float, centerY: Float, paint: Paint) {
+        val radius = dp(1.6f)
+        val gapY = dp(4f)
+        val gapX = dp(3f)
+        for (col in 0..1) {
+            for (row in -1..1) {
+                canvas.drawCircle(
+                    x + col * gapX,
+                    centerY + row * gapY,
+                    radius,
+                    paint,
+                )
+            }
+        }
+    }
+
+    private fun drawCloseIcon(canvas: Canvas, rect: RectF, paint: Paint) {
+        val inset = dp(12f)
+        canvas.drawLine(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset, paint)
+        canvas.drawLine(rect.right - inset, rect.top + inset, rect.left + inset, rect.bottom - inset, paint)
+    }
+
+    private fun ellipsize(text: String, maxWidth: Float, paint: Paint): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        var end = text.length
+        while (end > 1 && paint.measureText(text.substring(0, end) + "…") > maxWidth) end--
+        return text.substring(0, end.coerceAtLeast(1)) + "…"
+    }
+
+    private fun <T> drawUtilityGrid(
+        canvas: Canvas,
+        title: String,
+        entries: List<T>,
+        drawCell: (T, RectF, Int) -> Unit,
+    ) {
+        if (entries.isEmpty()) return
+        val m = appsPerRow()
+        val appCount = entries.size
+        val layout = gridLayoutInfo(appCount)
+        val grid = utilityPanelRect(layout.panelWidth, layout.rows)
+        panelContentRect.set(grid)
+        panelGridSession.cellBounds.clear()
+        panelBgPaint.color = Color.argb((225 * settings.panelOpacity).toInt().coerceIn(150, 225), 48, 48, 52)
+        canvas.drawRoundRect(grid, panelCorner, panelCorner, panelBgPaint)
+        letterPaint.textAlign = Paint.Align.LEFT
+        letterPaint.color = Color.WHITE
+        letterPaint.textSize = sp(14f)
+        letterPaint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText(title, grid.left + gridPadding, grid.top + dp(18f), letterPaint)
+        entries.forEachIndexed { index, entry ->
+            val row = index / m
+            val visualCol = visualColumn(index, m, appCount)
+            val left = grid.left + gridPadding + visualCol * cellWidth
+            val top = grid.top + dp(28f) + gridPadding + row * cellHeight
+            val cell = RectF(left, top, left + cellWidth, top + cellHeight)
+            drawCell(entry, cell, index)
+        }
+        letterPaint.textAlign = Paint.Align.CENTER
+    }
+
+    private fun drawGridCell(
+        canvas: Canvas,
+        cell: RectF,
+        index: Int,
+        label: String,
+        iconProvider: () -> Bitmap?,
+    ) {
+        if (index == panelGridSession.highlightedIndex) {
+            tmpRect.set(cell.left + dp(3f), cell.top + dp(2f), cell.right - dp(3f), cell.bottom - dp(2f))
+            canvas.drawRoundRect(tmpRect, dp(10f), dp(10f), cellHighlightPaint)
+        }
+        val icon = iconProvider()
+        val iconTop = cell.top + gridIconTopInset
+        val displayLabel = ellipsize(label, cellWidth - gridCellInset * 2)
+        val labelBaseline = iconTop + gridIconSize + gridIconLabelGap - appLabelPaint.fontMetrics.ascent
+        val iconCenterX = cell.centerX()
+        icon?.let { canvas.drawBitmap(it, iconCenterX - gridIconSize / 2f, iconTop, null) }
+        canvas.drawText(displayLabel, iconCenterX, labelBaseline, appLabelPaint)
+    }
+
+    private fun utilityPanelRect(panelWidth: Float, rows: Int): RectF {
+        val gh = rows * cellHeight + gridPadding * 2 + dp(28f)
+        val gw = panelWidth
+        val rail = zoneLayout.indexRailRect()
+        var top = rail.centerY() - gh / 2f
+        top = top.coerceSafe(dp(16f), height - gh - dp(16f))
+        val gap = dp(8f)
+        val left = when (side) {
+            PanelSide.LEFT -> rail.right + gap
+            PanelSide.RIGHT -> rail.left - gap - gw
+        }
+        return RectF(left, top, left + gw, top + gh)
+    }
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+    private fun sp(value: Float): Float =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
+}

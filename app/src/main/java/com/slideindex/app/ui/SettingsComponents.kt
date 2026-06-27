@@ -255,6 +255,7 @@ fun PermissionCard(
     title: String,
     description: String,
     onGrant: () -> Unit,
+    grantLabel: String = stringResource(R.string.grant_permission),
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -268,7 +269,7 @@ fun PermissionCard(
             Text(description, style = MaterialTheme.typography.bodyMedium)
             Spacer(modifier = Modifier.height(12.dp))
             Button(onClick = onGrant) {
-                Text(stringResource(R.string.grant_permission))
+                Text(grantLabel)
             }
         }
     }

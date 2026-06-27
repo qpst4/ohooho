@@ -27,8 +27,10 @@ fun MainScreen(
     settings: AppSettings,
     overlayGranted: Boolean,
     notificationGranted: Boolean,
+    shizukuGranted: Boolean,
     onRequestOverlay: () -> Unit,
     onRequestNotification: () -> Unit,
+    onRequestShizuku: () -> Unit,
     onServiceEnabledChange: (Boolean) -> Unit,
     onHapticEnabledChange: (Boolean) -> Unit,
     onHapticStrengthChange: (Int) -> Unit,
@@ -36,6 +38,8 @@ fun MainScreen(
     onOpenFreeWindowSettings: () -> Unit,
     onOpenHiddenAppsSettings: () -> Unit,
     onOpenExcludedAppsSettings: () -> Unit,
+    onOpenSideGesturesLeft: () -> Unit,
+    onOpenSideGesturesRight: () -> Unit,
     onThemeColorChange: (Int) -> Unit,
 ) {
     val permissionsReady = overlayGranted && notificationGranted
@@ -67,6 +71,14 @@ fun MainScreen(
                     onGrant = onRequestNotification,
                 )
             }
+            if (!shizukuGranted) {
+                PermissionCard(
+                    title = stringResource(R.string.permission_shizuku_title),
+                    description = stringResource(R.string.permission_shizuku_desc),
+                    onGrant = onRequestShizuku,
+                    grantLabel = stringResource(R.string.permission_shizuku_grant),
+                )
+            }
 
             SettingsSectionTitle(stringResource(R.string.settings_section_service))
             SettingsCard {
@@ -92,6 +104,14 @@ fun MainScreen(
                     settings = settings,
                     enabled = settings.serviceEnabled,
                     onClick = onOpenLayoutSettings,
+                )
+            }
+
+            SettingsSectionTitle(stringResource(R.string.settings_section_gestures))
+            SettingsCard {
+                SideGesturesEntryCard(
+                    onOpenLeft = onOpenSideGesturesLeft,
+                    onOpenRight = onOpenSideGesturesRight,
                 )
             }
 

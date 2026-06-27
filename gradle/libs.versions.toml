@@ -7,6 +7,7 @@ lifecycle = "2.10.0"
 activity = "1.13.0"
 datastore = "1.2.0"
 tinypinyin = "2.5.1"
+shizuku = "13.1.5"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -29,3 +30,5 @@ lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", 
 savedstate = { group = "androidx.savedstate", name = "savedstate", version = "1.4.0" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 tinypinyin = { group = "com.belerweb", name = "pinyin4j", version.ref = "tinypinyin" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }

@@ -1,5 +1,7 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.gesture.GestureRule
+
 data class AppSettings(
     val serviceEnabled: Boolean = false,
     val leftEdgeEnabled: Boolean = true,
@@ -22,5 +24,8 @@ data class AppSettings(
     val longPressLaunchDurationMs: Int = 450,
     val hiddenAppPackages: Set<String> = emptySet(),
     val excludedTriggerAppPackages: Set<String> = emptySet(),
+    val gestureRules: List<GestureRule> = emptyList(),
+    val quickLauncherLeft: List<com.slideindex.app.launcher.QuickLauncherItem> = emptyList(),
+    val quickLauncherRight: List<com.slideindex.app.launcher.QuickLauncherItem> = emptyList(),
     val themeColorArgb: Int = 0xFF6750A4.toInt(),
 )

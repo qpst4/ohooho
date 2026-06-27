@@ -22,7 +22,7 @@ class SideOverlayController(
     private var previewMode = false
 
     private val overlayContext = OverlayCompose.themedContext(context)
-    private var overlayView: ContinuousIndexOverlayView? = null
+    private var overlayView: EdgeGestureOverlayView? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private var loadJob: Job? = null
 
@@ -64,15 +64,15 @@ class SideOverlayController(
         if (overlayView != null) return
         screenHeightPx = context.resources.displayMetrics.heightPixels
         val params = createLayoutParams()
-        val view = ContinuousIndexOverlayView(
+        val view = EdgeGestureOverlayView(
             context = overlayContext,
             side = side,
-            onLaunchApp = { app, fullscreen -> appRepository.launchApp(app, settings, fullscreen) },
-            onSessionStart = {
+            appRepository = appRepository,
+            onSessionStartCallback = {
                 overlayView?.setPreviewMode(false)
                 expandWindow()
             },
-            onSessionEnd = {
+            onSessionEndCallback = {
                 if (previewMode) {
                     overlayView?.setPreviewMode(true)
                     expandPreviewWindow()
