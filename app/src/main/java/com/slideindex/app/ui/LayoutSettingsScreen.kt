@@ -34,9 +34,6 @@ fun LayoutSettingsScreen(
     onBack: () -> Unit,
     onLeftEdgeChange: (Boolean) -> Unit,
     onRightEdgeChange: (Boolean) -> Unit,
-    onEdgeWidthChange: (Float) -> Unit,
-    onTriggerTopChange: (Float) -> Unit,
-    onTriggerHeightChange: (Float) -> Unit,
     onIndexHeightChange: (Float) -> Unit,
     onAppsPerRowChange: (Int) -> Unit,
     onPanelOpacityChange: (Float) -> Unit,
@@ -82,41 +79,6 @@ fun LayoutSettingsScreen(
                     checked = settings.rightEdgeEnabled,
                     enabled = serviceEnabled,
                     onCheckedChange = onRightEdgeChange,
-                )
-            }
-            SettingsCard {
-                SettingsSliderRow(
-                    title = stringResource(R.string.edge_width),
-                    value = settings.edgeTriggerWidthDp,
-                    valueRange = 12f..36f,
-                    enabled = serviceEnabled,
-                    label = "${settings.edgeTriggerWidthDp.roundToInt()} dp",
-                    triggersLayoutPreview = true,
-                    onLayoutPreviewStart = onLayoutPreviewStart,
-                    onLayoutPreviewStop = onLayoutPreviewStop,
-                    onValueChange = onEdgeWidthChange,
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_top),
-                    value = settings.triggerTopFraction,
-                    valueRange = 0.05f..0.65f,
-                    enabled = serviceEnabled,
-                    label = "${(settings.triggerTopFraction * 100).roundToInt()}%",
-                    triggersLayoutPreview = true,
-                    onLayoutPreviewStart = onLayoutPreviewStart,
-                    onLayoutPreviewStop = onLayoutPreviewStop,
-                    onValueChange = onTriggerTopChange,
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_height),
-                    value = settings.triggerHeightFraction,
-                    valueRange = 0.15f..0.55f,
-                    enabled = serviceEnabled,
-                    label = "${(settings.triggerHeightFraction * 100).roundToInt()}%",
-                    triggersLayoutPreview = true,
-                    onLayoutPreviewStart = onLayoutPreviewStart,
-                    onLayoutPreviewStop = onLayoutPreviewStop,
-                    onValueChange = onTriggerHeightChange,
                 )
             }
 

@@ -79,6 +79,10 @@ class OverlayService : LifecycleService() {
 
         foregroundTracker = ForegroundAppTracker(this, serviceScope)
 
+        serviceScope.launch(Dispatchers.Default) {
+            app.appRepository.loadApps()
+        }
+
         if (TaskManagerUtil.hasPermission()) {
             TaskManagerUtil.warmUp()
         }

@@ -24,13 +24,22 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SettingsRepository(private val context: Context) {
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
+        val legacyWidth = prefs[EDGE_TRIGGER_WIDTH] ?: 20f
+        val legacyTop = prefs[TRIGGER_TOP] ?: 0.30f
+        val legacyHeight = prefs[TRIGGER_HEIGHT] ?: 0.38f
         AppSettings(
             serviceEnabled = prefs[SERVICE_ENABLED] ?: false,
             leftEdgeEnabled = prefs[LEFT_EDGE_ENABLED] ?: true,
             rightEdgeEnabled = prefs[RIGHT_EDGE_ENABLED] ?: true,
-            edgeTriggerWidthDp = prefs[EDGE_TRIGGER_WIDTH] ?: 20f,
-            triggerTopFraction = prefs[TRIGGER_TOP] ?: 0.30f,
-            triggerHeightFraction = prefs[TRIGGER_HEIGHT] ?: 0.38f,
+            leftEdgeTriggerWidthDp = prefs[LEFT_EDGE_TRIGGER_WIDTH] ?: legacyWidth,
+            rightEdgeTriggerWidthDp = prefs[RIGHT_EDGE_TRIGGER_WIDTH] ?: legacyWidth,
+            leftTriggerTopFraction = prefs[LEFT_TRIGGER_TOP] ?: legacyTop,
+            rightTriggerTopFraction = prefs[RIGHT_TRIGGER_TOP] ?: legacyTop,
+            leftTriggerHeightFraction = prefs[LEFT_TRIGGER_HEIGHT] ?: legacyHeight,
+            rightTriggerHeightFraction = prefs[RIGHT_TRIGGER_HEIGHT] ?: legacyHeight,
+            alignHandlesEnabled = prefs[ALIGN_HANDLES_ENABLED] ?: true,
+            interceptSystemBackGesture = prefs[INTERCEPT_SYSTEM_BACK] ?: false,
+            limitMaxInterceptLength = prefs[LIMIT_MAX_INTERCEPT_LENGTH] ?: false,
             indexHeightFraction = prefs[INDEX_HEIGHT] ?: 0.42f,
             appsPerRow = prefs[APPS_PER_ROW] ?: 3,
             panelOpacity = prefs[PANEL_OPACITY] ?: 0.95f,
@@ -56,9 +65,67 @@ class SettingsRepository(private val context: Context) {
     suspend fun setServiceEnabled(enabled: Boolean) = edit { it[SERVICE_ENABLED] = enabled }
     suspend fun setLeftEdgeEnabled(enabled: Boolean) = edit { it[LEFT_EDGE_ENABLED] = enabled }
     suspend fun setRightEdgeEnabled(enabled: Boolean) = edit { it[RIGHT_EDGE_ENABLED] = enabled }
-    suspend fun setEdgeTriggerWidthDp(value: Float) = edit { it[EDGE_TRIGGER_WIDTH] = value }
-    suspend fun setTriggerTopFraction(value: Float) = edit { it[TRIGGER_TOP] = value }
-    suspend fun setTriggerHeightFraction(value: Float) = edit { it[TRIGGER_HEIGHT] = value }
+
+    suspend fun setEdgeTriggerWidthDp(side: PanelSide, value: Float) = edit { prefs ->
+        val width = value.coerceIn(12f, 36f)
+        when (side) {
+            PanelSide.LEFT -> prefs[LEFT_EDGE_TRIGGER_WIDTH] = width
+            PanelSide.RIGHT -> prefs[RIGHT_EDGE_TRIGGER_WIDTH] = width
+        }
+        if (prefs[ALIGN_HANDLES_ENABLED] != false) {
+            prefs[LEFT_EDGE_TRIGGER_WIDTH] = width
+            prefs[RIGHT_EDGE_TRIGGER_WIDTH] = width
+        }
+    }
+
+    suspend fun setTriggerTopFraction(side: PanelSide, value: Float) = edit { prefs ->
+        val top = value.coerceIn(0.05f, 0.65f)
+        when (side) {
+            PanelSide.LEFT -> prefs[LEFT_TRIGGER_TOP] = top
+            PanelSide.RIGHT -> prefs[RIGHT_TRIGGER_TOP] = top
+        }
+        if (prefs[ALIGN_HANDLES_ENABLED] != false) {
+            prefs[LEFT_TRIGGER_TOP] = top
+            prefs[RIGHT_TRIGGER_TOP] = top
+        }
+    }
+
+    suspend fun setTriggerHeightFraction(side: PanelSide, value: Float) = edit { prefs ->
+        val height = value.coerceIn(0.15f, 0.55f)
+        when (side) {
+            PanelSide.LEFT -> prefs[LEFT_TRIGGER_HEIGHT] = height
+            PanelSide.RIGHT -> prefs[RIGHT_TRIGGER_HEIGHT] = height
+        }
+        if (prefs[ALIGN_HANDLES_ENABLED] != false) {
+            prefs[LEFT_TRIGGER_HEIGHT] = height
+            prefs[RIGHT_TRIGGER_HEIGHT] = height
+        }
+    }
+
+    suspend fun setTriggerVerticalRange(side: PanelSide, topFraction: Float, bottomFraction: Float) {
+        val top = topFraction.coerceIn(0.05f, 0.80f)
+        val bottom = bottomFraction.coerceIn(top + 0.15f, 0.95f)
+        setTriggerTopFraction(side, top)
+        setTriggerHeightFraction(side, bottom - top)
+    }
+
+    suspend fun setAlignHandlesEnabled(enabled: Boolean) = edit { prefs ->
+        prefs[ALIGN_HANDLES_ENABLED] = enabled
+        if (enabled) {
+            val width = prefs[LEFT_EDGE_TRIGGER_WIDTH] ?: prefs[EDGE_TRIGGER_WIDTH] ?: 20f
+            val top = prefs[LEFT_TRIGGER_TOP] ?: prefs[TRIGGER_TOP] ?: 0.30f
+            val height = prefs[LEFT_TRIGGER_HEIGHT] ?: prefs[TRIGGER_HEIGHT] ?: 0.38f
+            prefs[RIGHT_EDGE_TRIGGER_WIDTH] = width
+            prefs[RIGHT_EDGE_TRIGGER_WIDTH] = width
+            prefs[LEFT_TRIGGER_TOP] = top
+            prefs[RIGHT_TRIGGER_TOP] = top
+            prefs[LEFT_TRIGGER_HEIGHT] = height
+            prefs[RIGHT_TRIGGER_HEIGHT] = height
+        }
+    }
+
+    suspend fun setInterceptSystemBackGesture(enabled: Boolean) = edit { it[INTERCEPT_SYSTEM_BACK] = enabled }
+    suspend fun setLimitMaxInterceptLength(enabled: Boolean) = edit { it[LIMIT_MAX_INTERCEPT_LENGTH] = enabled }
     suspend fun setIndexHeightFraction(value: Float) = edit { it[INDEX_HEIGHT] = value }
     suspend fun setAppsPerRow(value: Int) = edit { it[APPS_PER_ROW] = value.coerceIn(2, 5) }
     suspend fun setPanelOpacity(value: Float) = edit { it[PANEL_OPACITY] = value }
@@ -166,6 +233,15 @@ class SettingsRepository(private val context: Context) {
         private val SERVICE_ENABLED = booleanPreferencesKey("service_enabled")
         private val LEFT_EDGE_ENABLED = booleanPreferencesKey("left_edge_enabled")
         private val RIGHT_EDGE_ENABLED = booleanPreferencesKey("right_edge_enabled")
+        private val LEFT_EDGE_TRIGGER_WIDTH = floatPreferencesKey("left_edge_trigger_width_dp")
+        private val RIGHT_EDGE_TRIGGER_WIDTH = floatPreferencesKey("right_edge_trigger_width_dp")
+        private val LEFT_TRIGGER_TOP = floatPreferencesKey("left_trigger_top_fraction")
+        private val RIGHT_TRIGGER_TOP = floatPreferencesKey("right_trigger_top_fraction")
+        private val LEFT_TRIGGER_HEIGHT = floatPreferencesKey("left_trigger_height_fraction")
+        private val RIGHT_TRIGGER_HEIGHT = floatPreferencesKey("right_trigger_height_fraction")
+        private val ALIGN_HANDLES_ENABLED = booleanPreferencesKey("align_handles_enabled")
+        private val INTERCEPT_SYSTEM_BACK = booleanPreferencesKey("intercept_system_back_gesture")
+        private val LIMIT_MAX_INTERCEPT_LENGTH = booleanPreferencesKey("limit_max_intercept_length")
         private val EDGE_TRIGGER_WIDTH = floatPreferencesKey("edge_trigger_width_dp")
         private val TRIGGER_TOP = floatPreferencesKey("trigger_top_fraction")
         private val TRIGGER_HEIGHT = floatPreferencesKey("trigger_height_fraction")

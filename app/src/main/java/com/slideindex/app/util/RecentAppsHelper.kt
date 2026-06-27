@@ -8,6 +8,7 @@ import com.slideindex.app.data.AppRepository
 data class RecentAppEntry(
     val app: AppInfo,
     val lastUsed: Long,
+    val isLocked: Boolean = false,
 )
 
 object RecentAppsHelper {

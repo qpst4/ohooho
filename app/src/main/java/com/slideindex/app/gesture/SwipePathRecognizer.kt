@@ -27,6 +27,10 @@ class SwipePathRecognizer(
         longPressTriggered = false
     }
 
+    fun gestureStartRawX(): Float = startRawX
+
+    fun gestureStartRawY(): Float = startRawY
+
     fun onTouchMove(rawX: Float, rawY: Float) {
         if (!tracking) return
         val elapsed = System.currentTimeMillis() - startTime

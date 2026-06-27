@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.WindowManager
 import com.slideindex.app.data.AppRepository
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.CoroutineScope
 
 class OverlayManager(
@@ -35,6 +36,8 @@ class OverlayManager(
     fun updateForegroundPackage(packageName: String?) {
         if (foregroundPackage == packageName) return
         foregroundPackage = packageName
+        TaskManagerUtil.invalidateRecentCache()
+        TaskManagerUtil.prefetchRecentTasks()
         refreshTriggerVisibility()
     }
 

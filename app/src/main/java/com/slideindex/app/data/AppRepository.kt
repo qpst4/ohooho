@@ -14,23 +14,36 @@ class AppRepository(private val context: Context) {
     @Volatile
     private var cachedApps: List<AppInfo> = emptyList()
 
+    @Volatile
+    private var appsByPackage: Map<String, AppInfo> = emptyMap()
+
     suspend fun loadApps(force: Boolean = false): List<AppInfo> {
         if (!force && cachedApps.isNotEmpty()) return cachedApps
         val apps = withContext(Dispatchers.IO) { queryLaunchableApps() }
-        cachedApps = apps
+        cacheApps(apps)
         return apps
     }
 
     fun getCachedApps(): List<AppInfo> = cachedApps
 
+    fun hasCachedApps(): Boolean = cachedApps.isNotEmpty()
+
     fun lookupApp(packageName: String): AppInfo? {
         if (packageName == context.packageName) return null
-        getCachedApps().firstOrNull { it.packageName == packageName }?.let { return it }
-        return queryAppInfo(packageName)
+        appsByPackage[packageName]?.let { return it }
+        return queryAppInfo(packageName)?.also { info ->
+            appsByPackage = appsByPackage + (packageName to info)
+        }
     }
 
     fun invalidate() {
         cachedApps = emptyList()
+        appsByPackage = emptyMap()
+    }
+
+    private fun cacheApps(apps: List<AppInfo>) {
+        cachedApps = apps
+        appsByPackage = apps.associateBy { it.packageName }
     }
 
     fun groupedItems(apps: List<AppInfo>): List<AppListItem> {

@@ -1,10 +1,14 @@
 package com.slideindex.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwipeRight
@@ -19,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,21 +39,37 @@ import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.gesture.actionFor
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.edgeTriggerWidthDp
+import com.slideindex.app.settings.triggerBottomFraction
+import com.slideindex.app.settings.triggerTopFraction
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SideGestureSettingsScreen(
     side: PanelSide,
     settings: AppSettings,
+    serviceEnabled: Boolean,
     onBack: () -> Unit,
     onSlotActionChange: (GestureTriggerType, GestureAction) -> Unit,
     onOpenQuickLauncherEditor: () -> Unit,
+    onEdgeWidthChange: (Float) -> Unit,
+    onTriggerVerticalRangeChange: (Float, Float) -> Unit,
+    onAlignHandlesChange: (Boolean) -> Unit,
+    onInterceptBackChange: (Boolean) -> Unit,
+    onLimitInterceptLengthChange: (Boolean) -> Unit,
+    onLayoutPreviewStart: () -> Unit,
+    onLayoutPreviewStop: () -> Unit,
 ) {
     val title = when (side) {
         PanelSide.LEFT -> stringResource(R.string.side_gestures_left_title)
         PanelSide.RIGHT -> stringResource(R.string.side_gestures_right_title)
     }
     var pickingTrigger by remember { mutableStateOf<GestureTriggerType?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose { onLayoutPreviewStop() }
+    }
 
     Scaffold(
         topBar = {
@@ -64,9 +85,11 @@ fun SideGestureSettingsScreen(
     ) { padding ->
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = stringResource(R.string.side_gestures_desc),
@@ -100,6 +123,62 @@ fun SideGestureSettingsScreen(
                     title = stringResource(R.string.quick_launcher_editor_title),
                     subtitle = stringResource(R.string.quick_launcher_editor_desc),
                     onClick = onOpenQuickLauncherEditor,
+                )
+            }
+
+            SettingsHintText(stringResource(R.string.side_gestures_preview_hint))
+            SettingsSectionTitle(stringResource(R.string.side_gestures_handle_section))
+            SettingsCard {
+                SettingsSliderRow(
+                    title = stringResource(R.string.handle_width),
+                    value = settings.edgeTriggerWidthDp(side),
+                    valueRange = 12f..36f,
+                    enabled = serviceEnabled,
+                    label = "${settings.edgeTriggerWidthDp(side).roundToInt()} dp",
+                    startLabel = stringResource(R.string.handle_width_small),
+                    endLabel = stringResource(R.string.handle_width_large),
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
+                    onValueChange = onEdgeWidthChange,
+                )
+                SettingsRangeSliderRow(
+                    title = stringResource(R.string.handle_length),
+                    values = settings.triggerTopFraction(side)..
+                        settings.triggerBottomFraction(side),
+                    valueRange = 0.05f..0.95f,
+                    startLabel = stringResource(R.string.handle_length_small),
+                    endLabel = stringResource(R.string.handle_length_large),
+                    enabled = serviceEnabled,
+                    valueLabel = "${(settings.triggerTopFraction(side) * 100).roundToInt()}% – " +
+                        "${(settings.triggerBottomFraction(side) * 100).roundToInt()}%",
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
+                    onValueChange = { range ->
+                        onTriggerVerticalRangeChange(range.start, range.endInclusive)
+                    },
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.align_handles),
+                    subtitle = stringResource(R.string.align_handles_desc),
+                    checked = settings.alignHandlesEnabled,
+                    enabled = serviceEnabled,
+                    onCheckedChange = onAlignHandlesChange,
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.intercept_system_back),
+                    subtitle = stringResource(R.string.intercept_system_back_desc),
+                    checked = settings.interceptSystemBackGesture,
+                    enabled = serviceEnabled,
+                    onCheckedChange = onInterceptBackChange,
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.limit_intercept_length),
+                    subtitle = stringResource(R.string.limit_intercept_length_desc),
+                    checked = settings.limitMaxInterceptLength,
+                    enabled = serviceEnabled && settings.interceptSystemBackGesture,
+                    onCheckedChange = onLimitInterceptLengthChange,
                 )
             }
         }

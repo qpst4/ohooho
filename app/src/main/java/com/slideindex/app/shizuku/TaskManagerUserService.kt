@@ -255,7 +255,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     companion object {
         private const val TAG = "TaskManagerUserService"
-        const val API_VERSION = 10
+        const val API_VERSION = 12
         private const val RESIZE_MODE_SYSTEM = 0
         private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"
         private const val START_SUCCESS = 0

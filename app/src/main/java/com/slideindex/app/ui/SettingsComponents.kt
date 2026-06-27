@@ -18,6 +18,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -203,6 +204,8 @@ fun SettingsSliderRow(
     steps: Int = 0,
     enabled: Boolean,
     label: String,
+    startLabel: String? = null,
+    endLabel: String? = null,
     triggersLayoutPreview: Boolean = false,
     onLayoutPreviewStart: () -> Unit = {},
     onLayoutPreviewStop: () -> Unit = {},
@@ -228,6 +231,23 @@ fun SettingsSliderRow(
             )
             Text(label, color = MaterialTheme.colorScheme.primary)
         }
+        if (startLabel != null && endLabel != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = startLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = endLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Slider(
             value = value,
             onValueChange = {
@@ -245,6 +265,76 @@ fun SettingsSliderRow(
             },
             valueRange = valueRange,
             steps = steps,
+            enabled = enabled,
+        )
+    }
+}
+
+@Composable
+fun SettingsRangeSliderRow(
+    title: String,
+    values: ClosedFloatingPointRange<Float>,
+    valueRange: ClosedFloatingPointRange<Float>,
+    startLabel: String,
+    endLabel: String,
+    enabled: Boolean,
+    valueLabel: String,
+    triggersLayoutPreview: Boolean = false,
+    onLayoutPreviewStart: () -> Unit = {},
+    onLayoutPreviewStop: () -> Unit = {},
+    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
+) {
+    var previewActive by remember { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = title,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                },
+            )
+            Text(valueLabel, color = MaterialTheme.colorScheme.primary)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = startLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = endLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        RangeSlider(
+            value = values,
+            onValueChange = {
+                if (triggersLayoutPreview && !previewActive) {
+                    previewActive = true
+                    onLayoutPreviewStart()
+                }
+                onValueChange(it)
+            },
+            onValueChangeFinished = {
+                if (triggersLayoutPreview && previewActive) {
+                    previewActive = false
+                    onLayoutPreviewStop()
+                }
+            },
+            valueRange = valueRange,
             enabled = enabled,
         )
     }

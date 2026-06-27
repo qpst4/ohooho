@@ -148,15 +148,6 @@ class MainActivity : ComponentActivity() {
                         onRightEdgeChange = { enabled ->
                             lifecycleScope.launch { app.settingsRepository.setRightEdgeEnabled(enabled) }
                         },
-                        onEdgeWidthChange = { value ->
-                            lifecycleScope.launch { app.settingsRepository.setEdgeTriggerWidthDp(value) }
-                        },
-                        onTriggerTopChange = { value ->
-                            lifecycleScope.launch { app.settingsRepository.setTriggerTopFraction(value) }
-                        },
-                        onTriggerHeightChange = { value ->
-                            lifecycleScope.launch { app.settingsRepository.setTriggerHeightFraction(value) }
-                        },
                         onIndexHeightChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setIndexHeightFraction(value) }
                         },
@@ -247,7 +238,11 @@ class MainActivity : ComponentActivity() {
                     SettingsDestination.SideGesturesLeft -> SideGestureSettingsScreen(
                         side = PanelSide.LEFT,
                         settings = settings,
-                        onBack = { destination = SettingsDestination.Main },
+                        serviceEnabled = settings.serviceEnabled,
+                        onBack = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+                            destination = SettingsDestination.Main
+                        },
                         onSlotActionChange = { trigger, action ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setSlotAction(PanelSide.LEFT, trigger, action)
@@ -256,12 +251,47 @@ class MainActivity : ComponentActivity() {
                         onOpenQuickLauncherEditor = {
                             destination = SettingsDestination.QuickLauncherLeft
                         },
+                        onEdgeWidthChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setEdgeTriggerWidthDp(PanelSide.LEFT, value)
+                            }
+                        },
+                        onTriggerVerticalRangeChange = { top, bottom ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setTriggerVerticalRange(PanelSide.LEFT, top, bottom)
+                            }
+                        },
+                        onAlignHandlesChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setAlignHandlesEnabled(enabled)
+                            }
+                        },
+                        onInterceptBackChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setInterceptSystemBackGesture(enabled)
+                            }
+                        },
+                        onLimitInterceptLengthChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setLimitMaxInterceptLength(enabled)
+                            }
+                        },
+                        onLayoutPreviewStart = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_START)
+                        },
+                        onLayoutPreviewStop = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+                        },
                     )
 
                     SettingsDestination.SideGesturesRight -> SideGestureSettingsScreen(
                         side = PanelSide.RIGHT,
                         settings = settings,
-                        onBack = { destination = SettingsDestination.Main },
+                        serviceEnabled = settings.serviceEnabled,
+                        onBack = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+                            destination = SettingsDestination.Main
+                        },
                         onSlotActionChange = { trigger, action ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setSlotAction(PanelSide.RIGHT, trigger, action)
@@ -269,6 +299,37 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenQuickLauncherEditor = {
                             destination = SettingsDestination.QuickLauncherRight
+                        },
+                        onEdgeWidthChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setEdgeTriggerWidthDp(PanelSide.RIGHT, value)
+                            }
+                        },
+                        onTriggerVerticalRangeChange = { top, bottom ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setTriggerVerticalRange(PanelSide.RIGHT, top, bottom)
+                            }
+                        },
+                        onAlignHandlesChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setAlignHandlesEnabled(enabled)
+                            }
+                        },
+                        onInterceptBackChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setInterceptSystemBackGesture(enabled)
+                            }
+                        },
+                        onLimitInterceptLengthChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setLimitMaxInterceptLength(enabled)
+                            }
+                        },
+                        onLayoutPreviewStart = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_START)
+                        },
+                        onLayoutPreviewStop = {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                         },
                     )
 

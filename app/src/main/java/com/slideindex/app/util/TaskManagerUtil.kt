@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.OverlayService
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit
 object TaskManagerUtil {
 
     private const val TAG = "TaskManagerUtil"
+    private const val PREFETCH_DEBOUNCE_MS = 800L
     const val REQUEST_CODE = 1001
 
     @Volatile
@@ -38,6 +40,9 @@ object TaskManagerUtil {
 
     @Volatile
     private var cachedRecentPackages: List<String> = emptyList()
+
+    @Volatile
+    private var lastRecentRefreshElapsedMs = 0L
 
     private val userServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -85,19 +90,45 @@ object TaskManagerUtil {
     fun warmUp() {
         if (!hasPermission()) return
         Thread {
-            synchronized(taskWorkerLock) {
+            runOnTaskWorker {
                 bindFreshService()
-                refreshRecentTaskPackages()
+                RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
             }
         }.start()
+    }
+
+    fun prefetchRecentTasks() {
+        if (!hasPermission()) return
+        val elapsed = SystemClock.elapsedRealtime() - lastRecentRefreshElapsedMs
+        if (elapsed in 0 until PREFETCH_DEBOUNCE_MS) return
+        Thread {
+            runOnTaskWorker {
+                RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
+            }
+        }.start()
+    }
+
+    fun invalidateRecentCache() {
+        lastRecentRefreshElapsedMs = 0L
     }
 
     fun peekRecentTaskPackages(): List<String> = cachedRecentPackages
 
     fun refreshRecentTaskPackages(): List<String> {
-        val packages = getRecentTaskPackages() ?: return cachedRecentPackages
-        cachedRecentPackages = packages
-        return packages
+        if (!hasPermission()) return cachedRecentPackages
+        val taskService = bindService(appContext()) ?: return cachedRecentPackages
+        return try {
+            cachedRecentPackages = taskService.getRecentTaskPackages().toList()
+            markRecentRefresh()
+            cachedRecentPackages
+        } catch (e: Exception) {
+            Log.e(TAG, "refreshRecentTaskPackages failed", e)
+            cachedRecentPackages
+        }
+    }
+
+    private fun markRecentRefresh() {
+        lastRecentRefreshElapsedMs = SystemClock.elapsedRealtime()
     }
 
     fun removePackageFromCache(packageName: String) {
@@ -122,6 +153,7 @@ object TaskManagerUtil {
 
     fun removeTaskByPackage(packageName: String): Boolean {
         if (packageName.isBlank()) return false
+        if (TaskSwitcherLockStore.isLocked(appContext(), packageName)) return false
         val taskService = bindService(appContext()) ?: return false
         return try {
             val taskIds = taskService.getTaskIdsForPackage(packageName)

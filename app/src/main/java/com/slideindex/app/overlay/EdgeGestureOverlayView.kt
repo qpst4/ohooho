@@ -29,6 +29,7 @@ import com.slideindex.app.util.HapticHelper
 import com.slideindex.app.util.RecentAppEntry
 import com.slideindex.app.util.RecentTasksLoader
 import com.slideindex.app.util.TaskManagerUtil
+import com.slideindex.app.util.TaskSwitcherLockStore
 import com.slideindex.app.util.coerceSafe
 import kotlin.math.ceil
 
@@ -67,7 +68,13 @@ class EdgeGestureOverlayView(
     private var taskSwitcherRowHighlight = -1
     private var taskSwitcherCloseHighlight = -1
     private var taskSwitcherCloseAllHighlight = false
+    private var taskSwitcherClosePressIndex = -1
+    private var taskSwitcherClosePressDownTime = 0L
+    private var taskSwitcherCloseLongPressTriggered = false
+    private var taskSwitcherCloseLongPressRunnable: Runnable? = null
     private var taskSwitcherLoadGeneration = 0
+    private var taskSwitcherAnchorRawY: Float? = null
+    private var interceptTouchActive = false
 
     private val railLetters: List<Char> = ('A'..'Z').toList() + '#'
     private val iconCache = mutableMapOf<String, Bitmap>()
@@ -96,6 +103,7 @@ class EdgeGestureOverlayView(
     private val triggerPreviewStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
     }
+    private val iconBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
     private val tmpRect = RectF()
 
@@ -164,15 +172,26 @@ class EdgeGestureOverlayView(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 if (gestureSession.isActive()) return true
-                if (!gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) return false
-                return true
+                if (gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) return true
+                if (settings.interceptSystemBackGesture &&
+                    zoneLayout.containsInterceptZone(localX, localY)
+                ) {
+                    interceptTouchActive = true
+                    return true
+                }
+                return false
             }
             MotionEvent.ACTION_MOVE -> {
+                if (interceptTouchActive) return true
                 if (!gestureSession.isActive()) return false
                 gestureSession.onTouchMove(event.rawX, event.rawY, localX, localY)
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (interceptTouchActive) {
+                    interceptTouchActive = false
+                    return true
+                }
                 if (!gestureSession.isActive()) return false
                 gestureSession.onTouchUp(event.rawX, event.rawY, localX, localY)
                 return true
@@ -264,6 +283,10 @@ class EdgeGestureOverlayView(
                 layout.rows.forEachIndexed { index, row ->
                     if (row.closeRect.contains(localX, localY)) {
                         taskSwitcherCloseHighlight = index
+                        taskSwitcherClosePressIndex = index
+                        taskSwitcherClosePressDownTime = event.eventTime
+                        taskSwitcherCloseLongPressTriggered = false
+                        scheduleTaskSwitcherCloseLongPress(index, row.entry.app.packageName)
                         HapticHelper.appTick(this, settings)
                         invalidate()
                         return true
@@ -283,6 +306,13 @@ class EdgeGestureOverlayView(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                if (taskSwitcherClosePressIndex >= 0) {
+                    val pressRow = layout.rows.getOrNull(taskSwitcherClosePressIndex)
+                    if (pressRow != null && !pressRow.closeRect.contains(localX, localY)) {
+                        cancelTaskSwitcherCloseLongPress()
+                        taskSwitcherClosePressIndex = -1
+                    }
+                }
                 val prevRow = taskSwitcherRowHighlight
                 val prevClose = taskSwitcherCloseHighlight
                 val prevCloseAll = taskSwitcherCloseAllHighlight
@@ -314,29 +344,48 @@ class EdgeGestureOverlayView(
                 when {
                     taskSwitcherCloseHighlight >= 0 -> {
                         val closeIndex = taskSwitcherCloseHighlight
-                        val packageName = layout.rows.getOrNull(closeIndex)?.entry?.app?.packageName
+                        val row = layout.rows.getOrNull(closeIndex)
+                        val packageName = row?.entry?.app?.packageName
+                        val isLocked = row?.entry?.isLocked == true
+                        val longPress = taskSwitcherCloseLongPressTriggered ||
+                            (taskSwitcherClosePressIndex == closeIndex &&
+                                event.eventTime - taskSwitcherClosePressDownTime >= TASK_SWITCHER_LONG_PRESS_MS)
+                        cancelTaskSwitcherCloseLongPress()
                         if (packageName != null) {
-                            dismissTaskCards(listOf(packageName)) {
-                                recentApps.removeAll { it.app.packageName == packageName }
-                                TaskManagerUtil.removePackageFromCache(packageName)
-                                taskSwitcherLayout = null
-                                if (recentApps.isEmpty()) {
-                                    gestureSession.endSession()
-                                } else {
-                                    invalidate()
+                            when {
+                                taskSwitcherCloseLongPressTriggered -> Unit
+                                longPress -> toggleTaskSwitcherLock(closeIndex, packageName, !isLocked)
+                                !isLocked -> {
+                                    recentApps.removeAll { it.app.packageName == packageName }
+                                    TaskSwitcherLockStore.setLocked(context, packageName, locked = false)
+                                    TaskManagerUtil.removePackageFromCache(packageName)
+                                    RecentTasksLoader.removePackages(listOf(packageName))
+                                    taskSwitcherLayout = null
+                                    if (recentApps.isEmpty()) {
+                                        gestureSession.endSession()
+                                    } else {
+                                        invalidate()
+                                    }
+                                    dismissTaskCards(listOf(packageName))
                                 }
                             }
                         }
                     }
                     taskSwitcherCloseAllHighlight -> {
-                        val packages = recentApps.map { it.app.packageName }
-                        dismissTaskCards(packages) {
-                            recentApps.clear()
-                            TaskManagerUtil.runOnTaskWorker {
-                                TaskManagerUtil.refreshRecentTaskPackages()
-                            }
+                        val packages = recentApps
+                            .filterNot { it.isLocked }
+                            .map { it.app.packageName }
+                        val dismissed = packages.toSet()
+                        recentApps.removeAll { it.app.packageName in dismissed }
+                        dismissed.forEach { TaskManagerUtil.removePackageFromCache(it) }
+                        RecentTasksLoader.removePackages(packages)
+                        taskSwitcherLayout = null
+                        if (recentApps.isEmpty()) {
                             gestureSession.endSession()
+                        } else {
+                            invalidate()
                         }
+                        dismissTaskCards(packages)
                     }
                     taskSwitcherRowHighlight >= 0 -> {
                         layout.rows.getOrNull(taskSwitcherRowHighlight)?.entry?.let { entry ->
@@ -349,26 +398,61 @@ class EdgeGestureOverlayView(
                         gestureSession.endSession()
                     }
                 }
-                taskSwitcherRowHighlight = -1
-                taskSwitcherCloseHighlight = -1
-                taskSwitcherCloseAllHighlight = false
+                resetTaskSwitcherTouchHighlights()
                 return true
             }
         }
         return false
     }
 
-    private fun dismissTaskCards(packages: List<String>, onComplete: () -> Unit) {
-        if (packages.isEmpty() || !TaskManagerUtil.hasPermission()) {
-            return
+    private fun resetTaskSwitcherTouchHighlights() {
+        cancelTaskSwitcherCloseLongPress()
+        taskSwitcherRowHighlight = -1
+        taskSwitcherCloseHighlight = -1
+        taskSwitcherCloseAllHighlight = false
+        taskSwitcherClosePressIndex = -1
+        taskSwitcherClosePressDownTime = 0L
+        taskSwitcherCloseLongPressTriggered = false
+        invalidate()
+    }
+
+    private fun scheduleTaskSwitcherCloseLongPress(index: Int, packageName: String) {
+        cancelTaskSwitcherCloseLongPress()
+        taskSwitcherCloseLongPressRunnable = Runnable {
+            if (gestureSession.panelMode() != OverlayPanelMode.TASK_SWITCHER) return@Runnable
+            if (taskSwitcherClosePressIndex != index) return@Runnable
+            taskSwitcherCloseLongPressTriggered = true
+            taskSwitcherCloseHighlight = -1
+            taskSwitcherRowHighlight = -1
+            val locked = recentApps.getOrNull(index)?.isLocked != true
+            toggleTaskSwitcherLock(index, packageName, locked)
         }
+        postDelayed(taskSwitcherCloseLongPressRunnable!!, TASK_SWITCHER_LONG_PRESS_MS)
+    }
+
+    private fun cancelTaskSwitcherCloseLongPress() {
+        taskSwitcherCloseLongPressRunnable?.let { removeCallbacks(it) }
+        taskSwitcherCloseLongPressRunnable = null
+    }
+
+    private fun toggleTaskSwitcherLock(index: Int, packageName: String, locked: Boolean) {
+        if (recentApps.getOrNull(index)?.app?.packageName != packageName) return
+        TaskSwitcherLockStore.setLocked(context, packageName, locked)
+        recentApps[index] = recentApps[index].copy(isLocked = locked)
+        taskSwitcherLayout = null
+        HapticHelper.confirmLaunch(this, settings)
+        invalidate()
+    }
+
+    private fun dismissTaskCards(packages: List<String>) {
+        if (packages.isEmpty() || !TaskManagerUtil.hasPermission()) return
         Thread {
-            val removed = packages.distinct().any { TaskManagerUtil.removeTaskByPackage(it) }
-            if (removed) {
-                post {
-                    taskSwitcherLoadGeneration++
-                    onComplete()
-                }
+            TaskManagerUtil.runOnTaskWorker {
+                val locked = TaskSwitcherLockStore.lockedPackages(context)
+                packages.distinct()
+                    .filterNot { it in locked }
+                    .forEach { TaskManagerUtil.removeTaskByPackage(it) }
+                RecentTasksLoader.syncFromSystem(appRepository)
             }
         }.start()
     }
@@ -424,6 +508,8 @@ class EdgeGestureOverlayView(
     override fun onSessionStart(mode: OverlayPanelMode) {
         syncZoneLayout()
         if (mode == OverlayPanelMode.TASK_SWITCHER) {
+            taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY()
+            taskSwitcherLayout = null
             loadTaskSwitcherApps()
         }
         panelGridSession.reset()
@@ -436,38 +522,38 @@ class EdgeGestureOverlayView(
         taskSwitcherCloseHighlight = -1
         taskSwitcherCloseAllHighlight = false
 
-        recentApps = if (TaskManagerUtil.hasPermission()) {
-            RecentTasksLoader.loadCached(appRepository).toMutableList()
-        } else {
-            mutableListOf()
+        val placeholder = RecentTasksLoader.peekCached()
+        if (placeholder.isNotEmpty()) {
+            recentApps = placeholder.toMutableList()
+            invalidate()
+        }
+
+        if (!TaskManagerUtil.hasPermission()) {
+            recentApps = mutableListOf()
+            invalidate()
+            return
         }
 
         val generation = ++taskSwitcherLoadGeneration
-        if (!TaskManagerUtil.hasPermission()) return
-
-        Thread {
-            val fresh = TaskManagerUtil.runOnTaskWorker {
-                RecentTasksLoader.load(appRepository)
-            }
-            post {
-                if (generation != taskSwitcherLoadGeneration) return@post
-                if (gestureSession.panelMode() != OverlayPanelMode.TASK_SWITCHER) return@post
-                recentApps = fresh.toMutableList()
-                taskSwitcherLayout = null
-                invalidate()
-            }
-        }.start()
+        RecentTasksLoader.refreshAsync(appRepository) { fresh ->
+            if (generation != taskSwitcherLoadGeneration) return@refreshAsync
+            if (gestureSession.panelMode() != OverlayPanelMode.TASK_SWITCHER) return@refreshAsync
+            recentApps = fresh.toMutableList()
+            taskSwitcherLayout = null
+            invalidate()
+        }
     }
 
     override fun onSessionEnd() {
         taskSwitcherLoadGeneration++
         syncZoneLayout()
         panelGridSession.reset()
-        recentApps.clear()
         taskSwitcherLayout = null
         taskSwitcherRowHighlight = -1
         taskSwitcherCloseHighlight = -1
         taskSwitcherCloseAllHighlight = false
+        taskSwitcherAnchorRawY = null
+        cancelTaskSwitcherCloseLongPress()
         post { onSessionEndCallback() }
     }
 
@@ -521,12 +607,21 @@ class EdgeGestureOverlayView(
     }
 
     private fun drawTriggerZonePreview(canvas: Canvas) {
+        val corner = dp(6f)
+        if (settings.interceptSystemBackGesture) {
+            val intercept = zoneLayout.interceptZoneRect()
+            triggerPreviewFillPaint.color = Color.argb(36, 33, 150, 243)
+            canvas.drawRoundRect(intercept, corner, corner, triggerPreviewFillPaint)
+            triggerPreviewStrokePaint.color = Color.argb(120, 66, 165, 245)
+            triggerPreviewStrokePaint.strokeWidth = dp(1.5f)
+            canvas.drawRoundRect(intercept, corner, corner, triggerPreviewStrokePaint)
+        }
         val zone = zoneLayout.triggerZoneRect()
         triggerPreviewFillPaint.color = Color.argb(72, 255, 152, 0)
-        canvas.drawRoundRect(zone, dp(6f), dp(6f), triggerPreviewFillPaint)
+        canvas.drawRoundRect(zone, corner, corner, triggerPreviewFillPaint)
         triggerPreviewStrokePaint.color = Color.argb(210, 255, 167, 38)
         triggerPreviewStrokePaint.strokeWidth = dp(2f)
-        canvas.drawRoundRect(zone, dp(6f), dp(6f), triggerPreviewStrokePaint)
+        canvas.drawRoundRect(zone, corner, corner, triggerPreviewStrokePaint)
     }
 
     private fun drawLetterRail(canvas: Canvas) {
@@ -665,6 +760,11 @@ class EdgeGestureOverlayView(
         return text.substring(0, end.coerceAtLeast(1)) + "…"
     }
 
+    private fun drawScaledIcon(canvas: Canvas, app: AppInfo, left: Float, top: Float, size: Float) {
+        tmpRect.set(left, top, left + size, top + size)
+        canvas.drawBitmap(iconFor(app), null, tmpRect, iconBitmapPaint)
+    }
+
     private fun iconFor(app: AppInfo): Bitmap {
         return iconCache.getOrPut(app.packageName) {
             val size = gridIconSize.toInt().coerceAtLeast(1)
@@ -711,7 +811,6 @@ class EdgeGestureOverlayView(
         val layout = computeTaskSwitcherLayout()
         taskSwitcherLayout = layout
         panelContentRect.set(layout.panelRect)
-        if (layout.rows.isEmpty()) return
 
         val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(48, 0, 0, 0)
@@ -721,31 +820,32 @@ class EdgeGestureOverlayView(
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(40, 0, 0, 0) }
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(230, 30, 30, 30)
-            textSize = sp(15f)
+            textSize = sp(13.5f)
         }
         val closeAllPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(255, 0, 122, 255)
-            textSize = sp(14f)
+            textSize = sp(13f)
             textAlign = Paint.Align.CENTER
         }
         val closeIconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(160, 60, 60, 60)
-            strokeWidth = dp(1.6f)
+            strokeWidth = dp(1.55f)
             strokeCap = Paint.Cap.ROUND
         }
         val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(120, 120, 120, 120) }
 
         val panel = layout.panelRect
+        val panelCorner = dp(13f)
         canvas.drawRoundRect(
-            panel.left + dp(2f),
-            panel.top + dp(3f),
-            panel.right + dp(2f),
-            panel.bottom + dp(3f),
-            dp(14f),
-            dp(14f),
+            panel.left + dp(1.5f),
+            panel.top + dp(2f),
+            panel.right + dp(1.5f),
+            panel.bottom + dp(2f),
+            panelCorner,
+            panelCorner,
             shadowPaint,
         )
-        canvas.drawRoundRect(panel, dp(14f), dp(14f), cardPaint)
+        canvas.drawRoundRect(panel, panelCorner, panelCorner, cardPaint)
 
         if (layout.rows.isEmpty()) {
             val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -771,22 +871,21 @@ class EdgeGestureOverlayView(
             if (index == taskSwitcherRowHighlight || index == taskSwitcherCloseHighlight) {
                 canvas.drawRect(row.rowRect, rowHighlightPaint)
             }
-            drawGripDots(canvas, row.rowRect.left + dp(10f), row.rowRect.centerY(), gripPaint)
-            val icon = iconFor(row.entry.app)
-            val iconSize = dp(34f)
-            val iconLeft = row.rowRect.left + dp(28f)
+            drawGripDots(canvas, row.rowRect.left + dp(8.5f), row.rowRect.centerY(), gripPaint)
+            val iconSize = dp(30f)
+            val iconLeft = row.rowRect.left + dp(23f)
             val iconTop = row.rowRect.centerY() - iconSize / 2f
-            canvas.drawBitmap(icon, iconLeft, iconTop, null)
-            val label = ellipsize(row.entry.app.label, row.closeRect.left - iconLeft - iconSize - dp(16f), labelPaint)
-            val labelX = iconLeft + iconSize + dp(12f)
+            drawScaledIcon(canvas, row.entry.app, iconLeft, iconTop, iconSize)
+            val label = ellipsize(row.entry.app.label, row.closeRect.left - iconLeft - iconSize - dp(10f), labelPaint)
+            val labelX = iconLeft + iconSize + dp(9f)
             val labelBaseline = row.rowRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
             canvas.drawText(label, labelX, labelBaseline, labelPaint)
-            drawCloseIcon(canvas, row.closeRect, closeIconPaint)
+            drawCloseOrLockIcon(canvas, row.closeRect, row.entry.isLocked, closeIconPaint)
             if (index < layout.rows.lastIndex) {
                 canvas.drawLine(
-                    row.rowRect.left + dp(12f),
+                    row.rowRect.left + dp(10f),
                     row.rowRect.bottom,
-                    row.rowRect.right - dp(12f),
+                    row.rowRect.right - dp(10f),
                     row.rowRect.bottom,
                     dividerPaint,
                 )
@@ -806,18 +905,19 @@ class EdgeGestureOverlayView(
     }
 
     private fun computeTaskSwitcherLayout(): TaskSwitcherPanelLayout {
-        val rowHeight = dp(52f)
-        val footerHeight = dp(44f)
-        val panelWidth = dp(268f)
+        val rowHeight = dp(42f)
+        val footerHeight = dp(36f)
+        val panelWidth = dp(226f)
         val rowCount = recentApps.size.coerceAtLeast(if (recentApps.isEmpty()) 0 else 1)
-        val panelHeight = (if (rowCount == 0) dp(72f) else rowCount * rowHeight) + footerHeight
-        val rail = zoneLayout.indexRailRect()
-        var top = rail.centerY() - panelHeight / 2f
+        val panelHeight = (if (rowCount == 0) dp(52f) else rowCount * rowHeight) + footerHeight
+        val trigger = zoneLayout.triggerZoneRect()
+        val anchorY = taskSwitcherAnchorLocalY().coerceIn(trigger.top, trigger.bottom)
+        var top = anchorY - rowHeight / 2f
         top = top.coerceSafe(dp(16f), height - panelHeight - dp(16f))
         val gap = dp(10f)
         val left = when (side) {
-            PanelSide.LEFT -> rail.right + gap
-            PanelSide.RIGHT -> rail.left - gap - panelWidth
+            PanelSide.LEFT -> trigger.right + gap
+            PanelSide.RIGHT -> trigger.left - gap - panelWidth
         }
         val panelRect = RectF(left, top, left + panelWidth, top + panelHeight)
         val closeAllRect = RectF(
@@ -829,11 +929,11 @@ class EdgeGestureOverlayView(
         val rows = recentApps.mapIndexed { index, entry ->
             val rowTop = panelRect.top + index * rowHeight
             val rowRect = RectF(panelRect.left, rowTop, panelRect.right, rowTop + rowHeight)
-            val closeSize = dp(36f)
+            val closeSize = dp(30f)
             val closeRect = RectF(
-                rowRect.right - closeSize - dp(8f),
+                rowRect.right - closeSize - dp(5.5f),
                 rowRect.centerY() - closeSize / 2f,
-                rowRect.right - dp(8f),
+                rowRect.right - dp(5.5f),
                 rowRect.centerY() + closeSize / 2f,
             )
             TaskSwitcherRowLayout(entry, rowRect, closeRect)
@@ -842,9 +942,9 @@ class EdgeGestureOverlayView(
     }
 
     private fun drawGripDots(canvas: Canvas, x: Float, centerY: Float, paint: Paint) {
-        val radius = dp(1.6f)
-        val gapY = dp(4f)
-        val gapX = dp(3f)
+        val radius = dp(1.3f)
+        val gapY = dp(3.2f)
+        val gapX = dp(2.6f)
         for (col in 0..1) {
             for (row in -1..1) {
                 canvas.drawCircle(
@@ -857,10 +957,45 @@ class EdgeGestureOverlayView(
         }
     }
 
+    private fun drawCloseOrLockIcon(canvas: Canvas, rect: RectF, locked: Boolean, paint: Paint) {
+        if (locked) drawLockIcon(canvas, rect, paint) else drawCloseIcon(canvas, rect, paint)
+    }
+
     private fun drawCloseIcon(canvas: Canvas, rect: RectF, paint: Paint) {
-        val inset = dp(12f)
+        val inset = dp(9.5f)
         canvas.drawLine(rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset, paint)
         canvas.drawLine(rect.right - inset, rect.top + inset, rect.left + inset, rect.bottom - inset, paint)
+    }
+
+    private fun drawLockIcon(canvas: Canvas, rect: RectF, paint: Paint) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val bodyHalfWidth = dp(5f)
+        val bodyHeight = dp(6.5f)
+        val bodyTop = cy + dp(0.5f)
+        val bodyBottom = bodyTop + bodyHeight
+        val shackleTop = cy - dp(5.5f)
+        val shackleBottom = bodyTop + dp(1f)
+        paint.style = Paint.Style.STROKE
+        canvas.drawArc(
+            cx - bodyHalfWidth,
+            shackleTop,
+            cx + bodyHalfWidth,
+            shackleBottom,
+            180f,
+            180f,
+            false,
+            paint,
+        )
+        canvas.drawRoundRect(
+            cx - bodyHalfWidth,
+            bodyTop,
+            cx + bodyHalfWidth,
+            bodyBottom,
+            dp(1.2f),
+            dp(1.2f),
+            paint,
+        )
     }
 
     private fun ellipsize(text: String, maxWidth: Float, paint: Paint): String {
@@ -935,7 +1070,18 @@ class EdgeGestureOverlayView(
         return RectF(left, top, left + gw, top + gh)
     }
 
+    private fun taskSwitcherAnchorLocalY(): Float {
+        val rawY = taskSwitcherAnchorRawY ?: pathRecognizer.gestureStartRawY()
+        val loc = IntArray(2)
+        getLocationOnScreen(loc)
+        return rawY - loc[1]
+    }
+
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
     private fun sp(value: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
+
+    companion object {
+        private const val TASK_SWITCHER_LONG_PRESS_MS = 450L
+    }
 }

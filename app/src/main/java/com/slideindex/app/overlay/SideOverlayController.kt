@@ -6,6 +6,11 @@ import android.view.Gravity
 import android.view.WindowManager
 import com.slideindex.app.data.AppRepository
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.util.TaskManagerUtil
+import com.slideindex.app.settings.edgeTriggerWidthDp
+import com.slideindex.app.settings.interceptWindowWidthDp
+import com.slideindex.app.settings.triggerHeightFraction
+import com.slideindex.app.settings.triggerTopFraction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -19,6 +24,7 @@ class SideOverlayController(
 ) {
     private var settings: AppSettings = AppSettings()
     private var screenHeightPx: Int = 0
+    private var screenWidthPx: Int = 0
     private var previewMode = false
 
     private val overlayContext = OverlayCompose.themedContext(context)
@@ -32,7 +38,11 @@ class SideOverlayController(
         val hiddenChanged = newSettings.hiddenAppPackages != settings.hiddenAppPackages
         settings = newSettings
         screenHeightPx = context.resources.displayMetrics.heightPixels
+        screenWidthPx = screenWidth
         overlayView?.applySettings(newSettings, screenWidth)
+        if (overlayView != null) {
+            preloadApps(force = hiddenChanged)
+        }
         if (overlayView != null && windowParams != null &&
             overlayView?.isSessionActive() != true &&
             !previewMode
@@ -42,9 +52,6 @@ class SideOverlayController(
             runCatching { windowManager.updateViewLayout(overlayView, windowParams) }
         } else if (previewMode) {
             overlayView?.invalidate()
-        }
-        if (hiddenChanged) {
-            preloadApps()
         }
     }
 
@@ -63,6 +70,7 @@ class SideOverlayController(
     fun showEdge() {
         if (overlayView != null) return
         screenHeightPx = context.resources.displayMetrics.heightPixels
+        screenWidthPx = context.resources.displayMetrics.widthPixels
         val params = createLayoutParams()
         val view = EdgeGestureOverlayView(
             context = overlayContext,
@@ -87,6 +95,7 @@ class SideOverlayController(
             windowManager.addView(view, params)
             overlayView = view
             windowParams = params
+            TaskManagerUtil.prefetchRecentTasks()
             preloadApps()
         }.onFailure {
             Log.e(TAG, "Failed to show overlay", it)
@@ -141,11 +150,13 @@ class SideOverlayController(
     }
 
     private fun applyTriggerLayout(params: WindowManager.LayoutParams) {
-        val edgeWidthPx = (settings.edgeTriggerWidthDp * density).toInt().coerceAtLeast(dp(16f).toInt())
-        val triggerHeightPx = (screenHeightPx * settings.triggerHeightFraction)
+        val edgeWidthPx = (settings.interceptWindowWidthDp(side) * density)
+            .toInt()
+            .coerceAtLeast(dp(16f).toInt())
+        val triggerHeightPx = (screenHeightPx * settings.triggerHeightFraction(side))
             .toInt()
             .coerceAtLeast(dp(48f).toInt())
-        val triggerTopPx = (screenHeightPx * settings.triggerTopFraction).toInt()
+        val triggerTopPx = (screenHeightPx * settings.triggerTopFraction(side)).toInt()
         params.width = edgeWidthPx
         params.height = triggerHeightPx
         params.x = 0
@@ -184,6 +195,13 @@ class SideOverlayController(
     }
 
     private fun preloadApps(force: Boolean = false) {
+        if (!force) {
+            val cached = appRepository.getCachedApps()
+                .filter { it.packageName !in settings.hiddenAppPackages }
+            if (cached.isNotEmpty()) {
+                overlayView?.setApps(cached)
+            }
+        }
         loadJob?.cancel()
         loadJob = scope.launch {
             val apps = appRepository.loadApps(force = force)

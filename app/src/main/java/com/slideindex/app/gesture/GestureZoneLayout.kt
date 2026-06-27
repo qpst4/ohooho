@@ -3,6 +3,10 @@ package com.slideindex.app.gesture
 import android.graphics.RectF
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.edgeTriggerWidthDp
+import com.slideindex.app.settings.interceptWindowWidthDp
+import com.slideindex.app.settings.triggerHeightFraction
+import com.slideindex.app.settings.triggerTopFraction
 import com.slideindex.app.util.coerceSafe
 
 class GestureZoneLayout(
@@ -34,8 +38,8 @@ class GestureZoneLayout(
         if (!sessionActive && !previewMode && viewWidth > 0 && viewHeight > 0) {
             return RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
         }
-        val top = viewHeight * settings.triggerTopFraction
-        val zoneHeight = viewHeight * settings.triggerHeightFraction
+        val top = viewHeight * settings.triggerTopFraction(side)
+        val zoneHeight = viewHeight * settings.triggerHeightFraction(side)
         val w = edgeWidthPx().toFloat()
         return when (side) {
             PanelSide.LEFT -> RectF(0f, top, w, top + zoneHeight)
@@ -57,10 +61,23 @@ class GestureZoneLayout(
     }
 
     fun edgeWidthPx(): Int {
-        return (settings.edgeTriggerWidthDp * density)
+        return (settings.edgeTriggerWidthDp(side) * density)
             .toInt()
             .coerceAtLeast(dp(16f).toInt())
     }
+
+    fun interceptZoneRect(): RectF {
+        if (!settings.interceptSystemBackGesture) return triggerZoneRect()
+        val trigger = triggerZoneRect()
+        val interceptWidth = settings.interceptWindowWidthDp(side) * density
+        return when (side) {
+            PanelSide.LEFT -> RectF(0f, trigger.top, interceptWidth, trigger.bottom)
+            PanelSide.RIGHT -> RectF(viewWidth - interceptWidth, trigger.top, viewWidth.toFloat(), trigger.bottom)
+        }
+    }
+
+    fun containsInterceptZone(localX: Float, localY: Float): Boolean =
+        interceptZoneRect().contains(localX, localY)
 
     fun railVisualWidth(): Float = dp(22f)
 
