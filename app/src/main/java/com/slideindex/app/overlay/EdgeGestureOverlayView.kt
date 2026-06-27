@@ -876,13 +876,15 @@ class EdgeGestureOverlayView(
             if (index == taskSwitcherRowHighlight || index == taskSwitcherCloseHighlight) {
                 canvas.drawRect(row.rowRect, rowHighlightPaint)
             }
-            drawGripDots(canvas, row.rowRect.left + dp(8.5f), row.rowRect.centerY(), gripPaint)
+            val gripX = taskSwitcherGripX(row.rowRect)
+            drawGripDots(canvas, gripX, row.rowRect.centerY(), gripPaint)
             val iconSize = dp(30f)
-            val iconLeft = row.rowRect.left + dp(23f)
+            val iconLeft = taskSwitcherIconLeft(row)
             val iconTop = row.rowRect.centerY() - iconSize / 2f
             drawScaledIcon(canvas, row.entry.app, iconLeft, iconTop, iconSize)
-            val label = ellipsize(row.entry.app.label, row.closeRect.left - iconLeft - iconSize - dp(10f), labelPaint)
             val labelX = iconLeft + iconSize + dp(9f)
+            val labelMaxWidth = taskSwitcherLabelMaxWidth(row, labelX)
+            val label = ellipsize(row.entry.app.label, labelMaxWidth, labelPaint)
             val labelBaseline = row.rowRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
             canvas.drawText(label, labelX, labelBaseline, labelPaint)
             drawCloseOrLockIcon(canvas, row.closeRect, row.entry.isLocked, closeIconPaint)
@@ -935,15 +937,45 @@ class EdgeGestureOverlayView(
             val rowTop = panelRect.top + index * rowHeight
             val rowRect = RectF(panelRect.left, rowTop, panelRect.right, rowTop + rowHeight)
             val closeSize = dp(30f)
-            val closeRect = RectF(
-                rowRect.right - closeSize - dp(5.5f),
-                rowRect.centerY() - closeSize / 2f,
-                rowRect.right - dp(5.5f),
-                rowRect.centerY() + closeSize / 2f,
-            )
+            val closeRect = when (side) {
+                PanelSide.LEFT -> RectF(
+                    rowRect.left + dp(5.5f),
+                    rowRect.centerY() - closeSize / 2f,
+                    rowRect.left + closeSize + dp(5.5f),
+                    rowRect.centerY() + closeSize / 2f,
+                )
+                PanelSide.RIGHT -> RectF(
+                    rowRect.right - closeSize - dp(5.5f),
+                    rowRect.centerY() - closeSize / 2f,
+                    rowRect.right - dp(5.5f),
+                    rowRect.centerY() + closeSize / 2f,
+                )
+            }
             TaskSwitcherRowLayout(entry, rowRect, closeRect)
         }
         return TaskSwitcherPanelLayout(panelRect, rows, closeAllRect)
+    }
+
+    private fun taskSwitcherGripX(rowRect: RectF): Float {
+        val gripWidth = dp(2.6f) + dp(1.3f) * 2f
+        return when (side) {
+            PanelSide.LEFT -> rowRect.right - dp(8.5f) - gripWidth
+            PanelSide.RIGHT -> rowRect.left + dp(8.5f)
+        }
+    }
+
+    private fun taskSwitcherIconLeft(row: TaskSwitcherRowLayout): Float {
+        return when (side) {
+            PanelSide.LEFT -> row.closeRect.right + dp(4f)
+            PanelSide.RIGHT -> row.rowRect.left + dp(23f)
+        }
+    }
+
+    private fun taskSwitcherLabelMaxWidth(row: TaskSwitcherRowLayout, labelX: Float): Float {
+        return when (side) {
+            PanelSide.LEFT -> taskSwitcherGripX(row.rowRect) - labelX - dp(8f)
+            PanelSide.RIGHT -> row.closeRect.left - labelX - dp(6f)
+        }.coerceAtLeast(dp(24f))
     }
 
     private fun drawGripDots(canvas: Canvas, x: Float, centerY: Float, paint: Paint) {
