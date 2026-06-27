@@ -166,6 +166,50 @@ object TaskManagerUtil {
         }
     }
 
+    fun forceStopPackage(packageName: String): Boolean {
+        if (packageName.isBlank()) return false
+        if (!hasPermission()) return false
+        val stopped = runOnTaskWorker {
+            bindFreshService()?.forceStopPackage(packageName) == true
+        }
+        if (stopped) {
+            removePackageFromCache(packageName)
+            RecentTasksLoader.removePackages(listOf(packageName))
+        }
+        return stopped
+    }
+
+    fun movePackageToFreeWindow(packageName: String, settings: AppSettings): Boolean {
+        if (packageName.isBlank() || !hasPermission()) return false
+        return runOnTaskWorker {
+            val taskService = bindFreshService() ?: return@runOnTaskWorker false
+            val taskId = taskService.getTaskIdsForPackage(packageName).firstOrNull()?.takeIf { it.isNotBlank() }
+                ?: return@runOnTaskWorker false
+            invokeMoveTaskToFreeWindow(taskService, taskId, settings)
+        }
+    }
+
+    fun getPublishedShortcuts(packageName: String): List<Pair<String, String>> {
+        if (packageName.isBlank() || !hasPermission()) return emptyList()
+        return runOnTaskWorker {
+            val rows = bindFreshService()?.getPublishedShortcuts(packageName).orEmpty()
+            rows.mapNotNull { row ->
+                val parts = row.split('\t', limit = 2)
+                val id = parts.getOrNull(0)?.trim().orEmpty()
+                if (id.isEmpty()) return@mapNotNull null
+                val label = parts.getOrNull(1)?.trim().orEmpty().ifBlank { id }
+                id to label
+            }
+        }
+    }
+
+    fun startPublishedShortcut(packageName: String, shortcutId: String): Boolean {
+        if (packageName.isBlank() || shortcutId.isBlank() || !hasPermission()) return false
+        return runOnTaskWorker {
+            bindFreshService()?.startPublishedShortcut(packageName, shortcutId) == true
+        }
+    }
+
     fun <T> runOnTaskWorker(block: () -> T): T {
         synchronized(taskWorkerLock) {
             return block()

@@ -7,6 +7,7 @@ internal data class TaskSwitcherRowLayout(
     val entry: RecentAppEntry,
     val rowRect: RectF,
     val closeRect: RectF,
+    val freeWindowRect: RectF,
 )
 
 internal data class TaskSwitcherPanelLayout(

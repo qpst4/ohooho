@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.Keep
+import com.slideindex.app.util.ShortcutShellParser
 
 class TaskManagerUserService() : ITaskManagerService.Stub() {
 
@@ -70,6 +71,75 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         val packages = TaskShellParser.listRecentPackages(recentsDump, taskListDump, stackListDump)
         Log.i(TAG, "getRecentTaskPackages -> ${packages.joinToString()}")
         return packages.toTypedArray()
+    }
+
+    override fun forceStopPackage(packageName: String?): Boolean {
+        if (packageName.isNullOrBlank()) return false
+        val stopped = shellCommand("am", "force-stop", packageName)
+        Log.i(TAG, "forceStopPackage($packageName) -> $stopped")
+        return stopped
+    }
+
+    override fun getPublishedShortcuts(packageName: String?): Array<String> {
+        if (packageName.isNullOrBlank()) return emptyArray()
+        val merged = linkedMapOf<String, String>()
+        fun absorb(entries: List<Pair<String, String>>) {
+            entries.forEach { (id, label) ->
+                merged.putIfAbsent(id, label)
+            }
+        }
+        val flagSets = listOf("15", "1039")
+        for (flags in flagSets) {
+            val dump = shellOutput(
+                "cmd", "shortcut", "get-shortcuts", "--user", "0", "--flags", flags, packageName,
+            )
+            absorb(ShortcutShellParser.parse(dump, packageName))
+        }
+        val packageDump = shellOutput("dumpsys", "shortcut", "--user", "0", packageName)
+        absorb(ShortcutShellParser.parse(packageDump, packageName))
+        if (merged.isEmpty()) {
+            val launcherPackage = resolveDefaultLauncherPackage()
+            if (launcherPackage.isNotBlank()) {
+                val fullDump = shellOutput("dumpsys", "shortcut", "--user", "0")
+                absorb(ShortcutShellParser.parse(fullDump, packageName))
+                ShortcutShellParser.parseLauncherPinnedIds(fullDump, launcherPackage, packageName)
+                    .forEach { id ->
+                        merged.putIfAbsent(id, merged[id] ?: id)
+                    }
+            }
+        }
+        Log.i(TAG, "getPublishedShortcuts($packageName) -> ${merged.size}")
+        return merged.map { (id, label) -> "$id\t$label" }.toTypedArray()
+    }
+
+    private fun resolveDefaultLauncherPackage(): String {
+        val roleDump = shellOutput("cmd", "role", "get-role-holders", "android.app.role.HOME")
+        parseLauncherPackage(roleDump)?.let { return it }
+        val legacyDump = shellOutput("cmd", "shortcut", "get-default-launcher", "--user", "0")
+        return parseLauncherPackage(legacyDump).orEmpty()
+    }
+
+    private fun parseLauncherPackage(dump: String): String? {
+        return dump.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { line ->
+                line.isNotBlank() &&
+                    !line.equals("Success", ignoreCase = true) &&
+                    !line.startsWith("Error:", ignoreCase = true) &&
+                    line.contains('.') &&
+                    !line.contains(' ')
+            }
+    }
+
+    override fun startPublishedShortcut(packageName: String?, shortcutId: String?): Boolean {
+        if (packageName.isNullOrBlank() || shortcutId.isNullOrBlank()) return false
+        val attempts = listOf(
+            arrayOf("cmd", "shortcut", "start-shortcut", "--user", "0", packageName, shortcutId),
+            arrayOf("cmd", "shortcut", "start-shortcut", packageName, shortcutId),
+        )
+        val started = attempts.any { shellCommand(*it) }
+        Log.i(TAG, "startPublishedShortcut($packageName, $shortcutId) -> $started")
+        return started
     }
 
     override fun moveTaskToFreeWindow(
@@ -255,7 +325,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     companion object {
         private const val TAG = "TaskManagerUserService"
-        const val API_VERSION = 12
+        const val API_VERSION = 14
         private const val RESIZE_MODE_SYSTEM = 0
         private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"
         private const val START_SUCCESS = 0
