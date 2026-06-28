@@ -131,7 +131,7 @@ class SideOverlayController(
         val params = windowParams ?: return
         params.width = WindowManager.LayoutParams.MATCH_PARENT
         params.height = WindowManager.LayoutParams.MATCH_PARENT
-        params.gravity = Gravity.TOP or Gravity.START
+        params.gravity = expandedWindowGravity()
         params.x = 0
         params.y = 0
         applyNormalTouchFlags(params)
@@ -144,11 +144,16 @@ class SideOverlayController(
         val params = windowParams ?: return
         params.width = WindowManager.LayoutParams.MATCH_PARENT
         params.height = WindowManager.LayoutParams.MATCH_PARENT
-        params.gravity = Gravity.TOP or Gravity.START
+        params.gravity = expandedWindowGravity()
         params.x = 0
         params.y = 0
         applyPreviewTouchFlags(params)
         runCatching { windowManager.updateViewLayout(view, params) }
+    }
+
+    private fun expandedWindowGravity(): Int = when (side) {
+        PanelSide.LEFT -> Gravity.TOP or Gravity.START
+        PanelSide.RIGHT -> Gravity.TOP or Gravity.END
     }
 
     private fun collapseWindow() {
@@ -163,14 +168,10 @@ class SideOverlayController(
         val edgeWidthPx = (settings.interceptWindowWidthDp(side) * density)
             .toInt()
             .coerceAtLeast(dp(16f).toInt())
-        val triggerHeightPx = (screenHeightPx * settings.triggerHeightFraction(side))
-            .toInt()
-            .coerceAtLeast(dp(48f).toInt())
-        val triggerTopPx = (screenHeightPx * settings.triggerTopFraction(side)).toInt()
         params.width = edgeWidthPx
-        params.height = triggerHeightPx
+        params.height = screenHeightPx
         params.x = 0
-        params.y = triggerTopPx.coerceIn(0, (screenHeightPx - triggerHeightPx).coerceAtLeast(0))
+        params.y = 0
         params.gravity = when (side) {
             PanelSide.LEFT -> Gravity.TOP or Gravity.START
             PanelSide.RIGHT -> Gravity.TOP or Gravity.END

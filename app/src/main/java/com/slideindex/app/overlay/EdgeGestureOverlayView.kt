@@ -1,5 +1,6 @@
 package com.slideindex.app.overlay
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -12,6 +13,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import com.slideindex.app.R
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.data.AppRepository
@@ -86,6 +88,9 @@ class EdgeGestureOverlayView(
     private var taskSwitcherShortcutLoadSeq = 0
     private var taskSwitcherLoadGeneration = 0
     private var taskSwitcherAnchorRawY: Float? = null
+    private var taskSwitcherFrozenAnchorLocalY: Float? = null
+    private var panelEnterProgress = 1f
+    private var panelEnterAnimator: ValueAnimator? = null
     private var interceptTouchActive = false
 
     private val railLetters: List<Char> = ('A'..'Z').toList() + '#'
@@ -217,18 +222,19 @@ class EdgeGestureOverlayView(
     }
 
     private fun handleIndexTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
+        val touchX = panelEnterAdjustedX(localX, indexPanelContentRect())
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                if (!isInsideIndexInteractiveArea(localX, localY)) {
+                if (!isInsideIndexInteractiveArea(touchX, localY)) {
                     gestureSession.endSession()
                     return false
                 }
-                indexSession.updateSelection(localX, localY)
+                indexSession.updateSelection(touchX, localY)
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                indexSession.updateSelection(localX, localY)
+                indexSession.updateSelection(touchX, localY)
                 invalidate()
                 return true
             }
@@ -253,10 +259,12 @@ class EdgeGestureOverlayView(
     }
 
     private fun handleQuickLauncherTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
+        val panelRect = quickLauncherPanelRect()
+        val touchX = panelEnterAdjustedX(localX, panelRect)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                panelGridSession.updateHighlight(localX, localY)
-                if (panelGridSession.highlightedIndex < 0 && !panelContentRect.contains(localX, localY)) {
+                panelGridSession.updateHighlight(touchX, localY)
+                if (panelGridSession.highlightedIndex < 0 && !panelContentRect.contains(touchX, localY)) {
                     gestureSession.endSession()
                 } else if (panelGridSession.highlightedIndex >= 0) {
                     HapticHelper.appTick(this, settings)
@@ -266,7 +274,7 @@ class EdgeGestureOverlayView(
             }
             MotionEvent.ACTION_MOVE -> {
                 val prev = panelGridSession.highlightedIndex
-                panelGridSession.updateHighlight(localX, localY)
+                panelGridSession.updateHighlight(touchX, localY)
                 if (panelGridSession.highlightedIndex != prev && panelGridSession.highlightedIndex >= 0) {
                     HapticHelper.appTick(this, settings)
                 }
@@ -290,18 +298,19 @@ class EdgeGestureOverlayView(
             return handleTaskSwitcherContextMenuTouch(event, localX, localY)
         }
         val layout = taskSwitcherLayout ?: computeTaskSwitcherLayout().also { taskSwitcherLayout = it }
+        val touchX = panelEnterAdjustedX(localX, layout.panelRect)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 taskSwitcherRowHighlight = -1
                 taskSwitcherCloseHighlight = -1
                 taskSwitcherFreeWindowHighlight = -1
                 taskSwitcherCloseAllHighlight = false
-                if (!layout.panelRect.contains(localX, localY)) {
+                if (!layout.panelRect.contains(touchX, localY)) {
                     gestureSession.endSession()
                     return true
                 }
                 layout.rows.forEachIndexed { index, row ->
-                    if (row.closeRect.contains(localX, localY)) {
+                    if (row.closeRect.contains(touchX, localY)) {
                         taskSwitcherCloseHighlight = index
                         taskSwitcherClosePressIndex = index
                         taskSwitcherClosePressDownTime = event.eventTime
@@ -311,13 +320,13 @@ class EdgeGestureOverlayView(
                         invalidate()
                         return true
                     }
-                    if (row.freeWindowRect.contains(localX, localY)) {
+                    if (row.freeWindowRect.contains(touchX, localY)) {
                         taskSwitcherFreeWindowHighlight = index
                         HapticHelper.appTick(this, settings)
                         invalidate()
                         return true
                     }
-                    if (row.rowRect.contains(localX, localY)) {
+                    if (row.rowRect.contains(touchX, localY)) {
                         taskSwitcherRowHighlight = index
                         taskSwitcherRowPressIndex = index
                         taskSwitcherRowPressDownTime = event.eventTime
@@ -328,7 +337,7 @@ class EdgeGestureOverlayView(
                         return true
                     }
                 }
-                if (layout.closeAllRect.contains(localX, localY)) {
+                if (layout.closeAllRect.contains(touchX, localY)) {
                     taskSwitcherCloseAllHighlight = true
                     HapticHelper.appTick(this, settings)
                     invalidate()
@@ -338,14 +347,14 @@ class EdgeGestureOverlayView(
             MotionEvent.ACTION_MOVE -> {
                 if (taskSwitcherClosePressIndex >= 0) {
                     val pressRow = layout.rows.getOrNull(taskSwitcherClosePressIndex)
-                    if (pressRow != null && !pressRow.closeRect.contains(localX, localY)) {
+                    if (pressRow != null && !pressRow.closeRect.contains(touchX, localY)) {
                         cancelTaskSwitcherCloseLongPress()
                         taskSwitcherClosePressIndex = -1
                     }
                 }
                 if (taskSwitcherRowPressIndex >= 0) {
                     val pressRow = layout.rows.getOrNull(taskSwitcherRowPressIndex)
-                    if (pressRow != null && !pressRow.rowRect.contains(localX, localY)) {
+                    if (pressRow != null && !pressRow.rowRect.contains(touchX, localY)) {
                         cancelTaskSwitcherRowLongPress()
                         taskSwitcherRowPressIndex = -1
                     }
@@ -360,12 +369,12 @@ class EdgeGestureOverlayView(
                 taskSwitcherCloseAllHighlight = false
                 layout.rows.forEachIndexed { index, row ->
                     when {
-                        row.closeRect.contains(localX, localY) -> taskSwitcherCloseHighlight = index
-                        row.freeWindowRect.contains(localX, localY) -> taskSwitcherFreeWindowHighlight = index
-                        row.rowRect.contains(localX, localY) -> taskSwitcherRowHighlight = index
+                        row.closeRect.contains(touchX, localY) -> taskSwitcherCloseHighlight = index
+                        row.freeWindowRect.contains(touchX, localY) -> taskSwitcherFreeWindowHighlight = index
+                        row.rowRect.contains(touchX, localY) -> taskSwitcherRowHighlight = index
                     }
                 }
-                if (layout.closeAllRect.contains(localX, localY)) {
+                if (layout.closeAllRect.contains(touchX, localY)) {
                     taskSwitcherCloseAllHighlight = true
                 }
                 if (taskSwitcherRowHighlight != prevRow ||
@@ -588,13 +597,15 @@ class EdgeGestureOverlayView(
 
     private fun handleTaskSwitcherContextMenuTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
         val menu = taskSwitcherContextMenu ?: return false
+        val panel = taskSwitcherLayout?.panelRect ?: computeTaskSwitcherLayout().panelRect
+        val touchX = panelEnterAdjustedX(localX, panel)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val hitIndex = menu.itemRects.indexOfFirst { it.contains(localX, localY) }
+                val hitIndex = menu.itemRects.indexOfFirst { it.contains(touchX, localY) }
                 if (hitIndex >= 0) {
                     taskSwitcherMenuHighlight = hitIndex
                     HapticHelper.appTick(this, settings)
-                } else if (!menu.menuRect.contains(localX, localY)) {
+                } else if (!menu.menuRect.contains(touchX, localY)) {
                     dismissTaskSwitcherContextMenu()
                 }
                 invalidate()
@@ -602,7 +613,7 @@ class EdgeGestureOverlayView(
             }
             MotionEvent.ACTION_MOVE -> {
                 val prev = taskSwitcherMenuHighlight
-                taskSwitcherMenuHighlight = menu.itemRects.indexOfFirst { it.contains(localX, localY) }
+                taskSwitcherMenuHighlight = menu.itemRects.indexOfFirst { it.contains(touchX, localY) }
                 if (taskSwitcherMenuHighlight != prev && taskSwitcherMenuHighlight >= 0) {
                     HapticHelper.appTick(this, settings)
                     invalidate()
@@ -616,7 +627,7 @@ class EdgeGestureOverlayView(
                     val item = menu.items.getOrNull(selected) ?: return true
                     HapticHelper.confirmLaunch(this, settings)
                     executeTaskSwitcherMenuItem(menu.packageName, item)
-                } else if (!menu.menuRect.contains(localX, localY)) {
+                } else if (!menu.menuRect.contains(touchX, localY)) {
                     dismissTaskSwitcherContextMenu()
                 }
                 invalidate()
@@ -706,13 +717,20 @@ class EdgeGestureOverlayView(
         if (!gestureSession.isActive()) return
         when (gestureSession.panelMode()) {
             OverlayPanelMode.INDEX -> {
-                drawLetterRail(canvas)
-                if (indexSession.selectedLetter != null) {
-                    drawAppGrid(canvas)
-                    drawLetterBubble(canvas)
+                drawWithPanelEnterAnimation(canvas, indexPanelContentRect()) {
+                    drawLetterRail(canvas)
+                    if (indexSession.selectedLetter != null) {
+                        drawAppGrid(canvas)
+                        drawLetterBubble(canvas)
+                    }
                 }
             }
-            OverlayPanelMode.QUICK_LAUNCHER -> drawQuickLauncherPanel(canvas)
+            OverlayPanelMode.QUICK_LAUNCHER -> {
+                val panelRect = quickLauncherPanelRect()
+                drawWithPanelEnterAnimation(canvas, panelRect) {
+                    drawQuickLauncherPanel(canvas)
+                }
+            }
             OverlayPanelMode.TASK_SWITCHER -> drawTaskSwitcherPanel(canvas)
             OverlayPanelMode.NONE -> Unit
         }
@@ -744,24 +762,38 @@ class EdgeGestureOverlayView(
 
     override fun onSessionStart(mode: OverlayPanelMode) {
         syncZoneLayout()
-        if (mode == OverlayPanelMode.TASK_SWITCHER) {
-            taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY()
-            taskSwitcherLayout = null
-            loadTaskSwitcherApps()
+        cancelPanelEnterAnimation()
+        when (mode) {
+            OverlayPanelMode.TASK_SWITCHER -> {
+                panelEnterProgress = 0f
+                taskSwitcherFrozenAnchorLocalY = null
+                taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY()
+                taskSwitcherLayout = null
+                loadTaskSwitcherApps(deferInvalidate = true)
+            }
+            OverlayPanelMode.INDEX, OverlayPanelMode.QUICK_LAUNCHER -> {
+                panelEnterProgress = 0f
+            }
+            OverlayPanelMode.NONE -> {
+                panelEnterProgress = 1f
+            }
         }
         panelGridSession.reset()
         onSessionStartCallback()
-        if (mode == OverlayPanelMode.TASK_SWITCHER) {
+        if (mode != OverlayPanelMode.NONE) {
             post {
-                if (gestureSession.panelMode() != OverlayPanelMode.TASK_SWITCHER) return@post
+                if (gestureSession.panelMode() != mode) return@post
                 syncZoneLayout()
-                taskSwitcherLayout = null
-                invalidate()
+                if (mode == OverlayPanelMode.TASK_SWITCHER) {
+                    taskSwitcherLayout = null
+                    taskSwitcherFrozenAnchorLocalY = resolveTaskSwitcherAnchorLocalY()
+                }
+                startPanelEnterAnimation()
             }
         }
     }
 
-    private fun loadTaskSwitcherApps() {
+    private fun loadTaskSwitcherApps(deferInvalidate: Boolean = false) {
         taskSwitcherLayout = null
         taskSwitcherRowHighlight = -1
         taskSwitcherCloseHighlight = -1
@@ -769,11 +801,15 @@ class EdgeGestureOverlayView(
 
         val placeholder = RecentTasksLoader.peekCached()
         recentApps = placeholder.toMutableList()
-        invalidate()
+        if (!deferInvalidate) {
+            invalidateTaskSwitcherPanel()
+        }
 
         if (!TaskManagerUtil.hasPermission()) {
             recentApps = mutableListOf()
-            invalidate()
+            if (!deferInvalidate) {
+                invalidateTaskSwitcherPanel()
+            }
             return
         }
 
@@ -785,18 +821,14 @@ class EdgeGestureOverlayView(
                 dismissTaskSwitcherContextMenu()
             }
             recentApps = fresh.toMutableList()
-            android.util.Log.i(
-                "TaskSwitcher",
-                "loadTaskSwitcherApps (${fresh.size}): ${
-                    fresh.joinToString { "${it.taskId}|${it.app.packageName}" }
-                }",
-            )
             taskSwitcherLayout = null
-            invalidate()
+            invalidateTaskSwitcherPanel()
         }
     }
 
     override fun onSessionEnd() {
+        cancelPanelEnterAnimation()
+        panelEnterProgress = 1f
         taskSwitcherLoadGeneration++
         syncZoneLayout()
         panelGridSession.reset()
@@ -805,6 +837,7 @@ class EdgeGestureOverlayView(
         taskSwitcherCloseHighlight = -1
         taskSwitcherCloseAllHighlight = false
         taskSwitcherAnchorRawY = null
+        taskSwitcherFrozenAnchorLocalY = null
         dismissTaskSwitcherContextMenu()
         cancelTaskSwitcherCloseLongPress()
         cancelTaskSwitcherRowLongPress()
@@ -1065,7 +1098,12 @@ class EdgeGestureOverlayView(
         val layout = computeTaskSwitcherLayout()
         taskSwitcherLayout = layout
         panelContentRect.set(layout.panelRect)
+        drawWithPanelEnterAnimation(canvas, layout.panelRect) {
+            drawTaskSwitcherPanelContent(canvas, layout)
+        }
+    }
 
+    private fun drawTaskSwitcherPanelContent(canvas: Canvas, layout: TaskSwitcherPanelLayout) {
         val rowHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(28, 0, 0, 0) }
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(40, 0, 0, 0) }
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1429,18 +1467,101 @@ class EdgeGestureOverlayView(
         return RectF(left, top, left + gw, top + gh)
     }
 
-    private fun taskSwitcherAnchorLocalY(): Float {
+    private fun resolveTaskSwitcherAnchorLocalY(): Float {
         val rawY = taskSwitcherAnchorRawY ?: pathRecognizer.gestureStartRawY()
         val loc = IntArray(2)
         getLocationOnScreen(loc)
-        return rawY - loc[1]
+        val anchorY = rawY - loc[1]
+        val trigger = zoneLayout.triggerZoneRect()
+        return anchorY.coerceIn(trigger.top, trigger.bottom)
     }
+
+    private fun taskSwitcherAnchorLocalY(): Float =
+        taskSwitcherFrozenAnchorLocalY ?: resolveTaskSwitcherAnchorLocalY()
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
     private fun sp(value: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
 
+    private fun invalidateTaskSwitcherPanel() {
+        if (gestureSession.panelMode() == OverlayPanelMode.TASK_SWITCHER) {
+            invalidate()
+        }
+    }
+
+    private fun indexPanelContentRect(): RectF {
+        val rail = zoneLayout.indexRailRect()
+        if (indexSession.selectedLetter == null) {
+            return when (side) {
+                PanelSide.LEFT -> RectF(rail.left, rail.top, rail.right + dp(240f), rail.bottom)
+                PanelSide.RIGHT -> RectF(rail.left - dp(240f), rail.top, rail.right, rail.bottom)
+            }
+        }
+        val grid = gridPopupRect()
+        val bubble = bubbleCenter()
+        return RectF(
+            minOf(rail.left, grid.left, bubble.x - bubbleRadius),
+            minOf(rail.top, grid.top, bubble.y - bubbleRadius),
+            maxOf(rail.right, grid.right, bubble.x + bubbleRadius),
+            maxOf(rail.bottom, grid.bottom, bubble.y + bubbleRadius),
+        )
+    }
+
+    private fun quickLauncherPanelRect(): RectF {
+        val items = quickLauncherItems()
+        if (items.isEmpty()) return RectF()
+        val layout = gridLayoutInfo(items.size)
+        return utilityPanelRect(layout.panelWidth, layout.rows)
+    }
+
+    private fun drawWithPanelEnterAnimation(canvas: Canvas, contentRect: RectF, drawContent: () -> Unit) {
+        if (panelEnterProgress >= 1f || contentRect.isEmpty) {
+            drawContent()
+            return
+        }
+        val offsetX = panelEnterOffsetX(contentRect)
+        val alpha = (255 * panelEnterProgress).toInt().coerceIn(0, 255)
+        val layer = canvas.saveLayerAlpha(null, alpha)
+        canvas.translate(offsetX, 0f)
+        drawContent()
+        canvas.restoreToCount(layer)
+    }
+
+    private fun panelEnterOffsetX(panel: RectF): Float {
+        val delta = 1f - panelEnterProgress
+        val slide = panel.width() + dp(PANEL_ENTER_OFFSCREEN_MARGIN_DP)
+        return when (side) {
+            PanelSide.LEFT -> -slide * delta
+            PanelSide.RIGHT -> slide * delta
+        }
+    }
+
+    private fun panelEnterAdjustedX(localX: Float, panel: RectF): Float =
+        if (panelEnterProgress >= 1f || panel.isEmpty) localX else localX - panelEnterOffsetX(panel)
+
+    private fun cancelPanelEnterAnimation() {
+        panelEnterAnimator?.cancel()
+        panelEnterAnimator = null
+    }
+
+    private fun startPanelEnterAnimation() {
+        cancelPanelEnterAnimation()
+        panelEnterProgress = 0f
+        panelEnterAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = PANEL_ENTER_DURATION_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { animator ->
+                panelEnterProgress = animator.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+        invalidate()
+    }
+
     companion object {
         private const val TASK_SWITCHER_LONG_PRESS_MS = 450L
+        private const val PANEL_ENTER_DURATION_MS = 180L
+        private const val PANEL_ENTER_OFFSCREEN_MARGIN_DP = 16f
     }
 }
