@@ -13,6 +13,10 @@ object HapticHelper {
         pulse(view, settings, PulseKind.GESTURE)
     }
 
+    fun longThreshold(view: View, settings: AppSettings) {
+        pulse(view, settings, PulseKind.LONG_THRESHOLD)
+    }
+
     fun letterTick(view: View, settings: AppSettings) {
         pulse(view, settings, PulseKind.LETTER)
     }
@@ -31,6 +35,7 @@ object HapticHelper {
 
     private enum class PulseKind {
         GESTURE,
+        LONG_THRESHOLD,
         LETTER,
         APP,
         CONFIRM,
@@ -45,18 +50,21 @@ object HapticHelper {
         when (strength) {
             HapticStrength.LIGHT -> when (kind) {
                 PulseKind.GESTURE -> HapticFeedbackConstants.CLOCK_TICK
+                PulseKind.LONG_THRESHOLD -> HapticFeedbackConstants.KEYBOARD_TAP
                 PulseKind.LETTER -> HapticFeedbackConstants.CLOCK_TICK
                 PulseKind.APP -> HapticFeedbackConstants.KEYBOARD_TAP
                 PulseKind.CONFIRM -> HapticFeedbackConstants.CONTEXT_CLICK
             }
             HapticStrength.MEDIUM -> when (kind) {
                 PulseKind.GESTURE -> HapticFeedbackConstants.GESTURE_START
+                PulseKind.LONG_THRESHOLD -> HapticFeedbackConstants.CONTEXT_CLICK
                 PulseKind.LETTER -> HapticFeedbackConstants.KEYBOARD_TAP
                 PulseKind.APP -> HapticFeedbackConstants.CONTEXT_CLICK
                 PulseKind.CONFIRM -> HapticFeedbackConstants.CONFIRM
             }
             HapticStrength.STRONG -> when (kind) {
                 PulseKind.GESTURE -> HapticFeedbackConstants.GESTURE_START
+                PulseKind.LONG_THRESHOLD -> HapticFeedbackConstants.CONFIRM
                 PulseKind.LETTER -> HapticFeedbackConstants.CONTEXT_CLICK
                 PulseKind.APP -> HapticFeedbackConstants.CONFIRM
                 PulseKind.CONFIRM -> HapticFeedbackConstants.CONFIRM

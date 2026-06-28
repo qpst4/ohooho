@@ -12,6 +12,10 @@ enum class GestureActionType(val id: Int) {
     CLOSE_CURRENT_APP(8),
     FREE_WINDOW_CURRENT_APP(9),
     CLICK_PASSTHROUGH(10),
+    FLASHLIGHT(11),
+    ADJUST_VOLUME(12),
+    ADJUST_BRIGHTNESS(13),
+    LAUNCH_ASSISTANT(14),
     ;
 
     companion object {
@@ -77,6 +81,26 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    data object Flashlight : GestureAction() {
+        override val type = GestureActionType.FLASHLIGHT
+        override val payload = ""
+    }
+
+    data object AdjustVolume : GestureAction() {
+        override val type = GestureActionType.ADJUST_VOLUME
+        override val payload = ""
+    }
+
+    data object AdjustBrightness : GestureAction() {
+        override val type = GestureActionType.ADJUST_BRIGHTNESS
+        override val payload = ""
+    }
+
+    data object LaunchAssistant : GestureAction() {
+        override val type = GestureActionType.LAUNCH_ASSISTANT
+        override val payload = ""
+    }
+
     data object None : GestureAction() {
         override val type = GestureActionType.NONE
         override val payload = ""
@@ -95,6 +119,10 @@ sealed class GestureAction {
                 GestureActionType.CLOSE_CURRENT_APP -> CloseCurrentApp
                 GestureActionType.FREE_WINDOW_CURRENT_APP -> FreeWindowCurrentApp
                 GestureActionType.CLICK_PASSTHROUGH -> ClickPassthrough
+                GestureActionType.FLASHLIGHT -> Flashlight
+                GestureActionType.ADJUST_VOLUME -> AdjustVolume
+                GestureActionType.ADJUST_BRIGHTNESS -> AdjustBrightness
+                GestureActionType.LAUNCH_ASSISTANT -> LaunchAssistant
                 GestureActionType.NONE -> None
             }
         }
@@ -102,3 +130,12 @@ sealed class GestureAction {
 }
 
 fun GestureAction.isEffective(): Boolean = type != GestureActionType.NONE
+
+fun GestureAction.supportsContinuousTracking(trigger: GestureTriggerType): Boolean =
+    trigger.supportsIndex && when (this) {
+        GestureAction.OpenIndex, GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> true
+        else -> false
+    }
+
+fun GestureAction.preferredTriggerMode(trigger: GestureTriggerType): GestureTriggerMode? =
+    if (supportsContinuousTracking(trigger)) GestureTriggerMode.CONTINUOUS else null

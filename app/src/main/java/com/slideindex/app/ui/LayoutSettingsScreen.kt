@@ -32,8 +32,6 @@ fun LayoutSettingsScreen(
     settings: AppSettings,
     serviceEnabled: Boolean,
     onBack: () -> Unit,
-    onLeftEdgeChange: (Boolean) -> Unit,
-    onRightEdgeChange: (Boolean) -> Unit,
     onIndexHeightChange: (Float) -> Unit,
     onAppsPerRowChange: (Int) -> Unit,
     onPanelOpacityChange: (Float) -> Unit,
@@ -65,22 +63,6 @@ fun LayoutSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SettingsHintText(stringResource(R.string.live_preview_hint))
-
-            SettingsSectionTitle(stringResource(R.string.settings_section_trigger))
-            SettingsCard {
-                SettingSwitchRow(
-                    title = stringResource(R.string.left_edge),
-                    checked = settings.leftEdgeEnabled,
-                    enabled = serviceEnabled,
-                    onCheckedChange = onLeftEdgeChange,
-                )
-                SettingSwitchRow(
-                    title = stringResource(R.string.right_edge),
-                    checked = settings.rightEdgeEnabled,
-                    enabled = serviceEnabled,
-                    onCheckedChange = onRightEdgeChange,
-                )
-            }
 
             SettingsSectionTitle(stringResource(R.string.settings_section_panel))
             SettingsCard {
@@ -125,16 +107,9 @@ fun LayoutSettingsEntryCard(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val edgeSummary = when {
-        settings.leftEdgeEnabled && settings.rightEdgeEnabled -> stringResource(R.string.layout_settings_edges_both)
-        settings.leftEdgeEnabled -> stringResource(R.string.layout_settings_edges_left)
-        settings.rightEdgeEnabled -> stringResource(R.string.layout_settings_edges_right)
-        else -> stringResource(R.string.layout_settings_edges_none)
-    }
     val subtitle = if (enabled) {
         stringResource(
             R.string.layout_settings_entry_summary,
-            edgeSummary,
             settings.appsPerRow,
         )
     } else {

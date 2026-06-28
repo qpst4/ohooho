@@ -17,6 +17,9 @@ import com.slideindex.app.util.FreeWindowLauncher
 import com.slideindex.app.util.InputTapUtil
 import com.slideindex.app.util.TaskExclusions
 import com.slideindex.app.util.TaskManagerUtil
+import com.slideindex.app.util.AssistantLauncher
+import com.slideindex.app.util.ContinuousAdjustController
+import com.slideindex.app.util.FlashlightHelper
 
 class ActionExecutor(
     private val context: Context,
@@ -24,17 +27,33 @@ class ActionExecutor(
     private val clickPassthroughHandler: ((Float, Float, () -> Unit) -> Unit)? = null,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val continuousAdjust = ContinuousAdjustController(context)
+
+    fun beginContinuousAdjust(mode: ContinuousAdjustController.Mode, rawY: Float) {
+        continuousAdjust.begin(mode, rawY)
+    }
+
+    fun updateContinuousAdjust(mode: ContinuousAdjustController.Mode, rawY: Float) {
+        continuousAdjust.update(mode, rawY)
+    }
+
+    fun endContinuousAdjust() {
+        continuousAdjust.end()
+    }
 
     fun execute(action: GestureAction, settings: AppSettings, longPressArmed: Boolean = false) {
         when (action) {
             GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.TaskSwitcher,
-            GestureAction.None, GestureAction.ClickPassthrough -> Unit
+            GestureAction.None, GestureAction.ClickPassthrough,
+            GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
             GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {
                 SlideIndexAccessibilityService.perform(action)
             }
             GestureAction.CloseCurrentApp -> closeCurrentApp()
             GestureAction.FreeWindowCurrentApp -> freeWindowForegroundApp(settings)
+            GestureAction.Flashlight -> FlashlightHelper.toggle(context)
+            GestureAction.LaunchAssistant -> AssistantLauncher.launchDefault(context)
         }
     }
 

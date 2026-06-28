@@ -93,12 +93,6 @@ class MainActivity : ComponentActivity() {
                         onRequestAccessibility = {
                             startActivity(PermissionHelper.accessibilitySettingsIntent())
                         },
-                        onServiceEnabledChange = { enabled ->
-                            lifecycleScope.launch {
-                                app.settingsRepository.setServiceEnabled(enabled)
-                                refreshServiceState()
-                            }
-                        },
                         onHapticEnabledChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setHapticEnabled(enabled)
@@ -143,16 +137,10 @@ class MainActivity : ComponentActivity() {
 
                     SettingsDestination.Layout -> LayoutSettingsScreen(
                         settings = settings,
-                        serviceEnabled = settings.serviceEnabled,
+                        serviceEnabled = overlayGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.Main
-                        },
-                        onLeftEdgeChange = { enabled ->
-                            lifecycleScope.launch { app.settingsRepository.setLeftEdgeEnabled(enabled) }
-                        },
-                        onRightEdgeChange = { enabled ->
-                            lifecycleScope.launch { app.settingsRepository.setRightEdgeEnabled(enabled) }
                         },
                         onIndexHeightChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setIndexHeightFraction(value) }
@@ -247,7 +235,7 @@ class MainActivity : ComponentActivity() {
                     SettingsDestination.SideGesturesLeft -> SideGestureSettingsScreen(
                         side = PanelSide.LEFT,
                         settings = settings,
-                        serviceEnabled = settings.serviceEnabled,
+                        serviceEnabled = overlayGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.Main
@@ -319,7 +307,7 @@ class MainActivity : ComponentActivity() {
                     SettingsDestination.SideGesturesRight -> SideGestureSettingsScreen(
                         side = PanelSide.RIGHT,
                         settings = settings,
-                        serviceEnabled = settings.serviceEnabled,
+                        serviceEnabled = overlayGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.Main
@@ -455,8 +443,10 @@ class MainActivity : ComponentActivity() {
     private fun refreshServiceState() {
         lifecycleScope.launch {
             val app = application as SlideIndexApp
-            val settings = app.settingsRepository.settings.first()
-            val shouldRun = settings.serviceEnabled && overlayGranted && notificationGranted
+            if (overlayGranted && notificationGranted) {
+                app.settingsRepository.setServiceEnabled(true)
+            }
+            val shouldRun = overlayGranted && notificationGranted
             val serviceIntent = Intent(this@MainActivity, OverlayService::class.java)
             if (shouldRun) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

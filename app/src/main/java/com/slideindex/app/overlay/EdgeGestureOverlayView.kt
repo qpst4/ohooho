@@ -749,6 +749,14 @@ class EdgeGestureOverlayView(
         HapticHelper.appTick(this, settings)
     }
 
+    override fun hapticGestureStart() {
+        HapticHelper.gestureStart(this, settings)
+    }
+
+    override fun hapticLongThreshold() {
+        HapticHelper.longThreshold(this, settings)
+    }
+
     override fun hapticConfirmLaunch() {
         HapticHelper.confirmLaunch(this, settings)
     }
@@ -851,10 +859,6 @@ class EdgeGestureOverlayView(
 
     override fun onRequestInvalidate() {
         invalidate()
-    }
-
-    override fun hapticGestureStart() {
-        HapticHelper.gestureStart(this, settings)
     }
 
     private fun syncZoneLayout() {

@@ -53,7 +53,7 @@
     <string name="search_hint">搜索应用…</string>
     <string name="no_apps">未找到应用</string>
     <string name="loading">加载中…</string>
-    <string name="ready_hint">在屏幕边缘触发区按住，字母索引才会出现；上下滑选字母，移到应用图标上松开即可打开</string>
+    <string name="ready_hint">权限就绪后，边缘手势服务将自动运行</string>
     <string name="cancel">取消</string>
     <string name="free_window_entry_title">自由窗口</string>
     <string name="free_window_entry_desc">配置小窗启动模式与尺寸</string>
@@ -118,11 +118,7 @@
     <string name="layout_settings_title">布局与索引</string>
     <string name="layout_settings_entry_title">布局调整</string>
     <string name="layout_settings_entry_desc">调节触发区、索引与应用面板</string>
-    <string name="layout_settings_entry_summary">%1$s · 每行 %2$d 列</string>
-    <string name="layout_settings_edges_both">左右边缘</string>
-    <string name="layout_settings_edges_left">左边缘</string>
-    <string name="layout_settings_edges_right">右边缘</string>
-    <string name="layout_settings_edges_none">边缘未启用</string>
+    <string name="layout_settings_entry_summary">每行 %1$d 列</string>
     <string name="settings_section_gestures">快捷手势</string>
     <string name="shortcut_gestures_entry_title">边缘短滑快捷启动</string>
     <string name="shortcut_gestures_entry_desc">从边缘快速向内滑动，直接打开指定应用</string>
@@ -175,6 +171,10 @@
     <string name="gesture_action_close_current_app">关闭当前应用</string>
     <string name="gesture_action_free_window_current_app">小窗化当前应用</string>
     <string name="gesture_action_click_passthrough">点击穿透</string>
+    <string name="gesture_action_flashlight">手电筒</string>
+    <string name="gesture_action_adjust_volume">滑动调节音量</string>
+    <string name="gesture_action_adjust_brightness">滑动调节亮度</string>
+    <string name="gesture_action_launch_assistant">启动默认设备助手</string>
     <string name="side_gestures_behavior_section">触发行为</string>
     <string name="default_trigger_mode">默认触发模式</string>
     <string name="default_trigger_mode_desc">新手势未单独设置时使用</string>
@@ -185,7 +185,7 @@
     <string name="trigger_mode_on_release">释放时</string>
     <string name="trigger_mode_on_release_desc">松开手指后执行操作</string>
     <string name="trigger_mode_continuous">连贯滑动追踪</string>
-    <string name="trigger_mode_continuous_desc">滑动过程中持续追踪（适用于侧滑索引）</string>
+    <string name="trigger_mode_continuous_desc">滑动过程中持续追踪（侧滑索引、音量、亮度）</string>
     <string name="trigger_mode_immediate">即时触发</string>
     <string name="trigger_mode_immediate_desc">达到滑动距离后立即执行</string>
     <string name="slot_trigger_mode">操作触发器</string>

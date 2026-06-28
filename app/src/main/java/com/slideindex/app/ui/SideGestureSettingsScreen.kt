@@ -40,8 +40,10 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
 import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.gesture.GestureTriggerType
+import com.slideindex.app.gesture.SwipePathRecognizer
 import com.slideindex.app.gesture.actionFor
 import com.slideindex.app.gesture.defaultTriggerModeFor
+import com.slideindex.app.gesture.preferredTriggerMode
 import com.slideindex.app.gesture.resolvedTriggerMode
 import com.slideindex.app.gesture.slotTriggerMode
 import com.slideindex.app.gesture.supportsAction
@@ -119,9 +121,12 @@ fun SideGestureSettingsScreen(
                 SettingsSliderRow(
                     title = stringResource(R.string.short_swipe_distance),
                     value = settings.shortSwipeDistanceDp,
-                    valueRange = 24f..160f,
+                    valueRange = SwipePathRecognizer.SHORT_DISTANCE_MIN_DP..
+                        SwipePathRecognizer.SHORT_DISTANCE_MAX_DP,
                     enabled = serviceEnabled,
-                    label = "${settings.shortSwipeDistanceDp.roundToInt()} dp",
+                    label = "",
+                    formatLabel = { "${it.roundToInt()} dp" },
+                    commitOnFinish = true,
                     startLabel = stringResource(R.string.swipe_distance_small),
                     endLabel = stringResource(R.string.swipe_distance_large),
                     onValueChange = onShortSwipeDistanceChange,
@@ -129,9 +134,12 @@ fun SideGestureSettingsScreen(
                 SettingsSliderRow(
                     title = stringResource(R.string.long_swipe_distance),
                     value = settings.longSwipeDistanceDp,
-                    valueRange = (settings.shortSwipeDistanceDp + 16f).coerceAtMost(240f)..240f,
+                    valueRange = SwipePathRecognizer.LONG_DISTANCE_MIN_DP..
+                        SwipePathRecognizer.LONG_DISTANCE_MAX_DP,
                     enabled = serviceEnabled,
-                    label = "${settings.longSwipeDistanceDp.roundToInt()} dp",
+                    label = "",
+                    formatLabel = { "${it.roundToInt()} dp" },
+                    commitOnFinish = true,
                     startLabel = stringResource(R.string.swipe_distance_small),
                     endLabel = stringResource(R.string.swipe_distance_large),
                     onValueChange = onLongSwipeDistanceChange,
@@ -346,7 +354,8 @@ private fun SlotConfigDialog(
             onSelect = { action ->
                 selectedAction = action
                 if (!selectedMode.supportsAction(action, trigger)) {
-                    selectedMode = GestureTriggerMode.ON_RELEASE
+                    selectedMode = action.preferredTriggerMode(trigger)
+                        ?: GestureTriggerMode.ON_RELEASE
                 }
                 pickingAction = false
             },
@@ -387,6 +396,12 @@ private fun ActionPickerDialog(
         add(GestureAction.Recents)
         add(GestureAction.CloseCurrentApp)
         add(GestureAction.FreeWindowCurrentApp)
+        add(GestureAction.Flashlight)
+        if (trigger.supportsIndex) {
+            add(GestureAction.AdjustVolume)
+            add(GestureAction.AdjustBrightness)
+        }
+        add(GestureAction.LaunchAssistant)
         if (trigger == GestureTriggerType.SHORT_SINGLE_TAP) add(GestureAction.ClickPassthrough)
     }
     AlertDialog(
@@ -575,6 +590,10 @@ private fun actionLabel(action: GestureAction): String = when (action.type) {
     GestureActionType.CLOSE_CURRENT_APP -> stringResource(R.string.gesture_action_close_current_app)
     GestureActionType.FREE_WINDOW_CURRENT_APP -> stringResource(R.string.gesture_action_free_window_current_app)
     GestureActionType.CLICK_PASSTHROUGH -> stringResource(R.string.gesture_action_click_passthrough)
+    GestureActionType.FLASHLIGHT -> stringResource(R.string.gesture_action_flashlight)
+    GestureActionType.ADJUST_VOLUME -> stringResource(R.string.gesture_action_adjust_volume)
+    GestureActionType.ADJUST_BRIGHTNESS -> stringResource(R.string.gesture_action_adjust_brightness)
+    GestureActionType.LAUNCH_ASSISTANT -> stringResource(R.string.gesture_action_launch_assistant)
 }
 
 @Composable

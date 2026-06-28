@@ -33,7 +33,6 @@ fun MainScreen(
     onRequestNotification: () -> Unit,
     onRequestShizuku: () -> Unit,
     onRequestAccessibility: () -> Unit,
-    onServiceEnabledChange: (Boolean) -> Unit,
     onHapticEnabledChange: (Boolean) -> Unit,
     onHapticStrengthChange: (Int) -> Unit,
     onOpenLayoutSettings: () -> Unit,
@@ -90,16 +89,7 @@ fun MainScreen(
                 )
             }
 
-            SettingsSectionTitle(stringResource(R.string.settings_section_service))
-            SettingsCard {
-                SettingSwitchRow(
-                    title = stringResource(R.string.service_enabled),
-                    checked = settings.serviceEnabled,
-                    enabled = permissionsReady,
-                    onCheckedChange = onServiceEnabledChange,
-                )
-            }
-            if (settings.serviceEnabled && overlayGranted) {
+            if (permissionsReady) {
                 Text(
                     text = stringResource(R.string.ready_hint),
                     style = MaterialTheme.typography.bodyMedium,
@@ -112,7 +102,7 @@ fun MainScreen(
             SettingsCard {
                 LayoutSettingsEntryCard(
                     settings = settings,
-                    enabled = settings.serviceEnabled,
+                    enabled = permissionsReady,
                     onClick = onOpenLayoutSettings,
                 )
             }
@@ -163,7 +153,7 @@ fun MainScreen(
             SettingsCard {
                 ThemeColorPicker(
                     selected = settings.themeColorArgb,
-                    enabled = settings.serviceEnabled,
+                    enabled = permissionsReady,
                     onColorSelected = onThemeColorChange,
                 )
             }

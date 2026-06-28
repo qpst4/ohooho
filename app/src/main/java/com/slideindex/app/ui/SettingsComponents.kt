@@ -206,6 +206,9 @@ fun SettingsSliderRow(
     steps: Int = 0,
     enabled: Boolean,
     label: String,
+    formatLabel: ((Float) -> String)? = null,
+    commitOnFinish: Boolean = false,
+    snapValue: (Float) -> Float = { it.roundToInt().toFloat() },
     startLabel: String? = null,
     endLabel: String? = null,
     triggersLayoutPreview: Boolean = false,
@@ -214,13 +217,25 @@ fun SettingsSliderRow(
     onValueChange: (Float) -> Unit,
 ) {
     var previewActive by remember { mutableStateOf(false) }
-    var localValue by remember { mutableStateOf(value.roundToInt().toFloat()) }
+    var localValue by remember(valueRange) {
+        mutableStateOf(snapValue(value).coerceIn(valueRange.start, valueRange.endInclusive))
+    }
     var dragging by remember { mutableStateOf(false) }
-    LaunchedEffect(value) {
-        if (!dragging) {
-            localValue = value.roundToInt().toFloat()
+    val sliderSteps = if (commitOnFinish && steps == 0) {
+        (valueRange.endInclusive - valueRange.start).roundToInt()
+    } else {
+        steps
+    }
+
+    LaunchedEffect(value, valueRange) {
+        val synced = snapValue(value).coerceIn(valueRange.start, valueRange.endInclusive)
+        if (dragging) {
+            if (synced == localValue) dragging = false
+        } else {
+            localValue = synced
         }
     }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -238,7 +253,10 @@ fun SettingsSliderRow(
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                 },
             )
-            Text(label, color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = formatLabel?.invoke(localValue) ?: label,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
         if (startLabel != null && endLabel != null) {
             Row(
@@ -258,26 +276,32 @@ fun SettingsSliderRow(
             }
         }
         Slider(
-            value = localValue,
+            value = localValue.coerceIn(valueRange.start, valueRange.endInclusive),
             onValueChange = {
                 dragging = true
                 if (triggersLayoutPreview && !previewActive) {
                     previewActive = true
                     onLayoutPreviewStart()
                 }
-                val rounded = it.roundToInt().toFloat()
-                localValue = rounded
-                onValueChange(rounded)
+                val snapped = snapValue(it).coerceIn(valueRange.start, valueRange.endInclusive)
+                localValue = snapped
+                if (!commitOnFinish) {
+                    onValueChange(snapped)
+                }
             },
             onValueChangeFinished = {
-                dragging = false
+                if (commitOnFinish) {
+                    onValueChange(localValue)
+                } else {
+                    dragging = false
+                }
                 if (triggersLayoutPreview && previewActive) {
                     previewActive = false
                     onLayoutPreviewStop()
                 }
             },
             valueRange = valueRange,
-            steps = steps,
+            steps = sliderSteps,
             enabled = enabled,
         )
     }

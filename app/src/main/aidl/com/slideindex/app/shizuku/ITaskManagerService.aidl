@@ -16,4 +16,6 @@ interface ITaskManagerService {
     /** Each row: taskId<TAB>identifier<TAB>title<TAB>topComponent */
     String[] getRecentTasks() = 11;
     boolean switchToTask(String taskId, String identifier, String topComponent) = 12;
+    boolean showVoiceAssistant() = 13;
+    boolean runShellCommand(in String[] cmd) = 14;
 }

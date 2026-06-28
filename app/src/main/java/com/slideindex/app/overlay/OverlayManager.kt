@@ -55,39 +55,29 @@ class OverlayManager(
     private fun syncControllers(settings: AppSettings) {
         val screenWidth = context.resources.displayMetrics.widthPixels
 
-        if (settings.leftEdgeEnabled) {
-            if (leftController == null) {
-                leftController = SideOverlayController(
-                    context = context,
-                    side = PanelSide.LEFT,
-                    windowManager = windowManager,
-                    appRepository = appRepository,
-                    scope = scope,
-                    clickPassthroughHandler = ::performClickPassthrough,
-                )
-            }
-            leftController?.updateSettings(settings, screenWidth)
-        } else {
-            leftController?.destroy()
-            leftController = null
+        if (leftController == null) {
+            leftController = SideOverlayController(
+                context = context,
+                side = PanelSide.LEFT,
+                windowManager = windowManager,
+                appRepository = appRepository,
+                scope = scope,
+                clickPassthroughHandler = ::performClickPassthrough,
+            )
         }
+        leftController?.updateSettings(settings, screenWidth)
 
-        if (settings.rightEdgeEnabled) {
-            if (rightController == null) {
-                rightController = SideOverlayController(
-                    context = context,
-                    side = PanelSide.RIGHT,
-                    windowManager = windowManager,
-                    appRepository = appRepository,
-                    scope = scope,
-                    clickPassthroughHandler = ::performClickPassthrough,
-                )
-            }
-            rightController?.updateSettings(settings, screenWidth)
-        } else {
-            rightController?.destroy()
-            rightController = null
+        if (rightController == null) {
+            rightController = SideOverlayController(
+                context = context,
+                side = PanelSide.RIGHT,
+                windowManager = windowManager,
+                appRepository = appRepository,
+                scope = scope,
+                clickPassthroughHandler = ::performClickPassthrough,
+            )
         }
+        rightController?.updateSettings(settings, screenWidth)
 
         applyPreviewToControllers()
     }
@@ -101,12 +91,8 @@ class OverlayManager(
             return
         }
 
-        if (currentSettings.leftEdgeEnabled) {
-            leftController?.showEdge()
-        }
-        if (currentSettings.rightEdgeEnabled) {
-            rightController?.showEdge()
-        }
+        leftController?.showEdge()
+        rightController?.showEdge()
     }
 
     private fun shouldSuppressTrigger(): Boolean {
@@ -118,14 +104,8 @@ class OverlayManager(
     private fun applyPreviewToControllers() {
         if (!currentSettings.serviceEnabled) return
         val content = previewContent
-        leftController?.setPreviewMode(
-            previewMode && currentSettings.leftEdgeEnabled,
-            content,
-        )
-        rightController?.setPreviewMode(
-            previewMode && currentSettings.rightEdgeEnabled,
-            content,
-        )
+        leftController?.setPreviewMode(previewMode, content)
+        rightController?.setPreviewMode(previewMode, content)
     }
 
     fun reloadApps() {

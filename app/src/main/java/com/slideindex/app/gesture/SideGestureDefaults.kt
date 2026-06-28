@@ -50,7 +50,7 @@ fun AppSettings.resolvedTriggerMode(side: PanelSide, trigger: GestureTriggerType
     val customMode = slotTriggerMode(side, trigger)
     if (customMode != GestureTriggerMode.DEFAULT) return customMode
     val action = actionFor(side, trigger)
-    if (trigger.supportsIndex && action is GestureAction.OpenIndex) {
+    if (action.supportsContinuousTracking(trigger)) {
         return GestureTriggerMode.CONTINUOUS
     }
     return defaultTriggerModeFor(side)

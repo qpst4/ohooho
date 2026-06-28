@@ -19,7 +19,7 @@ enum class GestureTriggerMode(val id: Int) {
 fun GestureTriggerMode.supportsAction(action: GestureAction, trigger: GestureTriggerType): Boolean =
     when (this) {
         GestureTriggerMode.DEFAULT, GestureTriggerMode.ON_RELEASE -> true
-        GestureTriggerMode.CONTINUOUS -> action is GestureAction.OpenIndex && trigger.supportsIndex
+        GestureTriggerMode.CONTINUOUS -> action.supportsContinuousTracking(trigger)
         GestureTriggerMode.IMMEDIATE -> when {
             action is GestureAction.ClickPassthrough -> false
             trigger.isSingleTap -> false

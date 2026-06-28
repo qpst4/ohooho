@@ -2,6 +2,7 @@ package com.slideindex.app.shizuku
 
 import android.app.ActivityOptions
 import android.content.Context
+import android.content.Intent
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.IBinder
@@ -186,6 +187,20 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         }
         Log.w(TAG, "switchToTask($taskId) failed")
         return false
+    }
+
+    override fun showVoiceAssistant(): Boolean {
+        if (shellCommand("cmd", "voiceinteraction", "show")) {
+            Log.i(TAG, "showVoiceAssistant via cmd voiceinteraction show succeeded")
+            return true
+        }
+        Log.w(TAG, "showVoiceAssistant failed")
+        return false
+    }
+
+    override fun runShellCommand(cmd: Array<out String>?): Boolean {
+        if (cmd.isNullOrEmpty()) return false
+        return shellCommand(*cmd)
     }
 
     private fun launchComponentForTask(taskId: Int, component: String): Boolean {
@@ -596,7 +611,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     companion object {
         private const val TAG = "TaskManagerUserService"
-        const val API_VERSION = 22
+        const val API_VERSION = 24
         private const val ACTIVITY_DUMP_CACHE_MS = 1_500L
         private const val RESIZE_MODE_SYSTEM = 0
         private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"

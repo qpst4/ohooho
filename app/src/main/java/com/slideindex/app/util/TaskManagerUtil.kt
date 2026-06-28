@@ -328,6 +328,20 @@ object TaskManagerUtil {
         }
     }
 
+    fun showVoiceAssistant(): Boolean {
+        if (!hasPermission()) return false
+        return runOnTaskWorker {
+            bindFreshService()?.showVoiceAssistant() == true
+        }
+    }
+
+    fun runShellCommand(vararg cmd: String): Boolean {
+        if (!hasPermission()) return false
+        return runOnTaskWorker {
+            bindFreshService()?.runShellCommand(cmd) == true
+        }
+    }
+
     fun <T> runOnTaskWorker(block: () -> T): T {
         synchronized(taskWorkerLock) {
             return block()

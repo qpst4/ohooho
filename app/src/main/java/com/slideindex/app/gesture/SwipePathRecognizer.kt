@@ -34,6 +34,7 @@ class SwipePathRecognizer(
     private var startTime = 0L
     private var tracking = false
     private var longPressTriggered = false
+    private var movedBeyondLongPressSlop = false
     private var shortDistanceDp = DEFAULT_SHORT_DISTANCE_DP
     private var longDistanceDp = DEFAULT_LONG_DISTANCE_DP
 
@@ -48,6 +49,7 @@ class SwipePathRecognizer(
         startTime = System.currentTimeMillis()
         tracking = true
         longPressTriggered = false
+        movedBeyondLongPressSlop = false
     }
 
     fun gestureStartRawX(): Float = startRawX
@@ -66,14 +68,46 @@ class SwipePathRecognizer(
 
     fun onTouchMove(rawX: Float, rawY: Float) {
         if (!tracking) return
+        recordMovement(rawX, rawY)
+        refreshLongPress(rawX, rawY)
+    }
+
+    fun refreshLongPress(rawX: Float, rawY: Float) {
+        if (!tracking || longPressTriggered || movedBeyondLongPressSlop) return
         val elapsed = System.currentTimeMillis() - startTime
-        if (!longPressTriggered && elapsed >= LONG_PRESS_MS) {
+        if (elapsed >= LONG_PRESS_MS) {
             val dist = hypot(rawX - startRawX, rawY - startRawY)
             if (dist < TAP_SLOP_DP * density) {
                 longPressTriggered = true
             }
         }
     }
+
+    private fun recordMovement(rawX: Float, rawY: Float) {
+        if (movedBeyondLongPressSlop) return
+        val dist = hypot(rawX - startRawX, rawY - startRawY)
+        if (dist >= TAP_SLOP_DP * density) {
+            movedBeyondLongPressSlop = true
+        }
+    }
+
+    fun swipeDistance(rawX: Float, rawY: Float): Float {
+        if (!tracking) return 0f
+        val dx = rawX - startRawX
+        val dy = rawY - startRawY
+        val inward = inwardDelta(dx)
+        return hypot(inward.toDouble(), dy.toDouble()).toFloat()
+    }
+
+    fun shortThresholdPx(): Float = shortDistanceDp * density
+
+    fun longThresholdPx(): Float = longDistanceDp * density
+
+    fun disqualifyLongPress() {
+        movedBeyondLongPressSlop = true
+    }
+
+    fun longPressEligible(): Boolean = tracking && !movedBeyondLongPressSlop
 
     fun classifyPartial(
         rawX: Float,
@@ -125,6 +159,7 @@ class SwipePathRecognizer(
     fun reset() {
         tracking = false
         longPressTriggered = false
+        movedBeyondLongPressSlop = false
     }
 
     private fun computeClassification(
@@ -133,6 +168,8 @@ class SwipePathRecognizer(
         options: ClassifyOptions,
         partial: Boolean,
     ): SwipeClassification? {
+        recordMovement(rawX, rawY)
+        refreshLongPress(rawX, rawY)
         val dx = rawX - startRawX
         val dy = rawY - startRawY
         val inward = inwardDelta(dx)
@@ -181,17 +218,22 @@ class SwipePathRecognizer(
     }
 
     companion object {
-        const val DEFAULT_SHORT_DISTANCE_DP = 60f
-        const val DEFAULT_LONG_DISTANCE_DP = 120f
         private const val MIN_DISTANCE_DP = 24f
         private const val MAX_DISTANCE_DP = 240f
         private const val MIN_DISTANCE_GAP_DP = 16f
+
+        const val DEFAULT_SHORT_DISTANCE_DP = 60f
+        const val DEFAULT_LONG_DISTANCE_DP = 120f
+        const val SHORT_DISTANCE_MIN_DP = MIN_DISTANCE_DP
+        const val SHORT_DISTANCE_MAX_DP = 160f
+        const val LONG_DISTANCE_MIN_DP = MIN_DISTANCE_DP + MIN_DISTANCE_GAP_DP
+        const val LONG_DISTANCE_MAX_DP = MAX_DISTANCE_DP
+        const val LONG_PRESS_MS = 450L
         private const val TAP_SLOP_DP = 12f
         private const val TAP_LENIENT_SLOP_DP = 36f
         private const val INDEX_ENTER_DP = 24f
         private const val TAP_MAX_MS = 220L
         private const val TAP_LENIENT_MAX_MS = 450L
-        private const val LONG_PRESS_MS = 450L
         private const val VERTICAL_DOMINANCE_RATIO = 1.2f
     }
 }

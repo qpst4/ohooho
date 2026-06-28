@@ -10,6 +10,8 @@ import com.slideindex.app.service.OverlayService
 
 import com.slideindex.app.settings.AppSettings
 
+import com.slideindex.app.util.ContinuousAdjustController
+
 
 
 class GestureSession(
@@ -38,7 +40,13 @@ class GestureSession(
 
         fun hapticGestureStart()
 
+        fun hapticLongThreshold()
+
         fun hapticConfirmLaunch()
+
+        fun scheduleDelayed(runnable: Runnable, delayMs: Long)
+
+        fun cancelDelayed(runnable: Runnable)
 
     }
 
@@ -52,7 +60,46 @@ class GestureSession(
 
     private var indexMode = false
 
+    private var adjustMode: ContinuousAdjustController.Mode? = null
+
     private var moveTimeActionFired = false
+
+    private var wasAboveShortThreshold = false
+
+    private var wasAboveLongThreshold = false
+
+    private var longPressHapticFired = false
+
+    private var lastRawX = 0f
+
+    private var lastRawY = 0f
+
+    private var lastLocalX = 0f
+
+    private var lastLocalY = 0f
+
+    private val longPressCheckRunnable = Runnable {
+        if (!active || panelMode != OverlayPanelMode.NONE) return@Runnable
+        maybeHapticLongPress(lastRawX, lastRawY)
+        if (!pathRecognizer.isLongPressArmed()) return@Runnable
+        val classification = pathRecognizer.classifyPartial(lastRawX, lastRawY, classifyOptions()) ?: return@Runnable
+        when (settings.resolvedTriggerMode(side, classification.trigger)) {
+            GestureTriggerMode.IMMEDIATE -> {
+                if (!moveTimeActionFired &&
+                    pathRecognizer.hasMetThreshold(classification.trigger, lastRawX, lastRawY)
+                ) {
+                    dispatchMoveTimeGesture(
+                        classification,
+                        lastRawX,
+                        lastRawY,
+                        lastLocalX,
+                        lastLocalY,
+                    )
+                }
+            }
+            GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT, GestureTriggerMode.CONTINUOUS -> Unit
+        }
+    }
 
 
 
@@ -90,15 +137,31 @@ class GestureSession(
 
         indexMode = false
 
+        adjustMode = null
+
         panelMode = OverlayPanelMode.NONE
 
         moveTimeActionFired = false
+
+        wasAboveShortThreshold = false
+
+        wasAboveLongThreshold = false
+
+        longPressHapticFired = false
+
+        lastRawX = rawX
+
+        lastRawY = rawY
+
+        lastLocalX = localX
+
+        lastLocalY = localY
 
         OverlayService.captureGestureForegroundPackage()
 
         pathRecognizer.onTouchDown(rawX, rawY)
 
-        callbacks.hapticGestureStart()
+        callbacks.scheduleDelayed(longPressCheckRunnable, SwipePathRecognizer.LONG_PRESS_MS)
 
         return true
 
@@ -109,6 +172,19 @@ class GestureSession(
     fun onTouchMove(rawX: Float, rawY: Float, localX: Float, localY: Float) {
 
         if (!active) return
+
+        lastRawX = rawX
+
+        lastRawY = rawY
+
+        lastLocalX = localX
+
+        lastLocalY = localY
+
+        if (adjustMode != null) {
+            actionExecutor.updateContinuousAdjust(adjustMode!!, rawY)
+            return
+        }
 
         if (panelMode != OverlayPanelMode.NONE) {
 
@@ -125,6 +201,14 @@ class GestureSession(
         }
 
         pathRecognizer.onTouchMove(rawX, rawY)
+
+        if (!pathRecognizer.longPressEligible()) {
+            callbacks.cancelDelayed(longPressCheckRunnable)
+        }
+
+        maybeHapticLongPress(rawX, rawY)
+
+        trackDistanceHaptics(rawX, rawY)
 
         val classification = pathRecognizer.classifyPartial(rawX, rawY, classifyOptions()) ?: return
 
@@ -146,7 +230,7 @@ class GestureSession(
 
             GestureTriggerMode.CONTINUOUS -> {
 
-                trackContinuousGesture(classification, localX, localY)
+                trackContinuousGesture(classification, rawX, rawY, localX, localY)
 
             }
 
@@ -194,6 +278,11 @@ class GestureSession(
 
             OverlayPanelMode.NONE -> {
 
+                if (adjustMode != null) {
+                    endSession()
+                    return
+                }
+
                 if (moveTimeActionFired) {
 
                     endSession()
@@ -201,6 +290,8 @@ class GestureSession(
                     return
 
                 }
+
+                maybeHapticLongPress(rawX, rawY)
 
                 val classification = pathRecognizer.classifyOnUp(rawX, rawY, classifyOptions()) ?: run {
 
@@ -256,9 +347,21 @@ class GestureSession(
 
         indexMode = false
 
+        adjustMode = null
+
         panelMode = OverlayPanelMode.NONE
 
         moveTimeActionFired = false
+
+        wasAboveShortThreshold = false
+
+        wasAboveLongThreshold = false
+
+        longPressHapticFired = false
+
+        callbacks.cancelDelayed(longPressCheckRunnable)
+
+        actionExecutor.endContinuousAdjust()
 
         pathRecognizer.reset()
 
@@ -291,6 +394,31 @@ class GestureSession(
             SwipePathRecognizer.ClassifyOptions.DEFAULT
 
         }
+
+    private fun trackDistanceHaptics(rawX: Float, rawY: Float) {
+        val distance = pathRecognizer.swipeDistance(rawX, rawY)
+        val aboveShort = distance >= pathRecognizer.shortThresholdPx()
+        val aboveLong = distance >= pathRecognizer.longThresholdPx()
+        if (aboveShort && !wasAboveShortThreshold) {
+            callbacks.cancelDelayed(longPressCheckRunnable)
+            pathRecognizer.disqualifyLongPress()
+            callbacks.hapticGestureStart()
+        }
+        if (aboveLong && !wasAboveLongThreshold) {
+            callbacks.hapticLongThreshold()
+        }
+        wasAboveShortThreshold = aboveShort
+        wasAboveLongThreshold = aboveLong
+    }
+
+    private fun maybeHapticLongPress(rawX: Float, rawY: Float) {
+        if (longPressHapticFired) return
+        pathRecognizer.refreshLongPress(rawX, rawY)
+        if (pathRecognizer.isLongPressArmed()) {
+            longPressHapticFired = true
+            callbacks.hapticLongThreshold()
+        }
+    }
 
 
 
@@ -336,6 +464,10 @@ class GestureSession(
 
         classification: SwipeClassification,
 
+        rawX: Float,
+
+        rawY: Float,
+
         localX: Float,
 
         localY: Float,
@@ -344,19 +476,51 @@ class GestureSession(
 
         val action = settings.actionFor(side, classification.trigger)
 
-        if (action !is GestureAction.OpenIndex || !classification.trigger.supportsIndex) return
+        if (!classification.trigger.supportsIndex) return
 
-        if (!indexMode) {
+        when (action) {
 
-            enterIndexMode(localX, localY)
+            is GestureAction.OpenIndex -> {
 
-        } else {
+                if (!indexMode) {
 
-            indexSession.updateSelection(localX, localY)
+                    enterIndexMode(localX, localY)
 
-            callbacks.onRequestInvalidate()
+                } else {
+
+                    indexSession.updateSelection(localX, localY)
+
+                    callbacks.onRequestInvalidate()
+
+                }
+
+            }
+
+            GestureAction.AdjustVolume -> enterAdjustMode(ContinuousAdjustController.Mode.VOLUME, rawY)
+
+            GestureAction.AdjustBrightness -> enterAdjustMode(ContinuousAdjustController.Mode.BRIGHTNESS, rawY)
+
+            else -> Unit
 
         }
+
+    }
+
+
+
+    private fun enterAdjustMode(mode: ContinuousAdjustController.Mode, rawY: Float) {
+
+        if (adjustMode == mode) {
+
+            actionExecutor.updateContinuousAdjust(mode, rawY)
+
+            return
+
+        }
+
+        adjustMode = mode
+
+        actionExecutor.beginContinuousAdjust(mode, rawY)
 
     }
 
@@ -410,6 +574,8 @@ class GestureSession(
 
             }
 
+            GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> endSession()
+
             is GestureAction.QuickLauncher -> {
                 callbacks.hapticConfirmLaunch()
                 openPanel(OverlayPanelMode.QUICK_LAUNCHER)
@@ -453,6 +619,16 @@ class GestureSession(
                 callbacks.hapticConfirmLaunch()
 
                 actionExecutor.dispatchClickPassthrough(rawX, rawY, ::endSession)
+
+            }
+
+            GestureAction.Flashlight, GestureAction.LaunchAssistant -> {
+
+                callbacks.hapticConfirmLaunch()
+
+                actionExecutor.execute(action, settings)
+
+                endSession()
 
             }
 
