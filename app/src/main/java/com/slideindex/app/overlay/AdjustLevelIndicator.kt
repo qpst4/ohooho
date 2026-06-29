@@ -16,6 +16,13 @@ import kotlin.math.roundToInt
  * Floating vertical level pill shown while adjusting volume or brightness.
  */
 object AdjustLevelIndicator {
+    const val PILL_WIDTH_DP = 52f
+    const val PANEL_TOUCH_SLOP_DP = 32f
+
+    fun panelWindowWidthPx(density: Float): Int =
+        ((PILL_WIDTH_DP + PANEL_TOUCH_SLOP_DP * 2f) * density).toInt()
+            .coerceAtLeast((16f * density).toInt())
+
     data class Layout(
         val bounds: RectF,
         val track: RectF,
@@ -27,8 +34,10 @@ object AdjustLevelIndicator {
         side: PanelSide,
         anchorY: Float,
         density: Float,
+        viewScreenX: Int = 0,
+        screenWidthPx: Int = viewWidth,
     ): Layout {
-        val pillWidth = 52f * density
+        val pillWidth = PILL_WIDTH_DP * density
         val pillHeight = 196f * density
         val edgeInset = 18f * density
         val marginY = 24f * density
@@ -36,9 +45,11 @@ object AdjustLevelIndicator {
             marginY + pillHeight / 2f,
             viewHeight - marginY - pillHeight / 2f,
         )
+        // Anchor to the physical screen edge so window resize (full-screen gesture → pill strip)
+        // does not shift the pill or force a spurious enter animation.
         val left = when (side) {
-            PanelSide.LEFT -> edgeInset
-            PanelSide.RIGHT -> viewWidth - edgeInset - pillWidth
+            PanelSide.LEFT -> edgeInset - viewScreenX
+            PanelSide.RIGHT -> screenWidthPx - edgeInset - pillWidth - viewScreenX
         }
         val top = centerY - pillHeight / 2f
         val bounds = RectF(left, top, left + pillWidth, top + pillHeight)
@@ -89,24 +100,25 @@ object AdjustLevelIndicator {
         enterProgress: Float,
         density: Float,
         side: PanelSide,
+        recede: Boolean = false,
     ) {
         if (enterProgress <= 0f) return
-        val eased = easeOutCubic(enterProgress.coerceIn(0f, 1f))
-        val scale = 0.82f + 0.18f * eased
-        val alphaScale = eased
-        val slidePx = 22f * density * (1f - eased)
+        val t = enterProgress.coerceIn(0f, 1f)
+        // Enter easing comes from ValueAnimator's DecelerateInterpolator; only recede applies extra curve here.
+        val travel = if (recede) easeInCubic(t) else t
+        val alphaScale = if (recede) t else t
+        val slideRemaining = 1f - travel
+        val slideDistance = enterSlideDistancePx(density)
         val slideX = when (side) {
-            PanelSide.LEFT -> -slidePx
-            PanelSide.RIGHT -> slidePx
+            PanelSide.LEFT -> -slideDistance * slideRemaining
+            PanelSide.RIGHT -> slideDistance * slideRemaining
         }
 
         canvas.save()
-        val cx = layout.bounds.centerX()
-        val cy = layout.bounds.centerY()
         canvas.translate(slideX, 0f)
-        canvas.scale(scale, scale, cx, cy)
 
-        drawShadow(canvas, layout.bounds, 16f * density, alphaScale)
+        val shadowAlphaScale = if (recede) alphaScale * alphaScale else alphaScale
+        drawShadow(canvas, layout.bounds, 16f * density, shadowAlphaScale)
         drawPillBackground(canvas, layout.bounds, 18f * density, alphaScale)
         drawTrack(canvas, layout.track, mode, fraction.coerceIn(0f, 1f), density, alphaScale)
         drawIcon(
@@ -471,8 +483,11 @@ object AdjustLevelIndicator {
         canvas.drawText(label, bounds.centerX(), baseline, textPaint)
     }
 
-    private fun easeOutCubic(t: Float): Float {
-        val inv = 1f - t
-        return 1f - inv * inv * inv
+    private fun enterSlideDistancePx(density: Float): Float {
+        val edgeInset = 18f * density
+        val edgeMargin = 8f * density
+        return PILL_WIDTH_DP * density + edgeInset + edgeMargin
     }
+
+    private fun easeInCubic(t: Float): Float = t * t * t
 }

@@ -114,8 +114,12 @@ class EdgeGestureOverlayView(
     private var adjustIndicatorAnimator: ValueAnimator? = null
     private var adjustIndicatorLayout: AdjustLevelIndicator.Layout? = null
     private var adjustIndicatorHoldVisual: AdjustIndicatorVisual? = null
+    private var adjustIndicatorFrozenLayout: AdjustLevelIndicator.Layout? = null
     private var adjustPanelDismissing = false
     private var wasAdjustMode = false
+    private var adjustIndicatorReceding = false
+    private var adjustPanelExpandedForGesture = false
+    private var adjustPanelEntering = false
     private var adjustPanelState: AdjustPanelState? = null
     private val adjustPanelIdleDismissRunnable = Runnable { dismissAdjustPanel() }
     private var volumeChangeReceiver: BroadcastReceiver? = null
@@ -192,6 +196,9 @@ class EdgeGestureOverlayView(
 
     fun hasAdjustPanel(): Boolean = adjustPanelState != null
 
+    fun keepsOverlayExpanded(): Boolean =
+        adjustPanelState != null || adjustIndicatorProgress > 0f || adjustPanelDismissing
+
     fun isPreviewMode(): Boolean = previewMode
 
     fun setPreviewMode(enabled: Boolean, content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY) {
@@ -213,6 +220,12 @@ class EdgeGestureOverlayView(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         syncZoneLayout()
+        adjustPanelState?.let { state ->
+            if (!adjustPanelEntering) {
+                updateAdjustIndicatorLayout(state.anchorRawY)
+                invalidate()
+            }
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -223,7 +236,9 @@ class EdgeGestureOverlayView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (previewMode) return false
         val (localX, localY) = rawToLocal(event.rawX, event.rawY)
-        adjustPanelState?.let { return handleAdjustPanelTouch(event, localX, localY) }
+        if (adjustPanelState != null && !gestureSession.isActive()) {
+            if (handleAdjustPanelTouch(event, localX, localY)) return true
+        }
         when (gestureSession.panelMode()) {
             OverlayPanelMode.QUICK_LAUNCHER ->
                 return handleQuickLauncherTouch(event, localX, localY)
@@ -312,6 +327,7 @@ class EdgeGestureOverlayView(
         removeCallbacks(adjustPanelIdleDismissRunnable)
         stopAdjustPanelLevelSync()
         adjustIndicatorHoldVisual = captureAdjustIndicatorVisual()
+        freezeAdjustIndicatorLayout(adjustIndicatorHoldVisual?.anchorRawY)
         if (!animated || adjustIndicatorProgress <= 0f) {
             finishDismissAdjustPanel()
             return
@@ -329,13 +345,36 @@ class EdgeGestureOverlayView(
     private fun finishDismissAdjustPanel() {
         adjustPanelDismissing = false
         adjustPanelState = null
+        adjustPanelExpandedForGesture = false
+        adjustPanelEntering = false
         adjustIndicatorLayout = null
+        adjustIndicatorFrozenLayout = null
         adjustIndicatorHoldVisual = null
+        adjustIndicatorReceding = false
         adjustIndicatorAnimator?.cancel()
         adjustIndicatorProgress = 0f
         wasAdjustMode = false
         onAdjustPanelDismissCallback()
         invalidate()
+    }
+
+    private fun notifyOverlayLayoutIfNeeded() {
+        if (!keepsOverlayExpanded() && !gestureSession.isActive()) {
+            post { onSessionEndCallback() }
+        }
+    }
+
+    private fun freezeAdjustIndicatorLayout(anchorRawY: Float?) {
+        if (adjustIndicatorFrozenLayout != null) return
+        anchorRawY?.let { updateAdjustIndicatorLayout(it) }
+        adjustIndicatorFrozenLayout = adjustIndicatorLayout
+    }
+
+    private fun clearAdjustIndicatorExitState() {
+        adjustIndicatorHoldVisual = null
+        adjustIndicatorLayout = null
+        adjustIndicatorFrozenLayout = null
+        adjustIndicatorReceding = false
     }
 
     private fun scheduleAdjustPanelIdleDismiss() {
@@ -347,24 +386,47 @@ class EdgeGestureOverlayView(
         mode: ContinuousAdjustController.Mode,
         fraction: Float,
         anchorRawY: Float,
+        deferWindowLayout: Boolean = false,
     ) {
         if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
             actionExecutor.clearBrightnessPreview()
         }
         adjustPanelState = AdjustPanelState(mode = mode, fraction = fraction, anchorRawY = anchorRawY)
-        onAdjustPanelLayoutCallback(anchorRawY)
-        post {
-            updateAdjustIndicatorLayout(anchorRawY)
-            adjustPanelDismissing = false
-            wasAdjustMode = true
-            animateAdjustIndicatorTo(
-                target = 1f,
-                durationMs = ADJUST_INDICATOR_ENTER_MS,
-                interpolator = DecelerateInterpolator(),
-            )
+        adjustPanelDismissing = false
+        adjustIndicatorAnimator?.cancel()
+        adjustIndicatorProgress = 0f
+        if (deferWindowLayout) {
+            adjustPanelExpandedForGesture = true
+            onSessionStartCallback()
+            post { beginAdjustPanelEnterAnimation(anchorRawY) }
+        } else {
+            adjustPanelExpandedForGesture = false
+            onAdjustPanelLayoutCallback(anchorRawY)
+            post { beginAdjustPanelEnterAnimation(anchorRawY) }
         }
         scheduleAdjustPanelIdleDismiss()
         startAdjustPanelLevelSync(mode)
+    }
+
+    private fun beginAdjustPanelEnterAnimation(anchorRawY: Float) {
+        adjustPanelEntering = true
+        wasAdjustMode = true
+        adjustIndicatorAnimator?.cancel()
+        adjustIndicatorReceding = false
+        adjustIndicatorProgress = 0f
+        adjustIndicatorFrozenLayout = null
+        updateAdjustIndicatorLayout(anchorRawY, forceFullScreenAnchor = true)
+        adjustIndicatorFrozenLayout = adjustIndicatorLayout
+        animateAdjustIndicatorTo(
+            target = 1f,
+            durationMs = ADJUST_INDICATOR_ENTER_MS,
+            interpolator = DecelerateInterpolator(),
+        ) {
+            adjustPanelEntering = false
+            adjustIndicatorFrozenLayout = null
+            updateAdjustIndicatorLayout(anchorRawY)
+            invalidate()
+        }
     }
 
     private fun startAdjustPanelLevelSync(mode: ContinuousAdjustController.Mode) {
@@ -417,15 +479,25 @@ class EdgeGestureOverlayView(
         invalidate()
     }
 
-    private fun updateAdjustIndicatorLayout(anchorRawY: Float) {
+    private fun updateAdjustIndicatorLayout(
+        anchorRawY: Float,
+        forceFullScreenAnchor: Boolean = false,
+    ): AdjustLevelIndicator.Layout? {
+        val density = resources.displayMetrics.density
+        val screenWidthPx = resources.displayMetrics.widthPixels
+        val loc = IntArray(2)
+        getLocationOnScreen(loc)
         val (_, anchorLocalY) = rawToLocal(0f, anchorRawY)
         adjustIndicatorLayout = AdjustLevelIndicator.layout(
-            viewWidth = width,
-            viewHeight = height,
+            viewWidth = if (forceFullScreenAnchor) screenWidthPx else width.coerceAtLeast(1),
+            viewHeight = height.coerceAtLeast(resources.displayMetrics.heightPixels),
             side = side,
             anchorY = anchorLocalY,
-            density = resources.displayMetrics.density,
+            density = density,
+            viewScreenX = if (forceFullScreenAnchor) 0 else loc[0],
+            screenWidthPx = screenWidthPx,
         )
+        return adjustIndicatorLayout
     }
 
     private fun handleIndexTouch(event: MotionEvent, localX: Float, localY: Float): Boolean {
@@ -982,8 +1054,27 @@ class EdgeGestureOverlayView(
         onEnd: (() -> Unit)? = null,
     ) {
         adjustIndicatorAnimator?.cancel()
+        val receding = target == 0f && adjustIndicatorProgress > 0f
+        if (receding) {
+            adjustIndicatorReceding = true
+            freezeAdjustIndicatorLayout(
+                adjustIndicatorHoldVisual?.anchorRawY ?: adjustPanelState?.anchorRawY
+                    ?: gestureSession.adjustAnchorRawY(),
+            )
+        } else if (target >= 1f) {
+            adjustIndicatorReceding = false
+            if (!adjustPanelEntering) {
+                adjustIndicatorFrozenLayout = null
+            }
+        }
         if (durationMs <= 0L || adjustIndicatorProgress == target) {
             adjustIndicatorProgress = target
+            if (target >= 1f) {
+                adjustIndicatorReceding = false
+                if (!adjustPanelEntering) {
+                    adjustIndicatorFrozenLayout = null
+                }
+            }
             invalidate()
             onEnd?.invoke()
             return
@@ -1012,8 +1103,21 @@ class EdgeGestureOverlayView(
         fraction: Float,
         anchorRawY: Float,
     ) {
-        updateAdjustIndicatorLayout(anchorRawY)
-        val layout = adjustIndicatorLayout ?: return
+        val layout = if (adjustIndicatorReceding || adjustPanelEntering) {
+            adjustIndicatorFrozenLayout ?: run {
+                freezeAdjustIndicatorLayout(anchorRawY)
+                adjustIndicatorFrozenLayout
+            }
+        } else {
+            adjustIndicatorFrozenLayout = null
+            val panelVisible = adjustPanelState != null && !adjustPanelDismissing
+            if (panelVisible && adjustPanelState?.dragging != true && adjustIndicatorLayout != null) {
+                adjustIndicatorLayout
+            } else {
+                updateAdjustIndicatorLayout(anchorRawY)
+                adjustIndicatorLayout
+            }
+        } ?: return
         AdjustLevelIndicator.draw(
             canvas = canvas,
             layout = layout,
@@ -1022,6 +1126,7 @@ class EdgeGestureOverlayView(
             enterProgress = adjustIndicatorProgress,
             density = resources.displayMetrics.density,
             side = side,
+            recede = adjustIndicatorReceding,
         )
     }
 
@@ -1030,6 +1135,11 @@ class EdgeGestureOverlayView(
         if (active == wasAdjustMode) return
         wasAdjustMode = active
         if (active) {
+            // Floating panel enter/exit is owned by showAdjustPanel / dismissAdjustPanel.
+            if (adjustPanelState != null) {
+                wasAdjustMode = true
+                return
+            }
             animateAdjustIndicatorTo(
                 target = 1f,
                 durationMs = ADJUST_INDICATOR_ENTER_MS,
@@ -1042,9 +1152,10 @@ class EdgeGestureOverlayView(
                 durationMs = ADJUST_INDICATOR_EXIT_MS,
                 interpolator = AccelerateInterpolator(),
             ) {
-                adjustIndicatorHoldVisual = null
-                adjustIndicatorLayout = null
+                clearAdjustIndicatorExitState()
+                adjustIndicatorProgress = 0f
                 invalidate()
+                notifyOverlayLayoutIfNeeded()
             }
         }
     }
@@ -1085,8 +1196,9 @@ class EdgeGestureOverlayView(
         mode: ContinuousAdjustController.Mode,
         fraction: Float,
         anchorRawY: Float,
+        deferWindowLayout: Boolean,
     ) {
-        showAdjustPanel(mode, fraction, anchorRawY)
+        showAdjustPanel(mode, fraction, anchorRawY, deferWindowLayout)
     }
 
     override fun onSessionStart(mode: OverlayPanelMode) {
@@ -1157,26 +1269,32 @@ class EdgeGestureOverlayView(
 
     override fun onSessionEnd() {
         cancelPanelEnterAnimation()
+        adjustPanelState?.let {
+            adjustIndicatorReceding = false
+            // Enter/exit animation is owned by showAdjustPanel / dismissAdjustPanel.
+            // Snapping to 1f here cancels an in-flight enter (common on fast left swipes).
+        }
+        var deferOverlayCollapse = false
         if (adjustPanelState == null) {
             if (adjustIndicatorProgress > 0f) {
                 adjustIndicatorHoldVisual = captureAdjustIndicatorVisual() ?: adjustIndicatorHoldVisual
                 wasAdjustMode = false
+                deferOverlayCollapse = true
                 animateAdjustIndicatorTo(
                     target = 0f,
                     durationMs = ADJUST_INDICATOR_EXIT_MS,
                     interpolator = AccelerateInterpolator(),
                 ) {
-                    adjustIndicatorHoldVisual = null
-                    adjustIndicatorLayout = null
+                    clearAdjustIndicatorExitState()
                     adjustIndicatorProgress = 0f
                     invalidate()
+                    notifyOverlayLayoutIfNeeded()
                 }
             } else {
                 adjustIndicatorAnimator?.cancel()
                 adjustIndicatorProgress = 0f
                 wasAdjustMode = false
-                adjustIndicatorLayout = null
-                adjustIndicatorHoldVisual = null
+                clearAdjustIndicatorExitState()
             }
         }
         panelEnterProgress = 1f
@@ -1192,7 +1310,9 @@ class EdgeGestureOverlayView(
         dismissTaskSwitcherContextMenu()
         cancelTaskSwitcherCloseLongPress()
         cancelTaskSwitcherRowLongPress()
-        post { onSessionEndCallback() }
+        if (!deferOverlayCollapse) {
+            post { notifyOverlayLayoutIfNeeded() }
+        }
     }
 
     override fun onRequestInvalidate() {

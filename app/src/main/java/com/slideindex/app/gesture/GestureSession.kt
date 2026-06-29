@@ -38,6 +38,7 @@ class GestureSession(
             mode: ContinuousAdjustController.Mode,
             fraction: Float,
             anchorRawY: Float,
+            deferWindowLayout: Boolean = false,
         )
 
         fun onSessionEnd()
@@ -600,7 +601,11 @@ class GestureSession(
                 val triggerMode = settings.resolvedTriggerMode(side, classification.trigger)
                 when (triggerMode) {
                     GestureTriggerMode.CONTINUOUS -> endSession()
-                    GestureTriggerMode.IMMEDIATE -> enterAdjustMode(adjustControllerMode, rawY)
+                    GestureTriggerMode.IMMEDIATE -> {
+                        val fraction = actionExecutor.readCurrentAdjustFraction(adjustControllerMode)
+                        callbacks.hapticConfirmLaunch()
+                        callbacks.onShowAdjustPanel(adjustControllerMode, fraction, rawY, deferWindowLayout = true)
+                    }
                     GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT -> {
                         val fraction = actionExecutor.readCurrentAdjustFraction(adjustControllerMode)
                         endSession()

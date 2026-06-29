@@ -82,7 +82,7 @@ class SideOverlayController(
                 expandWindow()
             },
             onSessionEndCallback = {
-                if (overlayView?.hasAdjustPanel() != true && overlayView?.isSessionActive() != true) {
+                if (overlayView?.keepsOverlayExpanded() != true && overlayView?.isSessionActive() != true) {
                     if (previewMode) {
                         overlayView?.setPreviewMode(true, previewContent)
                         expandPreviewWindow()
@@ -158,9 +158,7 @@ class SideOverlayController(
     private fun layoutPostReleaseAdjustWindow(anchorRawY: Float) {
         val view = overlayView ?: return
         val params = windowParams ?: return
-        val pillWidth = 52f * density
-        val touchSlop = 32f * density
-        params.width = (pillWidth + touchSlop * 2f).toInt().coerceAtLeast(dp(16f).toInt())
+        params.width = AdjustLevelIndicator.panelWindowWidthPx(density)
         params.height = screenHeightPx
         params.gravity = expandedWindowGravity()
         params.x = 0

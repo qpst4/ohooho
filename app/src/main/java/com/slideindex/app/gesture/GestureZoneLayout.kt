@@ -35,7 +35,7 @@ class GestureZoneLayout(
     }
 
     fun triggerZoneRect(): RectF {
-        if (!sessionActive && !previewMode && viewWidth > 0 && viewHeight > 0) {
+        if (!sessionActive && !previewMode && isCollapsedEdgeWindow()) {
             return RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
         }
         val top = viewHeight * settings.triggerTopFraction(side)
@@ -45,6 +45,15 @@ class GestureZoneLayout(
             PanelSide.LEFT -> RectF(0f, top, w, top + zoneHeight)
             PanelSide.RIGHT -> RectF(viewWidth - w, top, viewWidth.toFloat(), top + zoneHeight)
         }
+    }
+
+    /** True when the overlay window is the idle edge strip, not an expanded session/panel window. */
+    private fun isCollapsedEdgeWindow(): Boolean {
+        if (viewWidth <= 0 || viewHeight <= 0) return false
+        val interceptPx = (settings.interceptWindowWidthDp(side) * density)
+            .toInt()
+            .coerceAtLeast(edgeWidthPx())
+        return viewWidth <= interceptPx
     }
 
     fun indexRailRect(): RectF {
