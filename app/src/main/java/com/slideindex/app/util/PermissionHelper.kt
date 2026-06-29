@@ -2,6 +2,7 @@ package com.slideindex.app.util
 
 import android.Manifest
 import android.app.AppOpsManager
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -78,4 +79,36 @@ object PermissionHelper {
 
     fun accessibilitySettingsIntent(): Intent =
         Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    fun canWriteSettings(context: Context): Boolean = Settings.System.canWrite(context)
+
+    fun writeSettingsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+            data = "package:${context.packageName}".toUri()
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+    fun hasNotificationPolicyAccess(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return manager.isNotificationPolicyAccessGranted
+    }
+
+    fun notificationPolicySettingsIntent(): Intent =
+        Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** Returns true if already granted; otherwise opens the system settings screen. */
+    fun requestNotificationPolicyAccess(context: Context): Boolean {
+        if (hasNotificationPolicyAccess(context)) return true
+        context.startActivity(notificationPolicySettingsIntent())
+        return false
+    }
+
+    /** Returns true if already granted; otherwise opens the system settings screen. */
+    fun requestWriteSettingsAccess(context: Context): Boolean {
+        if (canWriteSettings(context)) return true
+        context.startActivity(writeSettingsIntent(context))
+        return false
+    }
 }

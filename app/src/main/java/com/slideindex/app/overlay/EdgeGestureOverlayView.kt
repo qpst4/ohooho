@@ -30,6 +30,7 @@ import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.HapticHelper
+import com.slideindex.app.util.OverlayBrightnessControl
 import com.slideindex.app.util.RecentAppEntry
 import com.slideindex.app.util.RecentTasksLoader
 import com.slideindex.app.util.TaskManagerUtil
@@ -48,6 +49,7 @@ class EdgeGestureOverlayView(
     private val onSessionStartCallback: () -> Unit,
     private val onSessionEndCallback: () -> Unit,
     private val onClickPassthroughCallback: (Float, Float, () -> Unit) -> Unit = { _, _, onComplete -> onComplete() },
+    overlayBrightness: OverlayBrightnessControl? = null,
 ) : View(context), IndexSessionHost, GestureSession.Callbacks {
 
     private var settings = AppSettings()
@@ -62,6 +64,7 @@ class EdgeGestureOverlayView(
         context = context,
         appRepository = appRepository,
         clickPassthroughHandler = onClickPassthroughCallback,
+        overlayBrightness = overlayBrightness,
     )
     private val pathRecognizer = SwipePathRecognizer(side, resources.displayMetrics.density)
     private val gestureSession = GestureSession(

@@ -8,6 +8,7 @@ import com.slideindex.app.data.AppRepository
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.edgeTriggerWidthDp
 import com.slideindex.app.settings.interceptWindowWidthDp
+import com.slideindex.app.util.OverlayBrightnessControl
 import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -30,6 +31,7 @@ class SideOverlayController(
     private var overlayView: EdgeGestureOverlayView? = null
     private var windowParams: WindowManager.LayoutParams? = null
     private var loadJob: Job? = null
+    private var overlayBrightnessFraction: Float? = null
 
     private val density get() = context.resources.displayMetrics.density
 
@@ -96,6 +98,9 @@ class SideOverlayController(
                 } else {
                     onComplete()
                 }
+            },
+            overlayBrightness = OverlayBrightnessControl { fraction ->
+                applyOverlayWindowBrightness(fraction)
             },
         )
         view.applySettings(settings, context.resources.displayMetrics.widthPixels)
@@ -165,6 +170,8 @@ class SideOverlayController(
         val params = windowParams ?: return
         applyTriggerLayout(params)
         applyNormalTouchFlags(params)
+        params.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        overlayBrightnessFraction = null
         runCatching { windowManager.updateViewLayout(view, params) }
     }
 
@@ -227,7 +234,21 @@ class SideOverlayController(
 
     private fun dp(value: Float): Float = value * density
 
+    private fun applyOverlayWindowBrightness(fraction: Float?) {
+        if (overlayBrightnessFraction == fraction) return
+        overlayBrightnessFraction = fraction
+        val view = overlayView ?: return
+        val params = windowParams ?: return
+        params.screenBrightness = when (fraction) {
+            null -> WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            else -> fraction.coerceIn(MIN_OVERLAY_BRIGHTNESS, 1f)
+        }
+        runCatching { windowManager.updateViewLayout(view, params) }
+            .onFailure { Log.w(TAG, "Failed to update overlay brightness", it) }
+    }
+
     companion object {
         private const val TAG = "SideOverlayController"
+        private const val MIN_OVERLAY_BRIGHTNESS = 0.01f
     }
 }

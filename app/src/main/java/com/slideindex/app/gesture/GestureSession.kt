@@ -509,19 +509,18 @@ class GestureSession(
 
 
     private fun enterAdjustMode(mode: ContinuousAdjustController.Mode, rawY: Float) {
-
         if (adjustMode == mode) {
-
             actionExecutor.updateContinuousAdjust(mode, rawY)
-
             return
-
         }
-
-        adjustMode = mode
-
-        actionExecutor.beginContinuousAdjust(mode, rawY)
-
+        if (actionExecutor.beginContinuousAdjust(mode, rawY)) {
+            val enteringAdjust = adjustMode == null
+            adjustMode = mode
+            if (enteringAdjust) {
+                callbacks.onSessionStart(OverlayPanelMode.NONE)
+            }
+            actionExecutor.updateContinuousAdjust(mode, rawY)
+        }
     }
 
 

@@ -20,18 +20,19 @@ import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.util.AssistantLauncher
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
+import com.slideindex.app.util.OverlayBrightnessControl
 
 class ActionExecutor(
     private val context: Context,
     private val appRepository: AppRepository,
     private val clickPassthroughHandler: ((Float, Float, () -> Unit) -> Unit)? = null,
+    overlayBrightness: OverlayBrightnessControl? = null,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val continuousAdjust = ContinuousAdjustController(context)
+    private val continuousAdjust = ContinuousAdjustController(context, overlayBrightness)
 
-    fun beginContinuousAdjust(mode: ContinuousAdjustController.Mode, rawY: Float) {
+    fun beginContinuousAdjust(mode: ContinuousAdjustController.Mode, rawY: Float): Boolean =
         continuousAdjust.begin(mode, rawY)
-    }
 
     fun updateContinuousAdjust(mode: ContinuousAdjustController.Mode, rawY: Float) {
         continuousAdjust.update(mode, rawY)

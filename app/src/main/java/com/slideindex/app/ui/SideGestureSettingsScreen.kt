@@ -33,8 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import android.content.Context
 import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
@@ -49,6 +51,7 @@ import com.slideindex.app.gesture.slotTriggerMode
 import com.slideindex.app.gesture.supportsAction
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.settings.edgeTriggerWidthDp
 import com.slideindex.app.settings.triggerBottomFraction
 import com.slideindex.app.settings.triggerTopFraction
@@ -304,6 +307,7 @@ private fun SlotConfigDialog(
     var selectedMode by remember { mutableStateOf(currentMode) }
     var pickingAction by remember { mutableStateOf(false) }
     var pickingMode by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     val sideDefaultMode = settings.defaultTriggerModeFor(side)
 
     AlertDialog(
@@ -352,6 +356,7 @@ private fun SlotConfigDialog(
             current = selectedAction,
             onDismiss = { pickingAction = false },
             onSelect = { action ->
+                requestPermissionForAdjustAction(context, action)
                 selectedAction = action
                 if (!selectedMode.supportsAction(action, trigger)) {
                     selectedMode = action.preferredTriggerMode(trigger)
@@ -386,6 +391,7 @@ private fun ActionPickerDialog(
     onDismiss: () -> Unit,
     onSelect: (GestureAction) -> Unit,
 ) {
+    val context = LocalContext.current
     val actionOptions = buildList {
         add(GestureAction.None)
         if (trigger.supportsIndex) add(GestureAction.OpenIndex)
@@ -419,13 +425,30 @@ private fun ActionPickerDialog(
                             .fillMaxWidth()
                             .clickable { onSelect(action) }
                             .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalAlignment = Alignment.Top,
                     ) {
                         RadioButton(
                             selected = action.type == current.type,
                             onClick = { onSelect(action) },
+                            modifier = Modifier.padding(top = 2.dp),
                         )
-                        Text(actionLabel(action))
+                        Column(modifier = Modifier.padding(start = 4.dp)) {
+                            Text(actionLabel(action))
+                            actionDescription(action)?.let { description ->
+                                Text(
+                                    text = description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            actionPermissionHint(action, context)?.let { hint ->
+                                Text(
+                                    text = hint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -594,6 +617,35 @@ private fun actionLabel(action: GestureAction): String = when (action.type) {
     GestureActionType.ADJUST_VOLUME -> stringResource(R.string.gesture_action_adjust_volume)
     GestureActionType.ADJUST_BRIGHTNESS -> stringResource(R.string.gesture_action_adjust_brightness)
     GestureActionType.LAUNCH_ASSISTANT -> stringResource(R.string.gesture_action_launch_assistant)
+}
+
+@Composable
+private fun actionDescription(action: GestureAction): String? = when (action.type) {
+    GestureActionType.ADJUST_VOLUME -> stringResource(R.string.gesture_action_adjust_volume_desc)
+    GestureActionType.ADJUST_BRIGHTNESS -> stringResource(R.string.gesture_action_adjust_brightness_desc)
+    else -> null
+}
+
+@Composable
+private fun actionPermissionHint(action: GestureAction, context: Context): String? =
+    when (action.type) {
+        GestureActionType.ADJUST_VOLUME -> {
+            if (PermissionHelper.hasNotificationPolicyAccess(context)) return null
+            stringResource(R.string.gesture_action_adjust_volume_permission)
+        }
+        GestureActionType.ADJUST_BRIGHTNESS -> {
+            if (PermissionHelper.canWriteSettings(context)) return null
+            stringResource(R.string.gesture_action_adjust_brightness_permission)
+        }
+        else -> null
+    }
+
+private fun requestPermissionForAdjustAction(context: Context, action: GestureAction) {
+    when (action) {
+        GestureAction.AdjustVolume -> PermissionHelper.requestNotificationPolicyAccess(context)
+        GestureAction.AdjustBrightness -> PermissionHelper.requestWriteSettingsAccess(context)
+        else -> Unit
+    }
 }
 
 @Composable
