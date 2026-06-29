@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run on Android Device",
+            "type": "node",
+            "request": "launch",
+            "preLaunchTask": "gradle-install", 
+            // 你的 adb.exe 绝对路径
+            "runtimeExecutable": "C:\\Users\\syp\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe",
+            "runtimeArgs": [
+                "-d",                               // 强制指定发送给你的真机（Meizu 21）
+                "shell",
+                "monkey",
+                "-p",
+                "com.slideindex.app",               // 👈 换成了你真正的包名
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1"
+            ]
+        }
+    ]
+}
