@@ -247,12 +247,10 @@ object AdjustLevelIndicator {
         val cy = bounds.top + (trackTop - bounds.top) / 2f
         val accent = iconAccent(mode, level, alphaScale)
 
+        drawIconHeaderGlow(canvas, cx, cy, bounds.width(), trackTop - bounds.top, accent, level, density, alphaScale)
         when (mode) {
             ContinuousAdjustController.Mode.VOLUME -> drawVolumeIcon(canvas, cx, cy, iconSize, level, accent, density, alphaScale)
-            ContinuousAdjustController.Mode.BRIGHTNESS -> {
-                drawIconHeaderGlow(canvas, cx, cy, bounds.width(), trackTop - bounds.top, accent, level, density, alphaScale)
-                drawBrightnessIcon(canvas, cx, cy, iconSize, level, accent, density)
-            }
+            ContinuousAdjustController.Mode.BRIGHTNESS -> drawBrightnessIcon(canvas, cx, cy, iconSize, level, accent, density)
         }
     }
 
