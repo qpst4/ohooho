@@ -22,6 +22,7 @@ import com.slideindex.app.util.AssistantLauncher
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
 import com.slideindex.app.util.OverlayBrightnessControl
+import com.slideindex.app.util.VolumeControlHelper
 
 class ActionExecutor(
     private val context: Context,
@@ -59,6 +60,17 @@ class ActionExecutor(
     fun adjustMode(): ContinuousAdjustController.Mode? = continuousAdjust.currentMode()
 
     fun adjustFraction(): Float = continuousAdjust.currentFraction()
+
+    fun readRingerMode(): Int = VolumeControlHelper.readRingerMode(context)
+
+    fun cycleRingerMode(): Int? = VolumeControlHelper.cycleRingerMode(context)
+
+    fun readVolumeFraction(stream: VolumeControlHelper.Stream): Float =
+        VolumeControlHelper.readFraction(context, stream)
+
+    fun setVolumeFraction(stream: VolumeControlHelper.Stream, fraction: Float) {
+        VolumeControlHelper.setFraction(context, stream, fraction)
+    }
 
     fun execute(action: GestureAction, settings: AppSettings, longPressArmed: Boolean = false) {
         when (action) {

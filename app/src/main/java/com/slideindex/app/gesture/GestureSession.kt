@@ -319,6 +319,10 @@ class GestureSession(
             OverlayPanelMode.NONE -> {
 
                 if (adjustMode != null) {
+                    val mode = adjustMode!!
+                    val fraction = actionExecutor.readCurrentAdjustFraction(mode)
+                    val anchorRawY = adjustLayoutAnchorRawY
+                    callbacks.onShowAdjustPanel(mode, fraction, anchorRawY)
                     endSession()
                     return
                 }
@@ -440,13 +444,19 @@ class GestureSession(
         }
 
     private fun trackDistanceHaptics(rawX: Float, rawY: Float) {
-        val distance = pathRecognizer.swipeDistance(rawX, rawY)
+        val distance = pathRecognizer.effectiveSwipeDistance(rawX, rawY)
         val aboveShort = distance >= pathRecognizer.shortThresholdPx()
         val aboveLong = distance >= pathRecognizer.longThresholdPx()
         if (aboveShort && !wasAboveShortThreshold) {
-            callbacks.cancelDelayed(longPressCheckRunnable)
-            pathRecognizer.disqualifyLongPress()
-            callbacks.hapticGestureStart()
+            val classification = pathRecognizer.classifyPartial(rawX, rawY, classifyOptions())
+            val action = classification?.let { settings.actionFor(side, it.trigger) }
+            if (classification != null && action != GestureAction.None &&
+                action !is GestureAction.ClickPassthrough
+            ) {
+                callbacks.cancelDelayed(longPressCheckRunnable)
+                pathRecognizer.disqualifyLongPress()
+                callbacks.hapticGestureStart()
+            }
         }
         if (aboveLong && !wasAboveLongThreshold) {
             callbacks.hapticLongThreshold()
@@ -648,9 +658,9 @@ class GestureSession(
                     }
                     GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT -> {
                         val fraction = actionExecutor.readCurrentAdjustFraction(adjustControllerMode)
-                        endSession()
                         callbacks.hapticConfirmLaunch()
                         callbacks.onShowAdjustPanel(adjustControllerMode, fraction, rawY)
+                        endSession()
                     }
                 }
             }

@@ -6,12 +6,14 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -68,10 +70,33 @@ class MainActivity : ComponentActivity() {
             val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = AppSettings(),
             )
-            var destination by remember { mutableStateOf(SettingsDestination.Main) }
+            var destination by rememberSaveable { mutableStateOf(SettingsDestination.Main) }
             SlideIndexTheme(
                 seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
             ) {
+                BackHandler(enabled = destination != SettingsDestination.Main) {
+                    when (destination) {
+                        SettingsDestination.FreeWindowPreview -> {
+                            destination = SettingsDestination.FreeWindow
+                        }
+                        SettingsDestination.QuickLauncherLeft -> {
+                            destination = SettingsDestination.SideGesturesLeft
+                        }
+                        SettingsDestination.QuickLauncherRight -> {
+                            destination = SettingsDestination.SideGesturesRight
+                        }
+                        SettingsDestination.Layout,
+                        SettingsDestination.SideGesturesLeft,
+                        SettingsDestination.SideGesturesRight,
+                        -> {
+                            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+                            destination = SettingsDestination.Main
+                        }
+                        else -> {
+                            destination = SettingsDestination.Main
+                        }
+                    }
+                }
                 when (destination) {
                     SettingsDestination.Main -> MainScreen(
                         settings = settings,

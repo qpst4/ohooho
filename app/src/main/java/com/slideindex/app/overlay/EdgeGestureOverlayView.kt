@@ -37,8 +37,11 @@ import com.slideindex.app.gesture.SwipePathRecognizer
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.service.OverlayService
 import com.slideindex.app.util.HapticHelper
 import com.slideindex.app.util.ContinuousAdjustController
+import com.slideindex.app.util.PermissionHelper
+import com.slideindex.app.util.VolumeControlHelper
 import com.slideindex.app.util.OverlayBrightnessControl
 import com.slideindex.app.util.RecentAppEntry
 import com.slideindex.app.util.RecentTasksLoader
@@ -137,7 +140,8 @@ class EdgeGestureOverlayView(
     private var adjustPanelExpandedForGesture = false
     private var adjustPanelEntering = false
     private var adjustPanelState: AdjustPanelState? = null
-    private val adjustPanelIdleDismissRunnable = Runnable { dismissAdjustPanel() }
+    private var volumeDragAnchorRawY = 0f
+    private var volumeDragBaseline = 0f
     private var volumeChangeReceiver: BroadcastReceiver? = null
     private var interceptTouchActive = false
 
@@ -269,6 +273,7 @@ class EdgeGestureOverlayView(
                 if (gestureSession.isActive()) return true
                 if (gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) return true
                 if (settings.interceptSystemBackGesture &&
+                    !shouldPassthroughSystemBack() &&
                     zoneLayout.containsInterceptZone(localX, localY)
                 ) {
                     interceptTouchActive = true
@@ -279,7 +284,9 @@ class EdgeGestureOverlayView(
             MotionEvent.ACTION_MOVE -> {
                 if (interceptTouchActive) return true
                 if (!gestureSession.isActive()) return false
-                gestureSession.onTouchMove(event.rawX, event.rawY, localX, localY)
+                forEachGesturePoint(event, localX, localY, includeHistory = true) { rawX, rawY, lx, ly ->
+                    gestureSession.onTouchMove(rawX, rawY, lx, ly)
+                }
                 invalidate()
                 return true
             }
@@ -289,6 +296,9 @@ class EdgeGestureOverlayView(
                     return true
                 }
                 if (!gestureSession.isActive()) return false
+                forEachGesturePoint(event, localX, localY, includeHistory = true) { rawX, rawY, lx, ly ->
+                    gestureSession.onTouchMove(rawX, rawY, lx, ly)
+                }
                 gestureSession.onTouchUp(event.rawX, event.rawY, localX, localY)
                 return true
             }
@@ -306,30 +316,84 @@ class EdgeGestureOverlayView(
                     dismissAdjustPanel()
                     return false
                 }
-                if (AdjustLevelIndicator.containsTouch(layout, side, localX, localY, density)) {
-                    removeCallbacks(adjustPanelIdleDismissRunnable)
-                    state.dragging = true
-                    actionExecutor.beginContinuousAdjust(state.mode, event.rawY)
-                    actionExecutor.updateContinuousAdjust(state.mode, event.rawY)
-                    invalidate()
-                    return true
+                when (
+                    AdjustLevelIndicator.hitVolumeTarget(layout, side, localX, localY, density)
+                ) {
+                    VolumeHitTarget.RINGER -> {
+                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
+                        if (!VolumeControlHelper.hasAccess(context)) {
+                            PermissionHelper.requestNotificationPolicyAccess(context)
+                        } else {
+                            actionExecutor.cycleRingerMode()?.let { state.ringerMode = it }
+                            hapticConfirmLaunch()
+                        }
+                        invalidate()
+                        return true
+                    }
+                    VolumeHitTarget.EXPAND -> {
+                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
+                        state.volumeExpanded = !state.volumeExpanded
+                        if (state.volumeExpanded) {
+                            refreshVolumePanelLevels(state)
+                        }
+                        updateAdjustIndicatorLayout(state.anchorRawY)
+                        hapticConfirmLaunch()
+                        invalidate()
+                        return true
+                    }
+                    VolumeHitTarget.MEDIA -> {
+                        state.dragTarget = VolumeDragTarget.MEDIA
+                        state.dragging = true
+                        actionExecutor.beginContinuousAdjust(state.mode, event.rawY)
+                        actionExecutor.updateContinuousAdjust(state.mode, event.rawY)
+                        invalidate()
+                        return true
+                    }
+                    VolumeHitTarget.RING -> {
+                        if (!state.volumeExpanded) return false
+                        beginVolumeStreamDrag(state, VolumeDragTarget.RING, event.rawY)
+                        invalidate()
+                        return true
+                    }
+                    VolumeHitTarget.NOTIFICATION -> {
+                        if (!state.volumeExpanded) return false
+                        beginVolumeStreamDrag(state, VolumeDragTarget.NOTIFICATION, event.rawY)
+                        invalidate()
+                        return true
+                    }
+                    VolumeHitTarget.NONE -> {
+                        dismissAdjustPanel()
+                        return true
+                    }
                 }
-                dismissAdjustPanel()
-                return false
             }
             MotionEvent.ACTION_MOVE -> {
-                if (!state.dragging) return false
-                actionExecutor.updateContinuousAdjust(state.mode, event.rawY)
-                state.fraction = actionExecutor.adjustFraction()
+                if (state.dragTarget == null) return false
+                when (state.dragTarget) {
+                    VolumeDragTarget.MEDIA -> {
+                        actionExecutor.updateContinuousAdjust(state.mode, event.rawY)
+                        state.fraction = actionExecutor.adjustFraction()
+                    }
+                    VolumeDragTarget.RING, VolumeDragTarget.NOTIFICATION -> {
+                        updateVolumeStreamDrag(state, event.rawY)
+                    }
+                    null -> return false
+                }
                 invalidate()
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                if (!state.dragging) return false
+                if (state.dragTarget == null) return false
+                when (state.dragTarget) {
+                    VolumeDragTarget.MEDIA -> {
+                        actionExecutor.endContinuousAdjust()
+                        state.fraction = actionExecutor.readCurrentAdjustFraction(state.mode)
+                    }
+                    VolumeDragTarget.RING, VolumeDragTarget.NOTIFICATION -> Unit
+                    null -> Unit
+                }
+                state.dragTarget = null
                 state.dragging = false
-                actionExecutor.endContinuousAdjust()
-                state.fraction = actionExecutor.readCurrentAdjustFraction(state.mode)
-                scheduleAdjustPanelIdleDismiss()
                 invalidate()
                 return true
             }
@@ -337,12 +401,49 @@ class EdgeGestureOverlayView(
         return false
     }
 
+    private fun beginVolumeStreamDrag(state: AdjustPanelState, target: VolumeDragTarget, rawY: Float) {
+        state.dragTarget = target
+        state.dragging = true
+        volumeDragAnchorRawY = rawY
+        volumeDragBaseline = when (target) {
+            VolumeDragTarget.RING -> state.ringFraction
+            VolumeDragTarget.NOTIFICATION -> state.notificationFraction
+            VolumeDragTarget.MEDIA -> state.fraction
+        }
+    }
+
+    private fun updateVolumeStreamDrag(state: AdjustPanelState, rawY: Float) {
+        val span = resources.displayMetrics.heightPixels.coerceAtLeast(1) * VOLUME_DRAG_SPAN_SCREEN_FRACTION
+        val fraction = ((volumeDragBaseline + (volumeDragAnchorRawY - rawY) / span)).coerceIn(0f, 1f)
+        when (state.dragTarget) {
+            VolumeDragTarget.RING -> {
+                state.ringFraction = fraction
+                actionExecutor.setVolumeFraction(VolumeControlHelper.Stream.RING, fraction)
+            }
+            VolumeDragTarget.NOTIFICATION -> {
+                state.notificationFraction = fraction
+                actionExecutor.setVolumeFraction(VolumeControlHelper.Stream.NOTIFICATION, fraction)
+            }
+            VolumeDragTarget.MEDIA, null -> Unit
+        }
+    }
+
+    private fun refreshVolumePanelLevels(state: AdjustPanelState) {
+        state.fraction = actionExecutor.readCurrentAdjustFraction(ContinuousAdjustController.Mode.VOLUME)
+        state.ringFraction = actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.RING)
+        state.notificationFraction =
+            actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.NOTIFICATION)
+        state.ringerMode = actionExecutor.readRingerMode()
+    }
+
     private fun dismissAdjustPanel(animated: Boolean = true) {
         if (adjustPanelState == null || adjustPanelDismissing) return
-        removeCallbacks(adjustPanelIdleDismissRunnable)
         stopAdjustPanelLevelSync()
         adjustIndicatorHoldVisual = captureAdjustIndicatorVisual()
-        freezeAdjustIndicatorLayout(adjustIndicatorHoldVisual?.anchorRawY)
+        freezeAdjustIndicatorLayout(
+            adjustIndicatorHoldVisual?.anchorRawY,
+            adjustIndicatorHoldVisual?.mode,
+        )
         if (!animated || adjustIndicatorProgress <= 0f) {
             finishDismissAdjustPanel()
             return
@@ -379,9 +480,9 @@ class EdgeGestureOverlayView(
         }
     }
 
-    private fun freezeAdjustIndicatorLayout(anchorRawY: Float?) {
+    private fun freezeAdjustIndicatorLayout(anchorRawY: Float?, mode: ContinuousAdjustController.Mode? = null) {
         if (adjustIndicatorFrozenLayout != null) return
-        anchorRawY?.let { updateAdjustIndicatorLayout(it) }
+        anchorRawY?.let { updateAdjustIndicatorLayout(it, mode = mode) }
         adjustIndicatorFrozenLayout = adjustIndicatorLayout
     }
 
@@ -392,34 +493,46 @@ class EdgeGestureOverlayView(
         adjustIndicatorReceding = false
     }
 
-    private fun scheduleAdjustPanelIdleDismiss() {
-        removeCallbacks(adjustPanelIdleDismissRunnable)
-        postDelayed(adjustPanelIdleDismissRunnable, ADJUST_PANEL_IDLE_DISMISS_MS)
-    }
-
     fun showAdjustPanel(
         mode: ContinuousAdjustController.Mode,
         fraction: Float,
         anchorRawY: Float,
-        deferWindowLayout: Boolean = false,
+        @Suppress("UNUSED_PARAMETER") deferWindowLayout: Boolean = false,
     ) {
         if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
             actionExecutor.clearBrightnessPreview()
         }
-        adjustPanelState = AdjustPanelState(mode = mode, fraction = fraction, anchorRawY = anchorRawY)
+        adjustPanelState = if (mode == ContinuousAdjustController.Mode.VOLUME) {
+            AdjustPanelState(
+                mode = mode,
+                fraction = fraction,
+                anchorRawY = anchorRawY,
+                ringFraction = actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.RING),
+                notificationFraction = actionExecutor.readVolumeFraction(
+                    VolumeControlHelper.Stream.NOTIFICATION,
+                ),
+                ringerMode = actionExecutor.readRingerMode(),
+            )
+        } else {
+            AdjustPanelState(mode = mode, fraction = fraction, anchorRawY = anchorRawY)
+        }
         adjustPanelDismissing = false
         adjustIndicatorAnimator?.cancel()
-        adjustIndicatorProgress = 0f
-        if (deferWindowLayout) {
+        val fromContinuousGesture = gestureSession.isAdjustMode()
+        if (fromContinuousGesture) {
+            adjustIndicatorProgress = 1f
+            wasAdjustMode = true
+            adjustPanelEntering = false
+            adjustPanelExpandedForGesture = true
+            adjustIndicatorFrozenLayout = null
+            updateAdjustIndicatorLayout(anchorRawY, forceFullScreenAnchor = true, mode = mode)
+            onSessionStartCallback()
+            invalidate()
+        } else {
             adjustPanelExpandedForGesture = true
             onSessionStartCallback()
             post { beginAdjustPanelEnterAnimation(anchorRawY) }
-        } else {
-            adjustPanelExpandedForGesture = false
-            onAdjustPanelLayoutCallback(anchorRawY)
-            post { beginAdjustPanelEnterAnimation(anchorRawY) }
         }
-        scheduleAdjustPanelIdleDismiss()
         startAdjustPanelLevelSync(mode)
     }
 
@@ -430,7 +543,11 @@ class EdgeGestureOverlayView(
         adjustIndicatorReceding = false
         adjustIndicatorProgress = 0f
         adjustIndicatorFrozenLayout = null
-        updateAdjustIndicatorLayout(anchorRawY, forceFullScreenAnchor = true)
+        updateAdjustIndicatorLayout(
+            anchorRawY,
+            forceFullScreenAnchor = true,
+            mode = adjustPanelState?.mode,
+        )
         adjustIndicatorFrozenLayout = adjustIndicatorLayout
         animateAdjustIndicatorTo(
             target = 1f,
@@ -439,7 +556,7 @@ class EdgeGestureOverlayView(
         ) {
             adjustPanelEntering = false
             adjustIndicatorFrozenLayout = null
-            updateAdjustIndicatorLayout(anchorRawY)
+            updateAdjustIndicatorLayout(anchorRawY, mode = adjustPanelState?.mode)
             invalidate()
         }
     }
@@ -458,13 +575,25 @@ class EdgeGestureOverlayView(
         if (volumeChangeReceiver != null) return
         volumeChangeReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent?.action != VOLUME_CHANGED_ACTION) return
-                val streamType = intent.getIntExtra(EXTRA_VOLUME_STREAM_TYPE, -1)
-                if (streamType != AudioManager.STREAM_MUSIC) return
-                syncAdjustPanelVolumeFromSystem()
+                when (intent?.action) {
+                    VOLUME_CHANGED_ACTION -> {
+                        val streamType = intent.getIntExtra(EXTRA_VOLUME_STREAM_TYPE, -1)
+                        if (
+                            streamType == AudioManager.STREAM_MUSIC ||
+                            streamType == AudioManager.STREAM_RING ||
+                            streamType == AudioManager.STREAM_NOTIFICATION
+                        ) {
+                            syncAdjustPanelVolumeFromSystem()
+                        }
+                    }
+                    AudioManager.RINGER_MODE_CHANGED_ACTION -> syncAdjustPanelVolumeFromSystem()
+                }
             }
         }
-        val filter = IntentFilter(VOLUME_CHANGED_ACTION)
+        val filter = IntentFilter().apply {
+            addAction(VOLUME_CHANGED_ACTION)
+            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(volumeChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
@@ -486,23 +615,51 @@ class EdgeGestureOverlayView(
 
     private fun syncAdjustPanelLevelFromSystem(mode: ContinuousAdjustController.Mode) {
         val state = adjustPanelState ?: return
-        if (state.mode != mode || state.dragging) return
+        if (state.mode != mode) return
+        if (mode == ContinuousAdjustController.Mode.VOLUME) {
+            if (state.dragTarget != VolumeDragTarget.MEDIA) {
+                val mediaFraction = actionExecutor.readCurrentAdjustFraction(mode)
+                if (kotlin.math.abs(state.fraction - mediaFraction) >= LEVEL_SYNC_EPSILON) {
+                    state.fraction = mediaFraction
+                }
+            }
+            if (state.dragTarget != VolumeDragTarget.RING) {
+                val ringFraction = actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.RING)
+                if (kotlin.math.abs(state.ringFraction - ringFraction) >= LEVEL_SYNC_EPSILON) {
+                    state.ringFraction = ringFraction
+                }
+            }
+            if (state.dragTarget != VolumeDragTarget.NOTIFICATION) {
+                val notificationFraction =
+                    actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.NOTIFICATION)
+                if (kotlin.math.abs(state.notificationFraction - notificationFraction) >= LEVEL_SYNC_EPSILON) {
+                    state.notificationFraction = notificationFraction
+                }
+            }
+            state.ringerMode = actionExecutor.readRingerMode()
+            invalidate()
+            return
+        }
+        if (state.dragTarget != null) return
         val fraction = actionExecutor.readCurrentAdjustFraction(mode)
         if (kotlin.math.abs(state.fraction - fraction) < LEVEL_SYNC_EPSILON) return
         state.fraction = fraction
-        scheduleAdjustPanelIdleDismiss()
         invalidate()
     }
 
     private fun updateAdjustIndicatorLayout(
         anchorRawY: Float,
         forceFullScreenAnchor: Boolean = false,
+        mode: ContinuousAdjustController.Mode? = null,
     ): AdjustLevelIndicator.Layout? {
         val density = resources.displayMetrics.density
         val screenWidthPx = resources.displayMetrics.widthPixels
         val loc = IntArray(2)
         getLocationOnScreen(loc)
         val (_, anchorLocalY) = rawToLocal(0f, anchorRawY)
+        val adjustMode = mode
+            ?: adjustPanelState?.mode
+            ?: gestureSession.adjustModeOrNull()
         adjustIndicatorLayout = AdjustLevelIndicator.layout(
             viewWidth = if (forceFullScreenAnchor) screenWidthPx else width.coerceAtLeast(1),
             viewHeight = height.coerceAtLeast(resources.displayMetrics.heightPixels),
@@ -511,6 +668,9 @@ class EdgeGestureOverlayView(
             density = density,
             viewScreenX = if (forceFullScreenAnchor) 0 else loc[0],
             screenWidthPx = screenWidthPx,
+            includeBottomPill = adjustMode == ContinuousAdjustController.Mode.VOLUME,
+            volumeExpanded = adjustPanelState?.volumeExpanded == true &&
+                adjustMode == ContinuousAdjustController.Mode.VOLUME,
         )
         return adjustIndicatorLayout
     }
@@ -1743,10 +1903,9 @@ class EdgeGestureOverlayView(
 
     private fun captureAdjustIndicatorVisual(): AdjustIndicatorVisual? {
         adjustPanelState?.let { state ->
-            val fraction = if (state.dragging) {
-                actionExecutor.adjustFraction()
-            } else {
-                state.fraction
+            val fraction = when (state.dragTarget) {
+                VolumeDragTarget.MEDIA -> actionExecutor.adjustFraction()
+                else -> state.fraction
             }
             return AdjustIndicatorVisual(state.mode, fraction, state.anchorRawY)
         }
@@ -1773,6 +1932,9 @@ class EdgeGestureOverlayView(
             freezeAdjustIndicatorLayout(
                 adjustIndicatorHoldVisual?.anchorRawY ?: adjustPanelState?.anchorRawY
                     ?: gestureSession.adjustAnchorRawY(),
+                adjustIndicatorHoldVisual?.mode
+                    ?: adjustPanelState?.mode
+                    ?: gestureSession.adjustModeOrNull(),
             )
         } else if (target >= 1f) {
             adjustIndicatorReceding = false
@@ -1818,7 +1980,7 @@ class EdgeGestureOverlayView(
     ) {
         val layout = if (adjustIndicatorReceding || adjustPanelEntering) {
             adjustIndicatorFrozenLayout ?: run {
-                freezeAdjustIndicatorLayout(anchorRawY)
+                freezeAdjustIndicatorLayout(anchorRawY, mode)
                 adjustIndicatorFrozenLayout
             }
         } else {
@@ -1827,10 +1989,20 @@ class EdgeGestureOverlayView(
             if (panelVisible && adjustIndicatorLayout != null) {
                 adjustIndicatorLayout
             } else {
-                updateAdjustIndicatorLayout(anchorRawY)
+                updateAdjustIndicatorLayout(anchorRawY, mode = mode)
                 adjustIndicatorLayout
             }
         } ?: return
+        val volumePanel = adjustPanelState
+            ?.takeIf { it.mode == ContinuousAdjustController.Mode.VOLUME }
+            ?.let { state ->
+                VolumePanelVisual(
+                    expanded = state.volumeExpanded,
+                    ringFraction = state.ringFraction,
+                    notificationFraction = state.notificationFraction,
+                    ringerMode = state.ringerMode,
+                )
+            }
         AdjustLevelIndicator.draw(
             canvas = canvas,
             layout = layout,
@@ -1840,6 +2012,8 @@ class EdgeGestureOverlayView(
             density = resources.displayMetrics.density,
             side = side,
             recede = adjustIndicatorReceding,
+            volumePanel = volumePanel,
+            context = context,
         )
     }
 
@@ -2045,6 +2219,26 @@ class EdgeGestureOverlayView(
         )
     }
 
+    private fun forEachGesturePoint(
+        event: MotionEvent,
+        localX: Float,
+        localY: Float,
+        includeHistory: Boolean,
+        block: (rawX: Float, rawY: Float, localX: Float, localY: Float) -> Unit,
+    ) {
+        if (includeHistory) {
+            val rawOffsetX = event.rawX - event.x
+            val rawOffsetY = event.rawY - event.y
+            for (i in 0 until event.historySize) {
+                val rawX = event.getHistoricalX(i) + rawOffsetX
+                val rawY = event.getHistoricalY(i) + rawOffsetY
+                val (lx, ly) = rawToLocal(rawX, rawY)
+                block(rawX, rawY, lx, ly)
+            }
+        }
+        block(event.rawX, event.rawY, localX, localY)
+    }
+
     private fun rawToLocal(rawX: Float, rawY: Float): Pair<Float, Float> {
         val loc = IntArray(2)
         getLocationOnScreen(loc)
@@ -2091,6 +2285,37 @@ class EdgeGestureOverlayView(
         triggerPreviewStrokePaint.color = Color.argb(210, 255, 167, 38)
         triggerPreviewStrokePaint.strokeWidth = dp(2f)
         canvas.drawRoundRect(zone, corner, corner, triggerPreviewStrokePaint)
+        drawSwipeDistancePreview(canvas, zone)
+    }
+
+    private fun drawSwipeDistancePreview(canvas: Canvas, zone: RectF) {
+        val shortR = dp(settings.shortSwipeDistanceDp)
+        val longR = dp(settings.longSwipeDistanceDp)
+        if (longR <= shortR) return
+        val cx = when (side) {
+            PanelSide.LEFT -> zone.right
+            PanelSide.RIGHT -> zone.left
+        }
+        val cy = zone.centerY()
+        val startAngle = when (side) {
+            PanelSide.LEFT -> -90f
+            PanelSide.RIGHT -> 90f
+        }
+        val sweep = 180f
+        triggerPreviewStrokePaint.style = android.graphics.Paint.Style.STROKE
+        triggerPreviewFillPaint.style = android.graphics.Paint.Style.FILL
+
+        triggerPreviewFillPaint.color = Color.argb(28, 186, 104, 200)
+        canvas.drawArc(cx - longR, cy - longR, cx + longR, cy + longR, startAngle, sweep, true, triggerPreviewFillPaint)
+        triggerPreviewStrokePaint.color = Color.argb(170, 171, 71, 188)
+        triggerPreviewStrokePaint.strokeWidth = dp(2f)
+        canvas.drawArc(cx - longR, cy - longR, cx + longR, cy + longR, startAngle, sweep, false, triggerPreviewStrokePaint)
+
+        triggerPreviewFillPaint.color = Color.argb(40, 255, 183, 77)
+        canvas.drawArc(cx - shortR, cy - shortR, cx + shortR, cy + shortR, startAngle, sweep, true, triggerPreviewFillPaint)
+        triggerPreviewStrokePaint.color = Color.argb(220, 255, 152, 0)
+        triggerPreviewStrokePaint.strokeWidth = dp(2.5f)
+        canvas.drawArc(cx - shortR, cy - shortR, cx + shortR, cy + shortR, startAngle, sweep, false, triggerPreviewStrokePaint)
     }
 
     private fun drawLetterRail(canvas: Canvas) {
@@ -2814,6 +3039,9 @@ class EdgeGestureOverlayView(
     private fun taskSwitcherAnchorLocalY(): Float =
         taskSwitcherFrozenAnchorLocalY ?: resolveTaskSwitcherAnchorLocalY()
 
+    private fun shouldPassthroughSystemBack(): Boolean =
+        OverlayService.foregroundPackage == context.packageName
+
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
     private fun sp(value: Float): Float =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, resources.displayMetrics)
@@ -2951,10 +3179,10 @@ class EdgeGestureOverlayView(
         private const val TASK_SWITCHER_OVERSCROLL_RELEASE_MS = 280L
         private const val PANEL_ENTER_DURATION_MS = 180L
         private const val PANEL_ENTER_OFFSCREEN_MARGIN_DP = 16f
-        private const val ADJUST_PANEL_IDLE_DISMISS_MS = 4_000L
         private const val ADJUST_INDICATOR_ENTER_MS = 220L
         private const val ADJUST_INDICATOR_EXIT_MS = 160L
         private const val LEVEL_SYNC_EPSILON = 0.002f
+        private const val VOLUME_DRAG_SPAN_SCREEN_FRACTION = 0.5f
         private const val VOLUME_CHANGED_ACTION = "android.media.VOLUME_CHANGED_ACTION"
         private const val EXTRA_VOLUME_STREAM_TYPE = "android.media.EXTRA_VOLUME_STREAM_TYPE"
     }

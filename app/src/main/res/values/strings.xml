@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">侧滑索引</string>
+    <string name="main_settings_subtitle">布局、手势与外观</string>
     <string name="service_notification_title">侧滑索引运行中</string>
     <string name="service_notification_text">从屏幕边缘滑动打开应用索引</string>
     <string name="permission_overlay_title">悬浮窗权限</string>
@@ -14,7 +15,7 @@
     <string name="left_edge">左边缘侧滑</string>
     <string name="right_edge">右边缘侧滑</string>
     <string name="live_preview_hint">拖动触发区/索引相关滑块时会实时预览布局；其余时间可直接在屏幕边缘试用手势</string>
-    <string name="side_gestures_preview_hint">拖动触钮布局滑块时会实时预览；开启拦截返回手势后，预览中蓝色区域为拦截范围</string>
+    <string name="side_gestures_preview_hint">拖动触钮或滑动距离滑块时会实时预览：橙色为触发区，内圈为短距阈值，外圈为长距阈值；蓝色为返回拦截区</string>
     <string name="edge_width">触发区横向宽度</string>
     <string name="handle_width">触钮宽度</string>
     <string name="handle_length">触钮长度</string>

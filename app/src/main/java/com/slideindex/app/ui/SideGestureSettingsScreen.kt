@@ -4,27 +4,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwipeRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -87,39 +83,45 @@ fun SideGestureSettingsScreen(
         onDispose { onLayoutPreviewStop() }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.side_gestures_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            SettingsSectionTitle(stringResource(R.string.side_gestures_behavior_section))
+    SettingsScreenScaffold(
+        title = title,
+        subtitle = stringResource(R.string.side_gestures_desc),
+        onBack = onBack,
+    ) {
+        SettingsHintText(stringResource(R.string.side_gestures_preview_hint))
+
+            SettingsSectionTitle(stringResource(R.string.side_gestures_handle_section))
             SettingsCard {
-                SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
-                    title = stringResource(R.string.default_trigger_mode),
-                    subtitle = triggerModeLabel(settings.defaultTriggerModeFor(side), includeDefault = false),
-                    onClick = { pickingDefaultMode = true },
+                SettingsSliderRow(
+                    title = stringResource(R.string.handle_width),
+                    value = settings.edgeTriggerWidthDp(side),
+                    valueRange = 12f..36f,
+                    enabled = serviceEnabled,
+                    label = "${settings.edgeTriggerWidthDp(side).roundToInt()} dp",
+                    startLabel = stringResource(R.string.handle_width_small),
+                    endLabel = stringResource(R.string.handle_width_large),
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
+                    onValueChange = onEdgeWidthChange,
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingsRangeSliderRow(
+                    title = stringResource(R.string.handle_length),
+                    values = settings.triggerTopFraction(side)..
+                        settings.triggerBottomFraction(side),
+                    valueRange = 0.05f..0.95f,
+                    startLabel = stringResource(R.string.handle_length_small),
+                    endLabel = stringResource(R.string.handle_length_large),
+                    enabled = serviceEnabled,
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
+                    onValueChange = { range ->
+                        onTriggerVerticalRangeChange(range.start, range.endInclusive)
+                    },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 SettingsSliderRow(
                     title = stringResource(R.string.short_swipe_distance),
                     value = settings.shortSwipeDistanceDp,
@@ -128,9 +130,11 @@ fun SideGestureSettingsScreen(
                     enabled = serviceEnabled,
                     label = "",
                     formatLabel = { "${it.roundToInt()} dp" },
-                    commitOnFinish = true,
                     startLabel = stringResource(R.string.swipe_distance_small),
                     endLabel = stringResource(R.string.swipe_distance_large),
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
                     onValueChange = onShortSwipeDistanceChange,
                 )
                 SettingsSliderRow(
@@ -141,12 +145,46 @@ fun SideGestureSettingsScreen(
                     enabled = serviceEnabled,
                     label = "",
                     formatLabel = { "${it.roundToInt()} dp" },
-                    commitOnFinish = true,
                     startLabel = stringResource(R.string.swipe_distance_small),
                     endLabel = stringResource(R.string.swipe_distance_large),
+                    triggersLayoutPreview = true,
+                    onLayoutPreviewStart = onLayoutPreviewStart,
+                    onLayoutPreviewStop = onLayoutPreviewStop,
                     onValueChange = onLongSwipeDistanceChange,
                 )
+                SettingSwitchRow(
+                    title = stringResource(R.string.align_handles),
+                    subtitle = stringResource(R.string.align_handles_desc),
+                    checked = settings.alignHandlesEnabled,
+                    enabled = serviceEnabled,
+                    onCheckedChange = onAlignHandlesChange,
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.intercept_system_back),
+                    subtitle = stringResource(R.string.intercept_system_back_desc),
+                    checked = settings.interceptSystemBackGesture,
+                    enabled = serviceEnabled,
+                    onCheckedChange = onInterceptBackChange,
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.limit_intercept_length),
+                    subtitle = stringResource(R.string.limit_intercept_length_desc),
+                    checked = settings.limitMaxInterceptLength,
+                    enabled = serviceEnabled && settings.interceptSystemBackGesture,
+                    onCheckedChange = onLimitInterceptLengthChange,
+                )
             }
+
+            SettingsSectionTitle(stringResource(R.string.side_gestures_behavior_section))
+            SettingsCard {
+                SettingNavigationRow(
+                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    title = stringResource(R.string.default_trigger_mode),
+                    subtitle = triggerModeLabel(settings.defaultTriggerModeFor(side), includeDefault = false),
+                    onClick = { pickingDefaultMode = true },
+                )
+            }
+
             SettingsSectionTitle(stringResource(R.string.side_gestures_short_distance))
             SettingsCard {
                 GestureTriggerType.shortDistanceEntries().forEach { trigger ->
@@ -190,60 +228,7 @@ fun SideGestureSettingsScreen(
                 )
             }
 
-            SettingsHintText(stringResource(R.string.side_gestures_preview_hint))
-            SettingsSectionTitle(stringResource(R.string.side_gestures_handle_section))
-            SettingsCard {
-                SettingsSliderRow(
-                    title = stringResource(R.string.handle_width),
-                    value = settings.edgeTriggerWidthDp(side),
-                    valueRange = 12f..36f,
-                    enabled = serviceEnabled,
-                    label = "${settings.edgeTriggerWidthDp(side).roundToInt()} dp",
-                    startLabel = stringResource(R.string.handle_width_small),
-                    endLabel = stringResource(R.string.handle_width_large),
-                    triggersLayoutPreview = true,
-                    onLayoutPreviewStart = onLayoutPreviewStart,
-                    onLayoutPreviewStop = onLayoutPreviewStop,
-                    onValueChange = onEdgeWidthChange,
-                )
-                SettingsRangeSliderRow(
-                    title = stringResource(R.string.handle_length),
-                    values = settings.triggerTopFraction(side)..
-                        settings.triggerBottomFraction(side),
-                    valueRange = 0.05f..0.95f,
-                    startLabel = stringResource(R.string.handle_length_small),
-                    endLabel = stringResource(R.string.handle_length_large),
-                    enabled = serviceEnabled,
-                    triggersLayoutPreview = true,
-                    onLayoutPreviewStart = onLayoutPreviewStart,
-                    onLayoutPreviewStop = onLayoutPreviewStop,
-                    onValueChange = { range ->
-                        onTriggerVerticalRangeChange(range.start, range.endInclusive)
-                    },
-                )
-                SettingSwitchRow(
-                    title = stringResource(R.string.align_handles),
-                    subtitle = stringResource(R.string.align_handles_desc),
-                    checked = settings.alignHandlesEnabled,
-                    enabled = serviceEnabled,
-                    onCheckedChange = onAlignHandlesChange,
-                )
-                SettingSwitchRow(
-                    title = stringResource(R.string.intercept_system_back),
-                    subtitle = stringResource(R.string.intercept_system_back_desc),
-                    checked = settings.interceptSystemBackGesture,
-                    enabled = serviceEnabled,
-                    onCheckedChange = onInterceptBackChange,
-                )
-                SettingSwitchRow(
-                    title = stringResource(R.string.limit_intercept_length),
-                    subtitle = stringResource(R.string.limit_intercept_length_desc),
-                    checked = settings.limitMaxInterceptLength,
-                    enabled = serviceEnabled && settings.interceptSystemBackGesture,
-                    onCheckedChange = onLimitInterceptLengthChange,
-                )
-            }
-        }
+            Spacer(modifier = Modifier.height(8.dp))
     }
 
     pickingTrigger?.let { trigger ->
