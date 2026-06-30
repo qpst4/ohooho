@@ -1,5 +1,6 @@
 package com.slideindex.app.overlay
 
+import android.media.AudioManager
 import com.slideindex.app.util.ContinuousAdjustController
 
 data class AdjustPanelState(
@@ -10,7 +11,8 @@ data class AdjustPanelState(
     var volumeExpanded: Boolean = false,
     var ringFraction: Float = 0f,
     var notificationFraction: Float = 0f,
-    var ringerMode: Int = android.media.AudioManager.RINGER_MODE_NORMAL,
+    var ringerMode: Int = AudioManager.RINGER_MODE_NORMAL,
+    var interruptionFilter: Int = android.app.NotificationManager.INTERRUPTION_FILTER_ALL,
     var dragTarget: VolumeDragTarget? = null,
 ) {
     fun isDraggingVolume(): Boolean = dragTarget != null

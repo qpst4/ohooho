@@ -65,6 +65,10 @@ class ActionExecutor(
 
     fun cycleRingerMode(): Int? = VolumeControlHelper.cycleRingerMode(context)
 
+    fun readInterruptionFilter(): Int = VolumeControlHelper.readInterruptionFilter(context)
+
+    fun toggleDnd(): Int? = VolumeControlHelper.toggleDnd(context)
+
     fun readVolumeFraction(stream: VolumeControlHelper.Stream): Float =
         VolumeControlHelper.readFraction(context, stream)
 

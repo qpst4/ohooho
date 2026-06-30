@@ -12,9 +12,11 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.media.AudioManager
 import com.slideindex.app.util.ContinuousAdjustController
+import com.slideindex.app.util.VolumeControlHelper
 import kotlin.math.roundToInt
 
 enum class VolumeHitTarget {
+    DND,
     MEDIA,
     RING,
     NOTIFICATION,
@@ -28,6 +30,7 @@ data class VolumePanelVisual(
     val ringFraction: Float,
     val notificationFraction: Float,
     val ringerMode: Int,
+    val interruptionFilter: Int,
 )
 
 /**
@@ -40,6 +43,8 @@ object AdjustLevelIndicator {
     const val EXPANDED_PILL_GAP_DP = 6f
     const val BOTTOM_PILL_HEIGHT_DP = 76f
     const val BOTTOM_PILL_GAP_DP = 8f
+    const val TOP_PILL_HEIGHT_DP = 48f
+    const val TOP_PILL_GAP_DP = 8f
     const val PILL_CORNER_DP = 18f
     const val PANEL_TOUCH_SLOP_DP = 32f
     fun panelWindowWidthPx(density: Float): Int =
@@ -53,6 +58,7 @@ object AdjustLevelIndicator {
         val ringTrack: RectF? = null,
         val notificationPill: RectF? = null,
         val notificationTrack: RectF? = null,
+        val topPill: RectF? = null,
         val bottomPill: RectF? = null,
         val ringerButton: RectF? = null,
         val expandButton: RectF? = null,
@@ -75,12 +81,15 @@ object AdjustLevelIndicator {
         val expandedGap = EXPANDED_PILL_GAP_DP * density
         val bottomPillHeight = BOTTOM_PILL_HEIGHT_DP * density
         val bottomPillGap = BOTTOM_PILL_GAP_DP * density
+        val topPillHeight = TOP_PILL_HEIGHT_DP * density
+        val topPillGap = TOP_PILL_GAP_DP * density
         var blockBelowMedia = 0f
         if (volumeExpanded) {
             blockBelowMedia += expandedGap + expandedPillHeight + expandedGap + expandedPillHeight
         }
+        val topBlock = if (includeBottomPill) topPillHeight + topPillGap else 0f
         val bottomBlock = if (includeBottomPill) bottomPillGap + bottomPillHeight else 0f
-        val totalHeight = pillHeight + blockBelowMedia + bottomBlock
+        val totalHeight = topBlock + pillHeight + blockBelowMedia + bottomBlock
         val edgeInset = 18f * density
         val marginY = 24f * density
         val centerY = anchorY.coerceIn(
@@ -91,8 +100,14 @@ object AdjustLevelIndicator {
             PanelSide.LEFT -> edgeInset - viewScreenX
             PanelSide.RIGHT -> screenWidthPx - edgeInset - pillWidth - viewScreenX
         }
-        val top = centerY - totalHeight / 2f
-        val bounds = RectF(left, top, left + pillWidth, top + pillHeight)
+        val stackTop = centerY - totalHeight / 2f
+        val topPill = if (includeBottomPill) {
+            RectF(left, stackTop, left + pillWidth, stackTop + topPillHeight)
+        } else {
+            null
+        }
+        val mediaTop = stackTop + topBlock
+        val bounds = RectF(left, mediaTop, left + pillWidth, mediaTop + pillHeight)
         val inset = 10f * density
         val iconArea = 36f * density
         val labelArea = 22f * density
@@ -143,6 +158,7 @@ object AdjustLevelIndicator {
             ringTrack = ringTrack,
             notificationPill = notificationPill,
             notificationTrack = notificationTrack,
+            topPill = topPill,
             bottomPill = bottomPill,
             ringerButton = ringerButton,
             expandButton = expandButton,
@@ -195,6 +211,11 @@ object AdjustLevelIndicator {
         density: Float,
     ): VolumeHitTarget {
         val touchPad = 8f * density
+        layout.topPill?.let { pill ->
+            if (pill.contains(localX, localY)) {
+                return VolumeHitTarget.DND
+            }
+        }
         layout.bottomPill?.let { pill ->
             layout.ringerButton?.let { button ->
                 if (containsBottomButton(button, pill, localX, localY)) {
@@ -279,6 +300,22 @@ object AdjustLevelIndicator {
 
         val shadowAlphaScale = if (recede) alphaScale * alphaScale else alphaScale
         val corner = PILL_CORNER_DP * density
+        if (mode == ContinuousAdjustController.Mode.VOLUME) {
+            layout.topPill?.let { topPill ->
+                drawTopDndPill(
+                    canvas = canvas,
+                    bounds = topPill,
+                    corner = corner,
+                    density = density,
+                    alphaScale = alphaScale,
+                    shadowAlphaScale = shadowAlphaScale,
+                    dndEnabled = volumePanel?.let {
+                        VolumeControlHelper.isDndFilter(it.interruptionFilter)
+                    } == true,
+                    context = context,
+                )
+            }
+        }
         drawShadow(canvas, layout.bounds, corner, shadowAlphaScale)
         drawPillBackground(canvas, layout.bounds, corner, alphaScale)
         drawTrack(canvas, layout.track, mode, fraction.coerceIn(0f, 1f), density, alphaScale)
@@ -745,6 +782,32 @@ object AdjustLevelIndicator {
             color = Color.argb((180 * alphaScale).roundToInt(), 255, 255, 255)
         }
         canvas.drawText(text, cx, baselineY, textPaint)
+    }
+
+    private fun drawTopDndPill(
+        canvas: Canvas,
+        bounds: RectF,
+        corner: Float,
+        density: Float,
+        alphaScale: Float,
+        shadowAlphaScale: Float,
+        dndEnabled: Boolean,
+        context: Context?,
+    ) {
+        drawShadow(canvas, bounds, corner, shadowAlphaScale)
+        drawPillBackground(canvas, bounds, corner, alphaScale)
+        val iconSize = minOf(bounds.width() * 0.38f, bounds.height() * 0.46f)
+        context?.let {
+            DndIconRenderer.draw(
+                context = it,
+                canvas = canvas,
+                cx = bounds.centerX(),
+                cy = bounds.centerY(),
+                sizePx = iconSize,
+                dndEnabled = dndEnabled,
+                alphaScale = alphaScale,
+            )
+        }
     }
 
     private fun drawBottomPill(

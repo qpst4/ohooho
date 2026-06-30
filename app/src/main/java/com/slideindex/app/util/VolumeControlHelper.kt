@@ -1,5 +1,6 @@
 package com.slideindex.app.util
 
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import android.util.Log
@@ -37,6 +38,38 @@ object VolumeControlHelper {
         }
     }
 
+    fun readInterruptionFilter(context: Context): Int {
+        if (!hasAccess(context)) return NotificationManager.INTERRUPTION_FILTER_ALL
+        val manager = notificationManager(context) ?: return NotificationManager.INTERRUPTION_FILTER_ALL
+        return manager.currentInterruptionFilter
+    }
+
+    fun isDndEnabled(context: Context): Boolean = isDndFilter(readInterruptionFilter(context))
+
+    fun isDndFilter(filter: Int): Boolean = when (filter) {
+        NotificationManager.INTERRUPTION_FILTER_ALL,
+        NotificationManager.INTERRUPTION_FILTER_UNKNOWN,
+        -> false
+        else -> true
+    }
+
+    fun toggleDnd(context: Context): Int? {
+        if (!hasAccess(context)) return null
+        val manager = notificationManager(context) ?: return null
+        return runCatching {
+            val next = if (isDndEnabled(context)) {
+                NotificationManager.INTERRUPTION_FILTER_ALL
+            } else {
+                NotificationManager.INTERRUPTION_FILTER_PRIORITY
+            }
+            manager.setInterruptionFilter(next)
+            next
+        }.getOrElse { error ->
+            Log.w(TAG, "toggle dnd failed", error)
+            null
+        }
+    }
+
     fun readFraction(context: Context, stream: Stream): Float {
         val manager = audioManager(context) ?: return 0f
         val audioStream = toAudioStream(stream)
@@ -64,6 +97,9 @@ object VolumeControlHelper {
 
     private fun audioManager(context: Context): AudioManager? =
         context.applicationContext.getSystemService(AudioManager::class.java)
+
+    private fun notificationManager(context: Context): NotificationManager? =
+        context.applicationContext.getSystemService(NotificationManager::class.java)
 
     private const val TAG = "VolumeControlHelper"
 }

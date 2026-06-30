@@ -2,6 +2,7 @@ package com.slideindex.app.overlay
 
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -319,6 +320,17 @@ class EdgeGestureOverlayView(
                 when (
                     AdjustLevelIndicator.hitVolumeTarget(layout, side, localX, localY, density)
                 ) {
+                    VolumeHitTarget.DND -> {
+                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
+                        if (!VolumeControlHelper.hasAccess(context)) {
+                            PermissionHelper.requestNotificationPolicyAccess(context)
+                        } else {
+                            actionExecutor.toggleDnd()?.let { state.interruptionFilter = it }
+                            hapticConfirmLaunch()
+                        }
+                        invalidate()
+                        return true
+                    }
                     VolumeHitTarget.RINGER -> {
                         if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
                         if (!VolumeControlHelper.hasAccess(context)) {
@@ -434,6 +446,7 @@ class EdgeGestureOverlayView(
         state.notificationFraction =
             actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.NOTIFICATION)
         state.ringerMode = actionExecutor.readRingerMode()
+        state.interruptionFilter = actionExecutor.readInterruptionFilter()
     }
 
     private fun dismissAdjustPanel(animated: Boolean = true) {
@@ -512,6 +525,7 @@ class EdgeGestureOverlayView(
                     VolumeControlHelper.Stream.NOTIFICATION,
                 ),
                 ringerMode = actionExecutor.readRingerMode(),
+                interruptionFilter = actionExecutor.readInterruptionFilter(),
             )
         } else {
             AdjustPanelState(mode = mode, fraction = fraction, anchorRawY = anchorRawY)
@@ -587,12 +601,15 @@ class EdgeGestureOverlayView(
                         }
                     }
                     AudioManager.RINGER_MODE_CHANGED_ACTION -> syncAdjustPanelVolumeFromSystem()
+                    NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED ->
+                        syncAdjustPanelVolumeFromSystem()
                 }
             }
         }
         val filter = IntentFilter().apply {
             addAction(VOLUME_CHANGED_ACTION)
             addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
+            addAction(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.registerReceiver(volumeChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -637,6 +654,10 @@ class EdgeGestureOverlayView(
                 }
             }
             state.ringerMode = actionExecutor.readRingerMode()
+            val interruptionFilter = actionExecutor.readInterruptionFilter()
+            if (state.interruptionFilter != interruptionFilter) {
+                state.interruptionFilter = interruptionFilter
+            }
             invalidate()
             return
         }
@@ -1972,6 +1993,28 @@ class EdgeGestureOverlayView(
         }
     }
 
+    private fun resolveVolumePanelVisual(): VolumePanelVisual? {
+        adjustPanelState?.takeIf { it.mode == ContinuousAdjustController.Mode.VOLUME }?.let { state ->
+            return VolumePanelVisual(
+                expanded = state.volumeExpanded,
+                ringFraction = state.ringFraction,
+                notificationFraction = state.notificationFraction,
+                ringerMode = state.ringerMode,
+                interruptionFilter = state.interruptionFilter,
+            )
+        }
+        if (gestureSession.adjustModeOrNull() != ContinuousAdjustController.Mode.VOLUME) return null
+        return VolumePanelVisual(
+            expanded = false,
+            ringFraction = actionExecutor.readVolumeFraction(VolumeControlHelper.Stream.RING),
+            notificationFraction = actionExecutor.readVolumeFraction(
+                VolumeControlHelper.Stream.NOTIFICATION,
+            ),
+            ringerMode = actionExecutor.readRingerMode(),
+            interruptionFilter = actionExecutor.readInterruptionFilter(),
+        )
+    }
+
     private fun drawAdjustIndicator(
         canvas: Canvas,
         mode: ContinuousAdjustController.Mode,
@@ -1993,16 +2036,7 @@ class EdgeGestureOverlayView(
                 adjustIndicatorLayout
             }
         } ?: return
-        val volumePanel = adjustPanelState
-            ?.takeIf { it.mode == ContinuousAdjustController.Mode.VOLUME }
-            ?.let { state ->
-                VolumePanelVisual(
-                    expanded = state.volumeExpanded,
-                    ringFraction = state.ringFraction,
-                    notificationFraction = state.notificationFraction,
-                    ringerMode = state.ringerMode,
-                )
-            }
+        val volumePanel = resolveVolumePanelVisual()
         AdjustLevelIndicator.draw(
             canvas = canvas,
             layout = layout,
