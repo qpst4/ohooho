@@ -320,8 +320,14 @@ class GestureSession(
 
                 if (adjustMode != null) {
                     val mode = adjustMode!!
-                    val fraction = actionExecutor.readCurrentAdjustFraction(mode)
                     val anchorRawY = adjustLayoutAnchorRawY
+                    val previewFraction = actionExecutor.adjustFraction()
+                    actionExecutor.endContinuousAdjust()
+                    val fraction = if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
+                        previewFraction
+                    } else {
+                        actionExecutor.readCurrentAdjustFraction(mode)
+                    }
                     callbacks.onShowAdjustPanel(mode, fraction, anchorRawY)
                     endSession()
                     return

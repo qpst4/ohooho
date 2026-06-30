@@ -19,6 +19,7 @@ import com.slideindex.app.util.RecentTasksLoader
 import com.slideindex.app.util.TaskExclusions
 import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.util.AssistantLauncher
+import com.slideindex.app.util.BrightnessControlHelper
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
 import com.slideindex.app.util.OverlayBrightnessControl
@@ -68,6 +69,14 @@ class ActionExecutor(
     fun readInterruptionFilter(): Int = VolumeControlHelper.readInterruptionFilter(context)
 
     fun toggleDnd(): Int? = VolumeControlHelper.toggleDnd(context)
+
+    fun readAutoBrightnessEnabled(): Boolean = BrightnessControlHelper.readAutoBrightnessEnabled(context)
+
+    fun toggleAutoBrightness(): Boolean? = BrightnessControlHelper.toggleAutoBrightness(context)
+
+    fun readDarkModeEnabled(): Boolean = BrightnessControlHelper.readDarkModeEnabled(context)
+
+    fun toggleDarkMode(): Boolean? = BrightnessControlHelper.toggleDarkMode(context)
 
     fun readVolumeFraction(stream: VolumeControlHelper.Stream): Float =
         VolumeControlHelper.readFraction(context, stream)

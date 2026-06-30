@@ -15,6 +15,19 @@ import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.VolumeControlHelper
 import kotlin.math.roundToInt
 
+enum class BrightnessHitTarget {
+    AUTO_BRIGHTNESS,
+    BRIGHTNESS,
+    DARK_MODE,
+    NONE,
+}
+
+enum class AdjustPanelChrome {
+    NONE,
+    VOLUME,
+    BRIGHTNESS,
+}
+
 enum class VolumeHitTarget {
     DND,
     MEDIA,
@@ -24,6 +37,11 @@ enum class VolumeHitTarget {
     EXPAND,
     NONE,
 }
+
+data class BrightnessPanelVisual(
+    val autoBrightnessEnabled: Boolean,
+    val darkModeEnabled: Boolean,
+)
 
 data class VolumePanelVisual(
     val expanded: Boolean,
@@ -72,14 +90,18 @@ object AdjustLevelIndicator {
         density: Float,
         viewScreenX: Int = 0,
         screenWidthPx: Int = viewWidth,
-        includeBottomPill: Boolean = false,
+        chrome: AdjustPanelChrome = AdjustPanelChrome.NONE,
         volumeExpanded: Boolean = false,
     ): Layout {
         val pillWidth = PILL_WIDTH_DP * density
         val pillHeight = PILL_HEIGHT_DP * density
         val expandedPillHeight = EXPANDED_PILL_HEIGHT_DP * density
         val expandedGap = EXPANDED_PILL_GAP_DP * density
-        val bottomPillHeight = BOTTOM_PILL_HEIGHT_DP * density
+        val bottomPillHeightPx = when (chrome) {
+            AdjustPanelChrome.VOLUME -> BOTTOM_PILL_HEIGHT_DP * density
+            AdjustPanelChrome.BRIGHTNESS -> TOP_PILL_HEIGHT_DP * density
+            AdjustPanelChrome.NONE -> 0f
+        }
         val bottomPillGap = BOTTOM_PILL_GAP_DP * density
         val topPillHeight = TOP_PILL_HEIGHT_DP * density
         val topPillGap = TOP_PILL_GAP_DP * density
@@ -87,8 +109,8 @@ object AdjustLevelIndicator {
         if (volumeExpanded) {
             blockBelowMedia += expandedGap + expandedPillHeight + expandedGap + expandedPillHeight
         }
-        val topBlock = if (includeBottomPill) topPillHeight + topPillGap else 0f
-        val bottomBlock = if (includeBottomPill) bottomPillGap + bottomPillHeight else 0f
+        val topBlock = if (chrome != AdjustPanelChrome.NONE) topPillHeight + topPillGap else 0f
+        val bottomBlock = if (chrome != AdjustPanelChrome.NONE) bottomPillGap + bottomPillHeightPx else 0f
         val totalHeight = topBlock + pillHeight + blockBelowMedia + bottomBlock
         val edgeInset = 18f * density
         val marginY = 24f * density
@@ -101,7 +123,7 @@ object AdjustLevelIndicator {
             PanelSide.RIGHT -> screenWidthPx - edgeInset - pillWidth - viewScreenX
         }
         val stackTop = centerY - totalHeight / 2f
-        val topPill = if (includeBottomPill) {
+        val topPill = if (chrome != AdjustPanelChrome.NONE) {
             RectF(left, stackTop, left + pillWidth, stackTop + topPillHeight)
         } else {
             null
@@ -139,17 +161,21 @@ object AdjustLevelIndicator {
             notificationTrack = null
         }
 
-        val bottomPill = if (includeBottomPill) {
+        val bottomPill = if (chrome != AdjustPanelChrome.NONE) {
             val pillTop = cursor + bottomPillGap
-            RectF(left, pillTop, left + pillWidth, pillTop + bottomPillHeight)
+            RectF(left, pillTop, left + pillWidth, pillTop + bottomPillHeightPx)
         } else {
             null
         }
-        val ringerButton = bottomPill?.let {
-            RectF(it.left, it.top, it.right, it.centerY())
+        val ringerButton = if (chrome == AdjustPanelChrome.VOLUME) {
+            bottomPill?.let { RectF(it.left, it.top, it.right, it.centerY()) }
+        } else {
+            null
         }
-        val expandButton = bottomPill?.let {
-            RectF(it.left, it.centerY(), it.right, it.bottom)
+        val expandButton = if (chrome == AdjustPanelChrome.VOLUME) {
+            bottomPill?.let { RectF(it.left, it.centerY(), it.right, it.bottom) }
+        } else {
+            null
         }
         return Layout(
             bounds = bounds,
@@ -248,6 +274,29 @@ object AdjustLevelIndicator {
         return VolumeHitTarget.NONE
     }
 
+    fun hitBrightnessTarget(
+        layout: Layout,
+        side: PanelSide,
+        localX: Float,
+        localY: Float,
+        density: Float,
+    ): BrightnessHitTarget {
+        layout.topPill?.let { pill ->
+            if (pill.contains(localX, localY)) {
+                return BrightnessHitTarget.AUTO_BRIGHTNESS
+            }
+        }
+        layout.bottomPill?.let { pill ->
+            if (pill.contains(localX, localY)) {
+                return BrightnessHitTarget.DARK_MODE
+            }
+        }
+        if (hitBounds(layout, side, density).contains(localX, localY)) {
+            return BrightnessHitTarget.BRIGHTNESS
+        }
+        return BrightnessHitTarget.NONE
+    }
+
     private fun containsBottomButton(button: RectF, pill: RectF, x: Float, y: Float): Boolean =
         x >= pill.left && x <= pill.right && y >= button.top && y <= button.bottom
 
@@ -281,6 +330,7 @@ object AdjustLevelIndicator {
         side: PanelSide,
         recede: Boolean = false,
         volumePanel: VolumePanelVisual? = null,
+        brightnessPanel: BrightnessPanelVisual? = null,
         context: Context? = null,
     ) {
         if (enterProgress <= 0f) return
@@ -313,6 +363,19 @@ object AdjustLevelIndicator {
                         VolumeControlHelper.isDndFilter(it.interruptionFilter)
                     } == true,
                     context = context,
+                )
+            }
+        }
+        if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
+            layout.topPill?.let { topPill ->
+                drawTopAutoBrightnessPill(
+                    canvas = canvas,
+                    bounds = topPill,
+                    corner = corner,
+                    density = density,
+                    alphaScale = alphaScale,
+                    shadowAlphaScale = shadowAlphaScale,
+                    enabled = brightnessPanel?.autoBrightnessEnabled == true,
                 )
             }
         }
@@ -380,6 +443,29 @@ object AdjustLevelIndicator {
                     expanded = volumePanel?.expanded == true,
                     context = context,
                 )
+            }
+        }
+        if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
+            layout.bottomPill?.let { bottomPill ->
+                drawCompactChromePill(
+                    canvas = canvas,
+                    bounds = bottomPill,
+                    corner = corner,
+                    density = density,
+                    alphaScale = alphaScale,
+                    shadowAlphaScale = shadowAlphaScale,
+                    context = context,
+                ) {
+                    BrightnessIconRenderer.drawDarkMode(
+                        context = it,
+                        canvas = canvas,
+                        cx = bottomPill.centerX(),
+                        cy = bottomPill.centerY(),
+                        sizePx = minOf(bottomPill.width() * 0.38f, bottomPill.height() * 0.46f),
+                        darkModeEnabled = brightnessPanel?.darkModeEnabled == true,
+                        alphaScale = alphaScale,
+                    )
+                }
             }
         }
         canvas.restore()
@@ -784,6 +870,51 @@ object AdjustLevelIndicator {
         canvas.drawText(text, cx, baselineY, textPaint)
     }
 
+    private fun drawCompactChromePill(
+        canvas: Canvas,
+        bounds: RectF,
+        corner: Float,
+        density: Float,
+        alphaScale: Float,
+        shadowAlphaScale: Float,
+        context: Context?,
+        drawIcon: (Context) -> Unit,
+    ) {
+        drawShadow(canvas, bounds, corner, shadowAlphaScale)
+        drawPillBackground(canvas, bounds, corner, alphaScale)
+        context?.let(drawIcon)
+    }
+
+    private fun drawTopAutoBrightnessPill(
+        canvas: Canvas,
+        bounds: RectF,
+        corner: Float,
+        density: Float,
+        alphaScale: Float,
+        shadowAlphaScale: Float,
+        enabled: Boolean,
+    ) {
+        drawShadow(canvas, bounds, corner, shadowAlphaScale)
+        drawPillBackground(canvas, bounds, corner, alphaScale)
+        if (enabled) {
+            val accentStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = 1.4f * density
+                color = Color.argb((95 * alphaScale).roundToInt(), 255, 184, 0)
+            }
+            canvas.drawRoundRect(bounds, corner, corner, accentStroke)
+        }
+        val iconSize = minOf(bounds.width(), bounds.height()) * 0.56f
+        BrightnessIconRenderer.drawAutoBrightnessIcon(
+            canvas = canvas,
+            cx = bounds.centerX(),
+            cy = bounds.centerY(),
+            sizePx = iconSize,
+            enabled = enabled,
+            alphaScale = alphaScale,
+        )
+    }
+
     private fun drawTopDndPill(
         canvas: Canvas,
         bounds: RectF,
@@ -794,10 +925,16 @@ object AdjustLevelIndicator {
         dndEnabled: Boolean,
         context: Context?,
     ) {
-        drawShadow(canvas, bounds, corner, shadowAlphaScale)
-        drawPillBackground(canvas, bounds, corner, alphaScale)
         val iconSize = minOf(bounds.width() * 0.38f, bounds.height() * 0.46f)
-        context?.let {
+        drawCompactChromePill(
+            canvas = canvas,
+            bounds = bounds,
+            corner = corner,
+            density = density,
+            alphaScale = alphaScale,
+            shadowAlphaScale = shadowAlphaScale,
+            context = context,
+        ) {
             DndIconRenderer.draw(
                 context = it,
                 canvas = canvas,

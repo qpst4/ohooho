@@ -7,9 +7,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -40,6 +44,7 @@ import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.util.HapticHelper
+import com.slideindex.app.util.BrightnessControlHelper
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.VolumeControlHelper
@@ -144,6 +149,8 @@ class EdgeGestureOverlayView(
     private var volumeDragAnchorRawY = 0f
     private var volumeDragBaseline = 0f
     private var volumeChangeReceiver: BroadcastReceiver? = null
+    private var brightnessSettingsObserver: ContentObserver? = null
+    private val brightnessSettingsHandler = Handler(Looper.getMainLooper())
     private var interceptTouchActive = false
 
     private val railLetters: List<Char> = ('A'..'Z').toList() + '#'
@@ -317,65 +324,96 @@ class EdgeGestureOverlayView(
                     dismissAdjustPanel()
                     return false
                 }
-                when (
-                    AdjustLevelIndicator.hitVolumeTarget(layout, side, localX, localY, density)
-                ) {
-                    VolumeHitTarget.DND -> {
-                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
-                        if (!VolumeControlHelper.hasAccess(context)) {
-                            PermissionHelper.requestNotificationPolicyAccess(context)
-                        } else {
-                            actionExecutor.toggleDnd()?.let { state.interruptionFilter = it }
+                when (state.mode) {
+                    ContinuousAdjustController.Mode.VOLUME -> when (
+                        AdjustLevelIndicator.hitVolumeTarget(layout, side, localX, localY, density)
+                    ) {
+                        VolumeHitTarget.DND -> {
+                            if (!VolumeControlHelper.hasAccess(context)) {
+                                PermissionHelper.requestNotificationPolicyAccess(context)
+                            } else {
+                                actionExecutor.toggleDnd()?.let { state.interruptionFilter = it }
+                                hapticConfirmLaunch()
+                            }
+                            invalidate()
+                            return true
+                        }
+                        VolumeHitTarget.RINGER -> {
+                            if (!VolumeControlHelper.hasAccess(context)) {
+                                PermissionHelper.requestNotificationPolicyAccess(context)
+                            } else {
+                                actionExecutor.cycleRingerMode()?.let { state.ringerMode = it }
+                                hapticConfirmLaunch()
+                            }
+                            invalidate()
+                            return true
+                        }
+                        VolumeHitTarget.EXPAND -> {
+                            state.volumeExpanded = !state.volumeExpanded
+                            if (state.volumeExpanded) {
+                                refreshVolumePanelLevels(state)
+                            }
+                            updateAdjustIndicatorLayout(state.anchorRawY)
                             hapticConfirmLaunch()
+                            invalidate()
+                            return true
                         }
-                        invalidate()
-                        return true
-                    }
-                    VolumeHitTarget.RINGER -> {
-                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
-                        if (!VolumeControlHelper.hasAccess(context)) {
-                            PermissionHelper.requestNotificationPolicyAccess(context)
-                        } else {
-                            actionExecutor.cycleRingerMode()?.let { state.ringerMode = it }
-                            hapticConfirmLaunch()
+                        VolumeHitTarget.MEDIA -> {
+                            beginMainAdjustDrag(state, event.rawY)
+                            return true
                         }
-                        invalidate()
-                        return true
-                    }
-                    VolumeHitTarget.EXPAND -> {
-                        if (state.mode != ContinuousAdjustController.Mode.VOLUME) return false
-                        state.volumeExpanded = !state.volumeExpanded
-                        if (state.volumeExpanded) {
-                            refreshVolumePanelLevels(state)
+                        VolumeHitTarget.RING -> {
+                            if (!state.volumeExpanded) return false
+                            beginVolumeStreamDrag(state, VolumeDragTarget.RING, event.rawY)
+                            invalidate()
+                            return true
                         }
-                        updateAdjustIndicatorLayout(state.anchorRawY)
-                        hapticConfirmLaunch()
-                        invalidate()
-                        return true
+                        VolumeHitTarget.NOTIFICATION -> {
+                            if (!state.volumeExpanded) return false
+                            beginVolumeStreamDrag(state, VolumeDragTarget.NOTIFICATION, event.rawY)
+                            invalidate()
+                            return true
+                        }
+                        VolumeHitTarget.NONE -> {
+                            dismissAdjustPanel()
+                            return true
+                        }
                     }
-                    VolumeHitTarget.MEDIA -> {
-                        state.dragTarget = VolumeDragTarget.MEDIA
-                        state.dragging = true
-                        actionExecutor.beginContinuousAdjust(state.mode, event.rawY)
-                        actionExecutor.updateContinuousAdjust(state.mode, event.rawY)
-                        invalidate()
-                        return true
-                    }
-                    VolumeHitTarget.RING -> {
-                        if (!state.volumeExpanded) return false
-                        beginVolumeStreamDrag(state, VolumeDragTarget.RING, event.rawY)
-                        invalidate()
-                        return true
-                    }
-                    VolumeHitTarget.NOTIFICATION -> {
-                        if (!state.volumeExpanded) return false
-                        beginVolumeStreamDrag(state, VolumeDragTarget.NOTIFICATION, event.rawY)
-                        invalidate()
-                        return true
-                    }
-                    VolumeHitTarget.NONE -> {
-                        dismissAdjustPanel()
-                        return true
+                    ContinuousAdjustController.Mode.BRIGHTNESS -> when (
+                        AdjustLevelIndicator.hitBrightnessTarget(layout, side, localX, localY, density)
+                    ) {
+                        BrightnessHitTarget.AUTO_BRIGHTNESS -> {
+                            if (!BrightnessControlHelper.hasAccess(context)) {
+                                PermissionHelper.requestWriteSettingsAccess(context)
+                            } else {
+                                actionExecutor.toggleAutoBrightness()?.let {
+                                    state.autoBrightnessEnabled = it
+                                    hapticConfirmLaunch()
+                                }
+                            }
+                            invalidate()
+                            return true
+                        }
+                        BrightnessHitTarget.DARK_MODE -> {
+                            if (!BrightnessControlHelper.hasDarkModeAccess(context)) {
+                                PermissionHelper.requestWriteSettingsAccess(context)
+                            } else {
+                                actionExecutor.toggleDarkMode()?.let {
+                                    state.darkModeEnabled = it
+                                    hapticConfirmLaunch()
+                                }
+                            }
+                            invalidate()
+                            return true
+                        }
+                        BrightnessHitTarget.BRIGHTNESS -> {
+                            beginMainAdjustDrag(state, event.rawY)
+                            return true
+                        }
+                        BrightnessHitTarget.NONE -> {
+                            dismissAdjustPanel()
+                            return true
+                        }
                     }
                 }
             }
@@ -411,6 +449,14 @@ class EdgeGestureOverlayView(
             }
         }
         return false
+    }
+
+    private fun beginMainAdjustDrag(state: AdjustPanelState, rawY: Float) {
+        state.dragTarget = VolumeDragTarget.MEDIA
+        state.dragging = true
+        actionExecutor.beginContinuousAdjust(state.mode, rawY)
+        actionExecutor.updateContinuousAdjust(state.mode, rawY)
+        invalidate()
     }
 
     private fun beginVolumeStreamDrag(state: AdjustPanelState, target: VolumeDragTarget, rawY: Float) {
@@ -528,26 +574,60 @@ class EdgeGestureOverlayView(
                 interruptionFilter = actionExecutor.readInterruptionFilter(),
             )
         } else {
-            AdjustPanelState(mode = mode, fraction = fraction, anchorRawY = anchorRawY)
+            AdjustPanelState(
+                mode = mode,
+                fraction = fraction,
+                anchorRawY = anchorRawY,
+                autoBrightnessEnabled = actionExecutor.readAutoBrightnessEnabled(),
+                darkModeEnabled = actionExecutor.readDarkModeEnabled(),
+            )
         }
         adjustPanelDismissing = false
         adjustIndicatorAnimator?.cancel()
         val fromContinuousGesture = gestureSession.isAdjustMode()
-        if (fromContinuousGesture) {
-            adjustIndicatorProgress = 1f
+        adjustPanelExpandedForGesture = true
+        onSessionStartCallback()
+        if (fromContinuousGesture && adjustIndicatorProgress >= 1f) {
+            // Preview enter animation already finished during continuous tracking.
             wasAdjustMode = true
             adjustPanelEntering = false
-            adjustPanelExpandedForGesture = true
             adjustIndicatorFrozenLayout = null
             updateAdjustIndicatorLayout(anchorRawY, forceFullScreenAnchor = true, mode = mode)
-            onSessionStartCallback()
             invalidate()
         } else {
-            adjustPanelExpandedForGesture = true
-            onSessionStartCallback()
-            post { beginAdjustPanelEnterAnimation(anchorRawY) }
+            post {
+                if (fromContinuousGesture && adjustIndicatorProgress > 0f) {
+                    continueAdjustPanelEnterAnimation(anchorRawY)
+                } else {
+                    beginAdjustPanelEnterAnimation(anchorRawY)
+                }
+            }
         }
         startAdjustPanelLevelSync(mode)
+    }
+
+    private fun continueAdjustPanelEnterAnimation(anchorRawY: Float) {
+        adjustPanelEntering = true
+        wasAdjustMode = true
+        adjustIndicatorReceding = false
+        updateAdjustIndicatorLayout(
+            anchorRawY,
+            forceFullScreenAnchor = true,
+            mode = adjustPanelState?.mode,
+        )
+        adjustIndicatorFrozenLayout = adjustIndicatorLayout
+        val remaining = (1f - adjustIndicatorProgress).coerceIn(0f, 1f)
+        val durationMs = (ADJUST_INDICATOR_ENTER_MS * remaining).toLong().coerceAtLeast(1L)
+        animateAdjustIndicatorTo(
+            target = 1f,
+            durationMs = durationMs,
+            interpolator = DecelerateInterpolator(),
+        ) {
+            adjustPanelEntering = false
+            adjustIndicatorFrozenLayout = null
+            updateAdjustIndicatorLayout(anchorRawY, mode = adjustPanelState?.mode)
+            invalidate()
+        }
     }
 
     private fun beginAdjustPanelEnterAnimation(anchorRawY: Float) {
@@ -576,13 +656,15 @@ class EdgeGestureOverlayView(
     }
 
     private fun startAdjustPanelLevelSync(mode: ContinuousAdjustController.Mode) {
-        if (mode == ContinuousAdjustController.Mode.VOLUME) {
-            startVolumeLevelSync()
+        when (mode) {
+            ContinuousAdjustController.Mode.VOLUME -> startVolumeLevelSync()
+            ContinuousAdjustController.Mode.BRIGHTNESS -> startBrightnessSettingsSync()
         }
     }
 
     private fun stopAdjustPanelLevelSync() {
         stopVolumeLevelSync()
+        stopBrightnessSettingsSync()
     }
 
     private fun startVolumeLevelSync() {
@@ -626,6 +708,39 @@ class EdgeGestureOverlayView(
         volumeChangeReceiver = null
     }
 
+    private fun startBrightnessSettingsSync() {
+        if (brightnessSettingsObserver != null) return
+        val observer = object : ContentObserver(brightnessSettingsHandler) {
+            override fun onChange(selfChange: Boolean) {
+                syncAdjustPanelLevelFromSystem(ContinuousAdjustController.Mode.BRIGHTNESS)
+            }
+        }
+        brightnessSettingsObserver = observer
+        val resolver = context.contentResolver
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS_MODE),
+            false,
+            observer,
+        )
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.SCREEN_BRIGHTNESS),
+            false,
+            observer,
+        )
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor(BrightnessControlHelper.UI_NIGHT_MODE_KEY),
+            false,
+            observer,
+        )
+    }
+
+    private fun stopBrightnessSettingsSync() {
+        brightnessSettingsObserver?.let { observer ->
+            runCatching { context.contentResolver.unregisterContentObserver(observer) }
+        }
+        brightnessSettingsObserver = null
+    }
+
     private fun syncAdjustPanelVolumeFromSystem() {
         syncAdjustPanelLevelFromSystem(ContinuousAdjustController.Mode.VOLUME)
     }
@@ -663,9 +778,28 @@ class EdgeGestureOverlayView(
         }
         if (state.dragTarget != null) return
         val fraction = actionExecutor.readCurrentAdjustFraction(mode)
-        if (kotlin.math.abs(state.fraction - fraction) < LEVEL_SYNC_EPSILON) return
+        if (kotlin.math.abs(state.fraction - fraction) < LEVEL_SYNC_EPSILON) {
+            syncAdjustPanelBrightnessFlags(state)
+            return
+        }
         state.fraction = fraction
+        syncAdjustPanelBrightnessFlags(state)
         invalidate()
+    }
+
+    private fun syncAdjustPanelBrightnessFlags(state: AdjustPanelState) {
+        val autoBrightnessEnabled = actionExecutor.readAutoBrightnessEnabled()
+        val darkModeEnabled = actionExecutor.readDarkModeEnabled()
+        var changed = false
+        if (state.autoBrightnessEnabled != autoBrightnessEnabled) {
+            state.autoBrightnessEnabled = autoBrightnessEnabled
+            changed = true
+        }
+        if (state.darkModeEnabled != darkModeEnabled) {
+            state.darkModeEnabled = darkModeEnabled
+            changed = true
+        }
+        if (changed) invalidate()
     }
 
     private fun updateAdjustIndicatorLayout(
@@ -689,7 +823,11 @@ class EdgeGestureOverlayView(
             density = density,
             viewScreenX = if (forceFullScreenAnchor) 0 else loc[0],
             screenWidthPx = screenWidthPx,
-            includeBottomPill = adjustMode == ContinuousAdjustController.Mode.VOLUME,
+            chrome = when (adjustMode) {
+                ContinuousAdjustController.Mode.VOLUME -> AdjustPanelChrome.VOLUME
+                ContinuousAdjustController.Mode.BRIGHTNESS -> AdjustPanelChrome.BRIGHTNESS
+                null -> AdjustPanelChrome.NONE
+            },
             volumeExpanded = adjustPanelState?.volumeExpanded == true &&
                 adjustMode == ContinuousAdjustController.Mode.VOLUME,
         )
@@ -1993,6 +2131,20 @@ class EdgeGestureOverlayView(
         }
     }
 
+    private fun resolveBrightnessPanelVisual(): BrightnessPanelVisual? {
+        adjustPanelState?.takeIf { it.mode == ContinuousAdjustController.Mode.BRIGHTNESS }?.let { state ->
+            return BrightnessPanelVisual(
+                autoBrightnessEnabled = state.autoBrightnessEnabled,
+                darkModeEnabled = state.darkModeEnabled,
+            )
+        }
+        if (gestureSession.adjustModeOrNull() != ContinuousAdjustController.Mode.BRIGHTNESS) return null
+        return BrightnessPanelVisual(
+            autoBrightnessEnabled = actionExecutor.readAutoBrightnessEnabled(),
+            darkModeEnabled = actionExecutor.readDarkModeEnabled(),
+        )
+    }
+
     private fun resolveVolumePanelVisual(): VolumePanelVisual? {
         adjustPanelState?.takeIf { it.mode == ContinuousAdjustController.Mode.VOLUME }?.let { state ->
             return VolumePanelVisual(
@@ -2037,6 +2189,7 @@ class EdgeGestureOverlayView(
             }
         } ?: return
         val volumePanel = resolveVolumePanelVisual()
+        val brightnessPanel = resolveBrightnessPanelVisual()
         AdjustLevelIndicator.draw(
             canvas = canvas,
             layout = layout,
@@ -2047,7 +2200,19 @@ class EdgeGestureOverlayView(
             side = side,
             recede = adjustIndicatorReceding,
             volumePanel = volumePanel,
+            brightnessPanel = brightnessPanel,
             context = context,
+        )
+    }
+
+    private fun startAdjustIndicatorEnterAnimationIfNeeded() {
+        if (adjustPanelState != null) return
+        if (adjustIndicatorProgress >= 1f) return
+        if (adjustIndicatorAnimator?.isRunning == true) return
+        animateAdjustIndicatorTo(
+            target = 1f,
+            durationMs = ADJUST_INDICATOR_ENTER_MS,
+            interpolator = DecelerateInterpolator(),
         )
     }
 
@@ -2061,11 +2226,7 @@ class EdgeGestureOverlayView(
                 wasAdjustMode = true
                 return
             }
-            animateAdjustIndicatorTo(
-                target = 1f,
-                durationMs = ADJUST_INDICATOR_ENTER_MS,
-                interpolator = DecelerateInterpolator(),
-            )
+            startAdjustIndicatorEnterAnimationIfNeeded()
         } else if (adjustPanelState == null && adjustIndicatorProgress > 0f) {
             adjustIndicatorHoldVisual = captureAdjustIndicatorVisual() ?: adjustIndicatorHoldVisual
             animateAdjustIndicatorTo(
@@ -2138,6 +2299,10 @@ class EdgeGestureOverlayView(
             }
             OverlayPanelMode.NONE -> {
                 panelEnterProgress = 1f
+                if (gestureSession.isAdjustMode()) {
+                    wasAdjustMode = true
+                    startAdjustIndicatorEnterAnimationIfNeeded()
+                }
             }
         }
         panelGridSession.reset()

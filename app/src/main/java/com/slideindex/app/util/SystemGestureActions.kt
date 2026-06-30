@@ -170,21 +170,17 @@ class ContinuousAdjustController(
 
         if (TaskManagerUtil.hasPermission()) {
             synced = TaskManagerUtil.runShellCommand(
-                "settings", "put", "system", "screen_brightness_mode", "0",
-            ) && TaskManagerUtil.runShellCommand(
                 "settings", "put", "system", "screen_brightness", target.toString(),
             )
         }
 
         if (PermissionHelper.canWriteSettings(appContext)) {
             runCatching {
-                val resolver = appContext.contentResolver
-                Settings.System.putInt(
-                    resolver,
-                    Settings.System.SCREEN_BRIGHTNESS_MODE,
-                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL,
-                )
-                synced = Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, target) || synced
+                synced = Settings.System.putInt(
+                    appContext.contentResolver,
+                    Settings.System.SCREEN_BRIGHTNESS,
+                    target,
+                ) || synced
             }.onFailure { error ->
                 Log.w(TAG, "system brightness write failed", error)
             }
