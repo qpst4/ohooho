@@ -146,7 +146,7 @@ private fun ActionPickerActionsTab(
     val actionOptions = remember(trigger) {
         buildList {
             add(GestureAction.None)
-            if (trigger.supportsIndex) add(GestureAction.OpenIndex)
+            add(GestureAction.OpenIndex)
             add(GestureAction.QuickLauncher)
             add(GestureAction.TaskSwitcher)
             add(GestureAction.ShellCommandPanel)
@@ -169,10 +169,8 @@ private fun ActionPickerActionsTab(
             add(GestureAction.KeepScreenOn)
             add(GestureAction.ScrollToTop)
             add(GestureAction.ScrollToBottom)
-            if (trigger.supportsIndex) {
-                add(GestureAction.AdjustVolume)
-                add(GestureAction.AdjustBrightness)
-            }
+            add(GestureAction.AdjustVolume)
+            add(GestureAction.AdjustBrightness)
             add(GestureAction.LaunchAssistant)
             if (trigger == GestureTriggerType.SHORT_SINGLE_TAP) add(GestureAction.ClickPassthrough)
         }

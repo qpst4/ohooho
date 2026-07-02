@@ -653,19 +653,7 @@ class GestureSession(
 
         when (action) {
 
-            is GestureAction.OpenIndex -> {
-
-                if (classification.trigger.supportsIndex) {
-
-                    enterIndexMode(localX, localY)
-
-                } else {
-
-                    endSession()
-
-                }
-
-            }
+            is GestureAction.OpenIndex -> enterIndexMode(localX, localY)
 
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> {
                 val adjustControllerMode = when (action) {

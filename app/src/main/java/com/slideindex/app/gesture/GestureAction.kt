@@ -273,17 +273,16 @@ fun GestureAction.isEffective(): Boolean = type != GestureActionType.NONE
 
 fun GestureAction.supportsContinuousTracking(trigger: GestureTriggerType): Boolean {
     if (this !in GestureAction.continuousTrackingActions) return false
-    return when (this) {
-        GestureAction.QuickLauncher, GestureAction.TaskSwitcher, GestureAction.ShellCommandPanel -> !trigger.isPressOrTap
-        else -> trigger.supportsIndex
-    }
+    return !trigger.isPressOrTap
 }
 
 fun GestureAction.preferredTriggerMode(trigger: GestureTriggerType): GestureTriggerMode? =
     when (this) {
-        GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.ShellCommandPanel ->
+        GestureAction.OpenIndex ->
+            if (!trigger.isPressOrTap) GestureTriggerMode.CONTINUOUS else null
+        GestureAction.QuickLauncher, GestureAction.ShellCommandPanel ->
             if (trigger.supportsIndex) GestureTriggerMode.CONTINUOUS else null
         GestureAction.AdjustVolume, GestureAction.AdjustBrightness ->
-            if (trigger.supportsIndex) GestureTriggerMode.ON_RELEASE else null
+            if (!trigger.isPressOrTap) GestureTriggerMode.ON_RELEASE else null
         else -> null
     }

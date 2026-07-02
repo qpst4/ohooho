@@ -142,7 +142,7 @@
     <string name="side_gestures_entry_desc">配置短/长距离滑动手势动作</string>
     <string name="side_gestures_left_title">左侧触发器</string>
     <string name="side_gestures_right_title">右侧触发器</string>
-    <string name="side_gestures_desc">侧滑索引仅可绑定到「向上/向下滑动」手势。其他方向可配置返回、快速启动器、任务切换器等。</string>
+    <string name="side_gestures_desc">每个手势槽位均可独立配置动作，包括侧滑索引、滑动调节音量/亮度、快速启动器等。</string>
     <string name="side_gestures_short_distance">短距离滑动</string>
     <string name="side_gestures_press_tap">点击与长按</string>
     <string name="side_gestures_long_distance">长距离滑动</string>
