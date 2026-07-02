@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission
         android:name="android.permission.WRITE_SETTINGS"
@@ -95,8 +96,7 @@
 
         <service
             android:name=".shizuku.TaskManagerUserService"
-            android:exported="false"
-            android:process=":task_manager_v10" />
+            android:exported="false" />
 
         <receiver
             android:name=".receiver.PackageChangeReceiver"

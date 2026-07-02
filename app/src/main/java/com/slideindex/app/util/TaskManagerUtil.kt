@@ -1,12 +1,8 @@
 package com.slideindex.app.util
 
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.os.Handler
-import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
@@ -15,10 +11,13 @@ import com.slideindex.app.service.OverlayService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.resolvedFreeWindowMode
 import com.slideindex.app.shizuku.ITaskManagerService
+import com.slideindex.app.shizuku.ShizukuUserServiceHost
 import com.slideindex.app.shizuku.TaskManagerUserService
 import rikka.shizuku.Shizuku
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 object TaskManagerUtil {
 
@@ -32,6 +31,12 @@ object TaskManagerUtil {
     private const val MIN_FRONT_PACKAGE_API = 7
     private const val MIN_FORCE_STOP_API = 8
     private const val MIN_SHORTCUTS_API = 9
+    private const val MIN_SHELL_OUTPUT_API = 15
+    private const val SHELL_BINDER_TIMEOUT_MS = 35_000L
+    const val ROOT_PROBE_BINDER_TIMEOUT_MS = 45_000L
+    private const val MIN_PROBE_ROOT_API = 17
+    private const val MIN_SHELL_FORCE_ADB_API = 28
+    private const val MIN_SHELL_LINE_V1_API = 16
     const val REQUEST_CODE = 1001
 
     data class RecentTaskRef(
@@ -41,17 +46,12 @@ object TaskManagerUtil {
         val topComponent: String? = null,
     )
 
-    @Volatile
-    private var service: ITaskManagerService? = null
-
-    @Volatile
-    private var pendingBindLatch: CountDownLatch? = null
-
-    private val bindLock = Any()
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val taskWorkerLock = Any()
-
-    private var cachedServiceArgs: Shizuku.UserServiceArgs? = null
+    data class ShellCommandResult(
+        val exitCode: Int,
+        val output: String,
+    ) {
+        val success: Boolean get() = exitCode == 0
+    }
 
     @Volatile
     private var cachedRecentPackages: List<String> = emptyList()
@@ -59,25 +59,22 @@ object TaskManagerUtil {
     @Volatile
     private var lastRecentRefreshElapsedMs = 0L
 
-    private val userServiceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            service = if (binder != null && binder.pingBinder()) {
-                ITaskManagerService.Stub.asInterface(binder)
-            } else {
-                Log.e(TAG, "UserService connected with invalid binder")
-                null
-            }
-            if (service != null) {
-                Log.i(TAG, "UserService connected")
-            }
-            pendingBindLatch?.countDown()
-        }
+    private val taskWorkerLock = Any()
 
-        override fun onServiceDisconnected(name: ComponentName?) {
-            Log.w(TAG, "UserService disconnected")
-            service = null
-        }
+    private fun peekBoundService(): ITaskManagerService? = ShizukuUserServiceHost.peek()
+
+    private fun bindService(context: Context): ITaskManagerService? =
+        ShizukuUserServiceHost.ensure(context, minApi = 0)
+
+    private fun bindFreshService(minApi: Int = 0): ITaskManagerService? =
+        ShizukuUserServiceHost.ensure(appContext(), minApi)
+
+    private fun forceRestartUserService(context: Context) {
+        ShizukuUserServiceHost.drop(context)
     }
+
+    private fun readServiceApi(taskService: ITaskManagerService): Int =
+        ShizukuUserServiceHost.readApi(taskService)
 
     fun isShizukuRunning(): Boolean =
         runCatching { Shizuku.pingBinder() }.getOrDefault(false)
@@ -105,9 +102,11 @@ object TaskManagerUtil {
     fun warmUp() {
         if (!hasPermission()) return
         Thread {
-            runOnTaskWorker {
+            runCatching {
                 bindFreshService()
                 RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
+            }.onFailure { error ->
+                Log.w(TAG, "warmUp failed", error)
             }
         }.start()
     }
@@ -117,8 +116,10 @@ object TaskManagerUtil {
         val elapsed = SystemClock.elapsedRealtime() - lastRecentRefreshElapsedMs
         if (elapsed in 0 until PREFETCH_DEBOUNCE_MS) return
         Thread {
-            runOnTaskWorker {
+            runCatching {
                 RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
+            }.onFailure { error ->
+                Log.w(TAG, "prefetchRecentTasks failed", error)
             }
         }.start()
     }
@@ -342,7 +343,209 @@ object TaskManagerUtil {
         }
     }
 
+    fun runShellCommandOutput(vararg cmd: String): ShellCommandResult {
+        if (!hasPermission()) {
+            return ShellCommandResult(exitCode = -1, output = "无 Shizuku 权限")
+        }
+        val service = bindFreshService(MIN_SHELL_OUTPUT_API) ?: bindFreshService()
+            ?: return ShellCommandResult(
+                exitCode = -1,
+                output = "Shizuku UserService 连接失败，请重启 Shizuku 后重试",
+            )
+        val raw = invokeShellBinderWithTimeout {
+            service.runShellCommandOutput(cmd)
+        } ?: return ShellCommandResult(
+            exitCode = -1,
+            output = "Shell 命令超时（${SHELL_BINDER_TIMEOUT_MS / 1000}s），请重试",
+        )
+        return parseShellResultRaw(raw)
+    }
+
+    fun probeRootAvailable(): Boolean {
+        if (!hasPermission()) return false
+        val service = bindFreshService(MIN_PROBE_ROOT_API)
+            ?: bindFreshService(MIN_SHELL_OUTPUT_API)
+            ?: return false
+        val api = readServiceApi(service)
+        if (api >= MIN_PROBE_ROOT_API) {
+            return invokeShellBinderBooleanWithTimeout(ROOT_PROBE_BINDER_TIMEOUT_MS) {
+                service.probeRootAvailable()
+            } ?: false
+        }
+        val rootResult = runShellCommandLineDirect(
+            service = service,
+            command = "id -u",
+            useRoot = true,
+            timeoutMs = ROOT_PROBE_BINDER_TIMEOUT_MS,
+        )
+        val rootUid = parseNumericUid(rootResult.output)
+        if (rootResult.exitCode != 0 || rootUid != 0) return false
+        val adbResult = runShellCommandLineDirect(
+            service = service,
+            command = "id -u",
+            useRoot = false,
+            timeoutMs = 8_000L,
+        )
+        if (adbResult.exitCode != 0) return true
+        val adbUid = parseNumericUid(adbResult.output) ?: return false
+        return adbUid != 0
+    }
+
+    private fun parseNumericUid(output: String): Int? {
+        val trimmed = output.trim()
+        trimmed.toIntOrNull()?.let { return it }
+        return Regex("""uid=(\d+)""").find(trimmed)?.groupValues?.get(1)?.toIntOrNull()
+    }
+
+    fun runShellCommandLine(
+        command: String,
+        useRoot: Boolean,
+        timeoutMs: Long = SHELL_BINDER_TIMEOUT_MS,
+    ): ShellCommandResult {
+        if (!hasPermission()) {
+            return ShellCommandResult(exitCode = -1, output = "无 Shizuku 权限")
+        }
+        val trimmed = command.trim()
+        if (trimmed.isEmpty()) {
+            return ShellCommandResult(exitCode = -1, output = "命令为空")
+        }
+        val minApi = if (useRoot) MIN_SHELL_OUTPUT_API else MIN_SHELL_FORCE_ADB_API
+        val service = bindFreshService(minApi)
+        if (service == null) {
+            val clientBuild = TaskManagerUserService.API_VERSION
+            return ShellCommandResult(
+                exitCode = -1,
+                output = "无法连接 Shell 服务（期望 build=$clientBuild）。\n" +
+                    "请点击「重启 Shell 服务」；若仍失败，请完全关闭 Shizuku 与本应用后重试。",
+            )
+        }
+        return runShellCommandLineDirect(
+            service = service,
+            command = trimmed,
+            useRoot = useRoot,
+            timeoutMs = timeoutMs,
+            requireAdbIdentity = !useRoot,
+        )
+    }
+
+    private fun runShellCommandLineDirect(
+        service: ITaskManagerService,
+        command: String,
+        useRoot: Boolean,
+        timeoutMs: Long,
+        requireAdbIdentity: Boolean = !useRoot,
+    ): ShellCommandResult {
+        val api = readServiceApi(service)
+        val raw = invokeShellBinderWithTimeout(timeoutMs) {
+            when {
+                api >= MIN_SHELL_FORCE_ADB_API ->
+                    service.runShellCommandLine(command, useRoot, false)
+                useRoot && api >= MIN_SHELL_OUTPUT_API -> {
+                    val args = com.slideindex.app.shell.ShellCommandCodec.buildExecArgs(
+                        command,
+                        useRoot = true,
+                    )
+                    service.runShellCommandOutput(args)
+                }
+                api >= MIN_SHELL_LINE_V1_API ->
+                    service.runShellCommandLine(command, useRoot, false)
+                else -> null
+            }
+        }
+        if (raw == null) {
+            return ShellCommandResult(
+                exitCode = -1,
+                output = if (api < MIN_SHELL_OUTPUT_API) {
+                    "Shizuku 服务版本过旧 (api=$api)，请重启 Shizuku 后重试"
+                } else {
+                    "Shell 命令超时（${timeoutMs / 1000}s），请重试"
+                },
+            )
+        }
+        return sanitizeAdbShellResult(parseShellResultRaw(raw), requireAdbIdentity)
+    }
+
+    private fun sanitizeAdbShellResult(
+        result: ShellCommandResult,
+        requireAdbIdentity: Boolean,
+    ): ShellCommandResult {
+        if (!requireAdbIdentity || result.exitCode != 0) return result
+        if (result.output.startsWith(TaskManagerUserService.SHELL_DOWNGRADE_HINT)) return result
+        val uid = parseNumericUid(result.output)
+        if (uid == 0) {
+            return ShellCommandResult(
+                exitCode = -1,
+                output = "命令仍在 root 身份下执行（uid=0）。\n" +
+                    "adb 模式应返回 uid=2000。\n" +
+                    "若 Shizuku 以 Root 启动，请改用无线调试/adb 方式启动 Shizuku，" +
+                    "或在 APatch 中取消 Shell 的永久 Root 授权。",
+            )
+        }
+        return result
+    }
+
+    private fun invokeShellBinderBooleanWithTimeout(
+        timeoutMs: Long = SHELL_BINDER_TIMEOUT_MS,
+        block: () -> Boolean,
+    ): Boolean? {
+        val executor = Executors.newSingleThreadExecutor()
+        return try {
+            executor.submit(Callable { block() }).get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (error: TimeoutException) {
+            Log.e(TAG, "Shell binder call timed out", error)
+            null
+        } catch (error: Exception) {
+            Log.e(TAG, "Shell binder call failed", error)
+            null
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    private fun invokeShellBinderWithTimeout(
+        timeoutMs: Long = SHELL_BINDER_TIMEOUT_MS,
+        block: () -> String?,
+    ): String? {
+        val executor = Executors.newSingleThreadExecutor()
+        return try {
+            executor.submit(Callable { block() }).get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (error: TimeoutException) {
+            Log.e(TAG, "Shell binder call timed out", error)
+            null
+        } catch (error: Exception) {
+            Log.e(TAG, "Shell binder call failed", error)
+            null
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    private fun parseShellResultRaw(raw: String?): ShellCommandResult {
+        if (raw.isNullOrBlank()) {
+            return ShellCommandResult(
+                exitCode = -1,
+                output = "Shell 服务无响应。请完全关闭并重启 Shizuku，然后重新打开本应用",
+            )
+        }
+        return parseShellCommandOutput(raw)
+    }
+
+    private fun parseShellCommandOutput(raw: String): ShellCommandResult {
+        val marker = "\n---\n"
+        val index = raw.indexOf(marker)
+        if (index < 0) {
+            return ShellCommandResult(exitCode = -1, output = raw)
+        }
+        val exitCode = raw.substring(0, index).toIntOrNull() ?: -1
+        val output = raw.substring(index + marker.length)
+        return ShellCommandResult(exitCode, output)
+    }
+
     fun <T> runOnTaskWorker(block: () -> T): T {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // bindService runs inline on main; never block main on a background worker lock.
+            return block()
+        }
         synchronized(taskWorkerLock) {
             return block()
         }
@@ -391,7 +594,6 @@ object TaskManagerUtil {
         var moved = invokeMoveTaskToFreeWindow(service, taskId, settings)
         if (!moved) {
             forceRestartUserService(appContext())
-            synchronized(bindLock) { this.service = null }
             service = bindFreshService(MIN_FREE_WINDOW_API) ?: return false
             moved = invokeMoveTaskToFreeWindow(service, taskId, settings)
         }
@@ -421,46 +623,12 @@ object TaskManagerUtil {
         }
     }
 
-    private fun bindFreshService(minApi: Int = 0): ITaskManagerService? {
-        var bound = bindService(appContext()) ?: return null
-        var api = runCatching { bound.apiVersion }.getOrDefault(0)
-        if (api < minApi) {
-            Log.w(
-                TAG,
-                "bindFreshService: UserService api=$api stale, restarting for $minApi",
-            )
-            forceRestartUserService(appContext())
-            synchronized(bindLock) { service = null }
-            bound = bindService(appContext()) ?: return null
-            api = runCatching { bound.apiVersion }.getOrDefault(0)
-        }
-        if (api < minApi) {
-            Log.e(
-                TAG,
-                "bindFreshService: rebound UserService still stale api=$api expected=$minApi",
-            )
-            forceRestartUserService(appContext())
-            return null
-        }
-        return bound
-    }
-
-    private fun forceRestartUserService(context: Context) {
-        synchronized(bindLock) {
-            runCatching {
-                cachedServiceArgs?.let { Shizuku.unbindUserService(it, userServiceConnection, true) }
-            }
-            runCatching { service?.destroy() }
-            service = null
-            cachedServiceArgs = null
-        }
-    }
+    /** Manually forces a full unbind + rebind, useful when a zombie daemon UserService is stuck. */
+    fun restartShellService(): Int = ShizukuUserServiceHost.restart(appContext())
 
     fun getRecentTaskPackages(): List<String>? {
         if (!hasPermission()) return null
-        val taskService = service?.takeIf { it.asBinder().pingBinder() }
-            ?: bindService(appContext())
-            ?: return null
+        val taskService = peekBoundService() ?: bindService(appContext()) ?: return null
         return try {
             taskService.getRecentTaskPackages().toList()
         } catch (e: Exception) {
@@ -470,53 +638,4 @@ object TaskManagerUtil {
     }
 
     private fun appContext(): Context = SlideIndexApp.instance.applicationContext
-
-    private fun userServiceArgs(context: Context): Shizuku.UserServiceArgs {
-        cachedServiceArgs?.let { return it }
-        val version = TaskManagerUserService.API_VERSION
-        return Shizuku.UserServiceArgs(
-            ComponentName(context.packageName, TaskManagerUserService::class.java.name),
-        )
-            .daemon(true)
-            .processNameSuffix("task_manager_v$version")
-            .tag("TaskManagerUserService_v$version")
-            .version(version)
-            .also { cachedServiceArgs = it }
-    }
-
-    private fun bindService(context: Context): ITaskManagerService? {
-        if (!hasPermission()) return null
-
-        service?.takeIf { it.asBinder().pingBinder() }?.let { return it }
-        service = null
-
-        synchronized(bindLock) {
-            service?.takeIf { it.asBinder().pingBinder() }?.let { return it }
-            service = null
-
-            val latch = CountDownLatch(1)
-            pendingBindLatch = latch
-            return try {
-                val bindRunnable = Runnable {
-                    runCatching {
-                        Shizuku.bindUserService(userServiceArgs(context), userServiceConnection)
-                    }.onFailure {
-                        pendingBindLatch?.countDown()
-                    }
-                }
-                if (Looper.myLooper() == Looper.getMainLooper()) {
-                    bindRunnable.run()
-                } else {
-                    mainHandler.post(bindRunnable)
-                }
-                val connected = latch.await(15, TimeUnit.SECONDS)
-                service?.takeIf { connected && it.asBinder().pingBinder() }
-            } catch (e: Exception) {
-                Log.e(TAG, "bindService failed", e)
-                null
-            } finally {
-                pendingBindLatch = null
-            }
-        }
-    }
 }

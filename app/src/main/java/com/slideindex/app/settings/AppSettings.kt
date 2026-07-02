@@ -1,5 +1,6 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.gesture.GestureAngleConfig
 import com.slideindex.app.gesture.GestureRule
 import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.overlay.PanelSide
@@ -21,6 +22,9 @@ data class AppSettings(
     val rightDefaultTriggerMode: GestureTriggerMode = GestureTriggerMode.ON_RELEASE,
     val shortSwipeDistanceDp: Float = 60f,
     val longSwipeDistanceDp: Float = 120f,
+    val gestureHintEnabled: Boolean = true,
+    val gestureHintStyleId: Int = GestureHintStyle.BUBBLE.id,
+    val gestureAngleConfig: GestureAngleConfig = GestureAngleConfig.DEFAULT,
     val indexHeightFraction: Float = 0.42f,
     val appsPerRow: Int = 3,
     val panelOpacity: Float = 0.95f,
@@ -39,6 +43,7 @@ data class AppSettings(
     val gestureRules: List<GestureRule> = emptyList(),
     val quickLauncherLeft: List<com.slideindex.app.launcher.QuickLauncherItem> = emptyList(),
     val quickLauncherRight: List<com.slideindex.app.launcher.QuickLauncherItem> = emptyList(),
+    val shellCommands: List<com.slideindex.app.shell.ShellCommand> = emptyList(),
     val themeColorArgb: Int = 0xFF6750A4.toInt(),
 )
 

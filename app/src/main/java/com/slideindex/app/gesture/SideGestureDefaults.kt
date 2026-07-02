@@ -8,7 +8,13 @@ object SideGestureDefaults {
         slotRule(side, GestureTriggerType.SHORT_SWIPE_UP, GestureAction.OpenIndex, "default-index-up-short"),
         slotRule(side, GestureTriggerType.SHORT_SWIPE_DOWN, GestureAction.OpenIndex, "default-index-down-short"),
         slotRule(side, GestureTriggerType.LONG_SWIPE_UP, GestureAction.OpenIndex, "default-index-up-long"),
-        slotRule(side, GestureTriggerType.LONG_SWIPE_DOWN, GestureAction.QuickLauncher, "default-quick-down-long"),
+        slotRule(
+            side,
+            GestureTriggerType.LONG_SWIPE_DOWN,
+            GestureAction.QuickLauncher,
+            "default-quick-down-long",
+            triggerMode = GestureTriggerMode.CONTINUOUS,
+        ),
         slotRule(side, GestureTriggerType.LONG_SWIPE_DOWN_RIGHT, GestureAction.TaskSwitcher, "default-task-down-right-long"),
     )
 
@@ -18,6 +24,7 @@ object SideGestureDefaults {
         action: GestureAction,
         id: String,
         priority: Int = 0,
+        triggerMode: GestureTriggerMode = GestureTriggerMode.DEFAULT,
     ): GestureRule = GestureRule(
         id = "$id-${side.name.lowercase()}",
         side = side,
@@ -25,6 +32,7 @@ object SideGestureDefaults {
         action = action,
         priority = priority,
         enabled = action.isEffective(),
+        triggerMode = triggerMode,
     )
 }
 
@@ -49,6 +57,8 @@ fun AppSettings.slotTriggerMode(side: PanelSide, trigger: GestureTriggerType): G
 fun AppSettings.resolvedTriggerMode(side: PanelSide, trigger: GestureTriggerType): GestureTriggerMode {
     val customMode = slotTriggerMode(side, trigger)
     if (customMode != GestureTriggerMode.DEFAULT) return customMode
+    val ruleMode = effectiveRule(side, trigger)?.triggerMode
+    if (ruleMode != null && ruleMode != GestureTriggerMode.DEFAULT) return ruleMode
     return defaultTriggerModeFor(side)
 }
 

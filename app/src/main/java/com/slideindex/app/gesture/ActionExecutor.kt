@@ -8,9 +8,12 @@ import android.os.Looper
 import android.util.Log
 import com.slideindex.app.data.AppRepository
 import com.slideindex.app.launcher.QuickLauncherItem
+import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
-import com.slideindex.app.service.SlideIndexAccessibilityService
+import com.slideindex.app.overlay.TaskSwitcherMenuItem
+import com.slideindex.app.overlay.TaskSwitcherMenuItemType
 import com.slideindex.app.service.OverlayService
+import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.shouldLaunchFullscreen
 import com.slideindex.app.util.FreeWindowLauncher
@@ -18,12 +21,15 @@ import com.slideindex.app.util.InputTapUtil
 import com.slideindex.app.util.RecentTasksLoader
 import com.slideindex.app.util.TaskExclusions
 import com.slideindex.app.util.TaskManagerUtil
+import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.AssistantLauncher
 import com.slideindex.app.util.BrightnessControlHelper
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
 import com.slideindex.app.util.OverlayBrightnessControl
+import com.slideindex.app.util.SystemGestureActions
 import com.slideindex.app.util.VolumeControlHelper
+import android.view.KeyEvent
 
 class ActionExecutor(
     private val context: Context,
@@ -88,9 +94,11 @@ class ActionExecutor(
     fun execute(action: GestureAction, settings: AppSettings, longPressArmed: Boolean = false) {
         when (action) {
             GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.TaskSwitcher,
+            GestureAction.ShellCommandPanel,
             GestureAction.None, GestureAction.ClickPassthrough,
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
+            is GestureAction.LaunchShortcut -> launchGestureShortcut(action, settings, longPressArmed)
             GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {
                 SlideIndexAccessibilityService.perform(action)
             }
@@ -98,14 +106,49 @@ class ActionExecutor(
             GestureAction.FreeWindowCurrentApp -> freeWindowForegroundApp(settings)
             GestureAction.Flashlight -> FlashlightHelper.toggle(context)
             GestureAction.LaunchAssistant -> AssistantLauncher.launchDefault(context)
+            GestureAction.ToggleMute -> SystemGestureActions.toggleMute(context)
+            GestureAction.MediaPlayPause -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            GestureAction.MediaPrevious -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+            GestureAction.MediaNext -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT)
+            GestureAction.PreviousApp,
+            GestureAction.OpenNotifications,
+            GestureAction.OpenQuickSettings,
+            GestureAction.LockScreen,
+            GestureAction.Screenshot,
+            GestureAction.PowerMenu,
+            GestureAction.KeepScreenOn,
+            GestureAction.ScrollToTop,
+            GestureAction.ScrollToBottom,
+            -> SlideIndexAccessibilityService.perform(action)
         }
     }
 
     fun launchQuickItem(item: QuickLauncherItem, settings: AppSettings, longPressArmed: Boolean = false) {
         when (item.type) {
             QuickLauncherItemType.APP -> launchApp(item.payload, settings, longPressArmed)
-            QuickLauncherItemType.SHORTCUT -> launchShortcut(item.payload, settings, longPressArmed)
+            QuickLauncherItemType.SHORTCUT -> launchQuickShortcut(item, settings, longPressArmed)
             QuickLauncherItemType.WIDGET -> Unit
+        }
+    }
+
+    private fun launchGestureShortcut(
+        action: GestureAction.LaunchShortcut,
+        settings: AppSettings,
+        longPressArmed: Boolean,
+    ) {
+        when (val decoded = GestureShortcutPayload.decode(action.payloadKey)) {
+            is GestureShortcutPayload.Decoded.Dynamic -> {
+                val item = QuickLauncherItem.dynamicShortcut(
+                    packageName = decoded.packageName,
+                    shortcutId = decoded.shortcutId,
+                    label = decoded.label.ifBlank { action.label },
+                )
+                launchQuickShortcut(item, settings, longPressArmed)
+            }
+            is GestureShortcutPayload.Decoded.Component -> {
+                launchShortcut(decoded.componentFlat, settings, longPressArmed)
+            }
+            null -> Unit
         }
     }
 
@@ -233,6 +276,44 @@ class ActionExecutor(
         if (cls.startsWith('.')) cls = pkg + cls
         if (pkg.isEmpty() || cls.isEmpty()) return null
         return ComponentName(pkg, cls)
+    }
+
+    private fun launchQuickShortcut(
+        item: QuickLauncherItem,
+        settings: AppSettings,
+        longPressArmed: Boolean,
+    ) {
+        val dynamic = QuickLauncherItemCodec.parseShortcutPayload(item.payload)
+        if (dynamic != null) {
+            val (packageName, shortcutId) = dynamic
+            val menuItem = AppShortcutLoader.resolveRegisteredShortcut(context, packageName, shortcutId)
+                ?: TaskSwitcherMenuItem(
+                    label = item.label,
+                    type = TaskSwitcherMenuItemType.SHORTCUT,
+                    shortcutId = shortcutId,
+                    useShellLaunch = true,
+                )
+            if (longPressArmed && settings.freeWindowEnabled) {
+                launchShortcutInFreeWindow(packageName, menuItem, settings)
+            } else {
+                AppShortcutLoader.launchShortcut(context, packageName, menuItem)
+            }
+            return
+        }
+        launchShortcut(item.payload, settings, longPressArmed)
+    }
+
+    private fun launchShortcutInFreeWindow(
+        packageName: String,
+        item: TaskSwitcherMenuItem,
+        settings: AppSettings,
+    ) {
+        val intent = item.shortcutIntent
+        if (intent != null) {
+            FreeWindowLauncher.launch(context, intent, settings, fullscreen = false)
+            return
+        }
+        AppShortcutLoader.launchShortcut(context, packageName, item)
     }
 
     private fun launchShortcut(componentFlat: String, settings: AppSettings, longPressArmed: Boolean) {

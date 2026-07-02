@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Process
 import android.util.AttributeSet
 import android.util.Log
+import com.slideindex.app.data.AppInfo
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
 import org.xmlpull.v1.XmlPullParser
@@ -28,6 +29,131 @@ object AppShortcutLoader {
     private val shellCache = ConcurrentHashMap<String, CacheEntry>()
 
     private data class CacheEntry(val loadedAt: Long, val shortcuts: List<TaskSwitcherMenuItem>)
+
+    /** Registered manifest + LauncherApps shortcuts only (no hard-coded fallbacks). */
+    fun loadRegisteredShortcuts(context: Context, packageName: String): List<TaskSwitcherMenuItem> {
+        val merged = linkedMapOf<String, TaskSwitcherMenuItem>()
+        loadManifestShortcuts(context, packageName).forEach { item ->
+            merged[item.shortcutId ?: item.label] = item
+        }
+        loadLauncherShortcuts(context, packageName).forEach { item ->
+            merged.putIfAbsent(item.shortcutId ?: item.label, item)
+        }
+        return merged.values
+            .filter(::isDisplayableShortcut)
+            .filter { isRegisteredShortcutLaunchable(context, packageName, it) }
+            .take(MAX_SHORTCUTS)
+            .toList()
+    }
+
+    fun resolveRegisteredShortcut(
+        context: Context,
+        packageName: String,
+        shortcutId: String,
+    ): TaskSwitcherMenuItem? =
+        loadRegisteredShortcuts(context, packageName).firstOrNull { it.shortcutId == shortcutId }
+
+    data class AppShortcutGroup(
+        val app: AppInfo,
+        val shortcuts: List<TaskSwitcherMenuItem>,
+    )
+
+    /** All apps that expose at least one registered, launchable shortcut. */
+    fun loadRegisteredShortcutGroups(context: Context, apps: List<AppInfo>): List<AppShortcutGroup> =
+        apps.mapNotNull { app ->
+            val shortcuts = loadRegisteredShortcuts(context, app.packageName)
+            if (shortcuts.isEmpty()) null else AppShortcutGroup(app, shortcuts)
+        }.sortedBy { it.app.label.lowercase() }
+
+    data class CreateShortcutHost(
+        val packageName: String,
+        val className: String,
+        val label: String,
+    ) {
+        val qualifiedName: String get() = "$packageName/$className"
+
+        fun createIntent(): Intent = Intent().setClassName(packageName, className)
+    }
+
+    data class CreatedShortcut(
+        val hostPackageName: String,
+        val label: String,
+        val componentFlat: String,
+        val shortcutIntent: Intent?,
+    )
+
+    /** Apps that expose an Activity for [Intent.ACTION_CREATE_SHORTCUT]. */
+    fun queryCreateShortcutActivities(context: Context): List<CreateShortcutHost> {
+        val intent = Intent(Intent.ACTION_CREATE_SHORTCUT)
+        val activities = context.packageManager.queryIntentActivities(
+            intent,
+            PackageManager.MATCH_DEFAULT_ONLY,
+        )
+        val seenPackages = mutableSetOf<String>()
+        return activities.mapNotNull { resolveInfo ->
+            val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+            if (!activityInfo.exported) return@mapNotNull null
+            val packageName = activityInfo.packageName ?: return@mapNotNull null
+            if (!seenPackages.add(packageName)) return@mapNotNull null
+            CreateShortcutHost(
+                packageName = packageName,
+                className = activityInfo.name,
+                label = activityInfo.loadLabel(context.packageManager).toString(),
+            )
+        }.sortedBy { it.label.lowercase() }
+    }
+
+    fun parseCreateShortcutResult(
+        hostPackageName: String,
+        data: Intent?,
+    ): CreatedShortcut? {
+        if (data == null) return null
+        val label = data.getStringExtra(Intent.EXTRA_SHORTCUT_NAME)?.trim().orEmpty()
+        val shortcutIntent = data.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT, Intent::class.java)
+            ?: data.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT)
+        if (label.isBlank() && shortcutIntent == null) return null
+        val component = shortcutIntent?.component
+        val componentFlat = component?.flattenToString()
+            ?: shortcutIntent?.`package`?.let { pkg ->
+                shortcutIntent.component?.className?.let { cls ->
+                    ComponentName(pkg, cls).flattenToString()
+                }
+            }
+        if (componentFlat.isNullOrBlank()) return null
+        return CreatedShortcut(
+            hostPackageName = hostPackageName,
+            label = label.ifBlank { componentFlat.substringAfterLast('/') },
+            componentFlat = componentFlat,
+            shortcutIntent = shortcutIntent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
+    private fun isRegisteredShortcutLaunchable(
+        context: Context,
+        packageName: String,
+        item: TaskSwitcherMenuItem,
+    ): Boolean {
+        if (item.type != TaskSwitcherMenuItemType.SHORTCUT) return true
+        item.shortcutIntent?.let { intent ->
+            return context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+        }
+        val id = item.shortcutId ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) return false
+        val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return false
+        if (!launcherApps.hasShortcutHostPermission()) return false
+        val flags = LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+            LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+        val query = LauncherApps.ShortcutQuery().apply {
+            setPackage(packageName)
+            setShortcutIds(listOf(id))
+            setQueryFlags(flags)
+        }
+        return runCatching {
+            launcherApps.getShortcuts(query, Process.myUserHandle())
+                ?.any { it.id == id && it.isEnabled }
+        }.getOrDefault(false) == true
+    }
 
     /** Zero-I/O shortcuts for WeChat / QQ / Alipay. */
     fun loadInstantShortcuts(packageName: String): List<TaskSwitcherMenuItem> {

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.IBinder
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.Keep
@@ -202,6 +203,129 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         if (cmd.isNullOrEmpty()) return false
         return shellCommand(*cmd)
     }
+
+    override fun runShellCommandOutput(cmd: Array<out String>?): String {
+        if (cmd.isNullOrEmpty()) return formatShellOutput(-1, "Empty command")
+        val result = shellCommandWithOutput(*cmd)
+        return formatShellOutput(result.exitCode, result.output)
+    }
+
+    override fun runShellCommandLine(command: String?, useRoot: Boolean, forceAdb: Boolean): String {
+        val trimmed = command?.trim().orEmpty()
+        if (trimmed.isEmpty()) return formatShellOutput(-1, "Empty command")
+        val wantRoot = useRoot && !forceAdb
+        val result = when {
+            wantRoot -> runAsRootUser(trimmed)
+            else -> runAsShellUser(trimmed)
+        }
+        return formatShellOutput(result.exitCode, result.output)
+    }
+
+    override fun probeRootAvailable(): Boolean {
+        return when {
+            Process.myUid() == 0 -> true
+            else -> {
+                val result = runAsRootUser("id -u")
+                result.exitCode == 0 && parseNumericUid(result.output) == 0
+            }
+        }
+    }
+
+    private fun buildPlainShellArgs(command: String): Array<String> =
+        arrayOf(resolveShPath(), "-c", command)
+
+    private fun runAsRootUser(command: String): ShellExecResult {
+        if (Process.myUid() == 0) {
+            return shellCommandWithOutput(*buildPlainShellArgs(command))
+        }
+        val su = resolveSuInvocation()
+        val q = shellQuote(command)
+        val scripts = listOf(
+            "$su -c $q",
+            "$su 0 sh -c $q",
+        )
+        return runFirstSuccessfulShellScript(scripts, command)
+    }
+
+    private fun runAsShellUser(command: String): ShellExecResult {
+        if (Process.myUid() != 0) {
+            return shellCommandWithOutput(*buildPlainShellArgs(command))
+        }
+        val wrapper = findShellDowngradeWrapper()
+            ?: return ShellExecResult(
+                exitCode = -1,
+                output = "无法降级到 adb/shell 身份（Shizuku 当前以 Root 运行）。\n" +
+                    "请改用 adb/无线调试方式启动 Shizuku。",
+            )
+        val result = shellCommandWithOutput(resolveShPath(), "-c", wrapper(command))
+        return ShellExecResult(
+            exitCode = result.exitCode,
+            output = SHELL_DOWNGRADE_HINT + result.output,
+        )
+    }
+
+    /** Probe each candidate wrapper with `id -u`, then reuse the first that yields a non-root uid. */
+    private fun findShellDowngradeWrapper(): ((String) -> String)? {
+        val sh = resolveShPath()
+        val su = resolveSuInvocation()
+        val candidates = listOf(
+            { cmd: String -> "toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/system/bin/toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/system/bin/toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su --user shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su -c \"$sh -c ${shellQuote(cmd)}\" shell" },
+            { cmd: String -> "$su 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/data/adb/ap/bin/apd su shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/data/adb/ksud su shell -c ${shellQuote(cmd)}" },
+        )
+        for (wrap in candidates) {
+            val probe = shellCommandWithOutput(sh, "-c", wrap("id -u"))
+            val uid = parseNumericUid(probe.output)
+            if (probe.exitCode == 0 && uid != null && uid != 0) {
+                return wrap
+            }
+        }
+        return null
+    }
+
+    private fun runFirstSuccessfulShellScript(scripts: List<String>, command: String): ShellExecResult {
+        var last = ShellExecResult(-1, "su 执行失败")
+        for (script in scripts) {
+            val result = shellCommandWithOutput(resolveShPath(), "-c", script)
+            last = result
+            if (result.exitCode == 0) return result
+        }
+        return last
+    }
+
+    private fun parseNumericUid(output: String): Int? {
+        val trimmed = output.trim()
+        trimmed.toIntOrNull()?.let { return it }
+        return Regex("""uid=(\d+)""").find(trimmed)?.groupValues?.get(1)?.toIntOrNull()
+    }
+
+    private fun resolveShPath(): String =
+        if (java.io.File(SYSTEM_SH).exists()) SYSTEM_SH else "/bin/sh"
+
+    private fun resolveSuInvocation(): String {
+        val candidates = listOf(
+            "/sbin/su",
+            "/system/xbin/su",
+            SYSTEM_SU,
+            "/vendor/bin/su",
+            "/debug_ramdisk/su",
+            "/data/adb/magisk/magisk",
+        )
+        return candidates.firstOrNull { java.io.File(it).exists() } ?: "su"
+    }
+
+    private fun shellQuote(command: String): String =
+        "'" + command.replace("'", "'\\''") + "'"
 
     private fun launchComponentForTask(taskId: Int, component: String): Boolean {
         val attempts = listOf(
@@ -573,14 +697,43 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
     }
 
     private fun shellOutput(vararg cmd: String): String {
-        return runCatching {
-            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-            val text = process.inputStream.bufferedReader().use { it.readText() }
-            process.waitFor()
-            process.destroy()
-            text
-        }.getOrDefault("")
+        return shellCommandWithOutput(*cmd).output
     }
+
+    private data class ShellExecResult(val exitCode: Int, val output: String)
+
+    private fun shellCommandWithOutput(vararg cmd: String): ShellExecResult {
+        return runCatching {
+            val process = ProcessBuilder(*cmd)
+                .redirectErrorStream(true)
+                .directory(java.io.File("/"))
+                .apply {
+                    environment()["PATH"] = "/system/bin:/system/xbin:/vendor/bin:/product/bin"
+                }
+                .start()
+            val finished = process.waitFor(SHELL_COMMAND_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                return ShellExecResult(-1, "Command timed out after ${SHELL_COMMAND_TIMEOUT_MS / 1000}s")
+            }
+            val text = buildString {
+                process.inputStream.bufferedReader().use { reader ->
+                    val content = reader.readText()
+                    if (content.isNotEmpty()) append(content.trimEnd())
+                }
+                if (isEmpty()) {
+                    append("(no output, exit=${process.exitValue()})")
+                }
+            }
+            process.destroy()
+            ShellExecResult(process.exitValue(), text)
+        }.getOrElse { error ->
+            ShellExecResult(-1, error.message ?: "Execution failed")
+        }
+    }
+
+    private fun formatShellOutput(exitCode: Int, output: String): String =
+        "$exitCode\n---\n$output"
 
     private data class ActivityDumps(
         val atMs: Long,
@@ -611,7 +764,11 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     companion object {
         private const val TAG = "TaskManagerUserService"
-        const val API_VERSION = 24
+        const val API_VERSION = ShizukuUserServiceHost.SERVICE_BUILD
+        const val SHELL_DOWNGRADE_HINT = "提示:已将root降权至shell\n"
+        private const val SHELL_COMMAND_TIMEOUT_MS = 30_000L
+        private const val SYSTEM_SH = "/system/bin/sh"
+        private const val SYSTEM_SU = "/system/bin/su"
         private const val ACTIVITY_DUMP_CACHE_MS = 1_500L
         private const val RESIZE_MODE_SYSTEM = 0
         private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"

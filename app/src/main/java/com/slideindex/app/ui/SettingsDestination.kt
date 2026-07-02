@@ -11,4 +11,5 @@ enum class SettingsDestination {
     SideGesturesRight,
     QuickLauncherLeft,
     QuickLauncherRight,
+    ShellCommands,
 }

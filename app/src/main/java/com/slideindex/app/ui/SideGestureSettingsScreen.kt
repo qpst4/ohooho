@@ -1,10 +1,15 @@
 package com.slideindex.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -29,7 +34,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import android.content.Context
@@ -44,8 +53,12 @@ import com.slideindex.app.gesture.defaultTriggerModeFor
 import com.slideindex.app.gesture.preferredTriggerMode
 import com.slideindex.app.gesture.slotTriggerMode
 import com.slideindex.app.gesture.supportsAction
+import com.slideindex.app.overlay.GestureHintRenderer
 import com.slideindex.app.overlay.PanelSide
+import androidx.compose.foundation.Canvas
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.GestureHintStyle
+import com.slideindex.app.settings.gestureHintStyle
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.settings.edgeTriggerWidthDp
 import com.slideindex.app.settings.triggerBottomFraction
@@ -63,6 +76,8 @@ fun SideGestureSettingsScreen(
     onDefaultTriggerModeChange: (GestureTriggerMode) -> Unit,
     onShortSwipeDistanceChange: (Float) -> Unit,
     onLongSwipeDistanceChange: (Float) -> Unit,
+    onGestureHintEnabledChange: (Boolean) -> Unit,
+    onGestureHintStyleChange: (GestureHintStyle) -> Unit,
     onOpenQuickLauncherEditor: () -> Unit,
     onEdgeWidthChange: (Float) -> Unit,
     onTriggerVerticalRangeChange: (Float, Float) -> Unit,
@@ -153,6 +168,27 @@ fun SideGestureSettingsScreen(
                     onValueChange = onLongSwipeDistanceChange,
                 )
                 SettingSwitchRow(
+                    title = stringResource(R.string.gesture_hint_enabled),
+                    subtitle = stringResource(R.string.gesture_hint_enabled_desc),
+                    checked = settings.gestureHintEnabled,
+                    enabled = serviceEnabled,
+                    onCheckedChange = onGestureHintEnabledChange,
+                )
+                if (settings.gestureHintEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsSectionTitle(stringResource(R.string.gesture_hint_style_title))
+                    GestureHintStyle.entries.forEach { style ->
+                        GestureHintStyleRow(
+                            style = style,
+                            selected = settings.gestureHintStyle() == style,
+                            enabled = serviceEnabled,
+                            themeColorArgb = settings.themeColorArgb,
+                            onClick = { onGestureHintStyleChange(style) },
+                        )
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                SettingSwitchRow(
                     title = stringResource(R.string.align_handles),
                     subtitle = stringResource(R.string.align_handles_desc),
                     checked = settings.alignHandlesEnabled,
@@ -190,7 +226,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.shortDistanceEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = actionLabel(settings.actionFor(side, trigger)),
+                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -201,7 +237,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.pressTapEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = actionLabel(settings.actionFor(side, trigger)),
+                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -212,7 +248,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.longDistanceEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = actionLabel(settings.actionFor(side, trigger)),
+                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -263,6 +299,68 @@ fun SideGestureSettingsScreen(
 }
 
 @Composable
+private fun GestureHintStyleRow(
+    style: GestureHintStyle,
+    selected: Boolean,
+    enabled: Boolean,
+    themeColorArgb: Int,
+    onClick: () -> Unit,
+) {
+    val density = LocalDensity.current
+    val title = when (style) {
+        GestureHintStyle.WAVE -> stringResource(R.string.gesture_hint_style_wave)
+        GestureHintStyle.CAPSULE -> stringResource(R.string.gesture_hint_style_capsule)
+        GestureHintStyle.BUBBLE -> stringResource(R.string.gesture_hint_style_bubble)
+        GestureHintStyle.PIXEL_BACK -> stringResource(R.string.gesture_hint_style_pixel_back)
+    }
+    val subtitle = when (style) {
+        GestureHintStyle.WAVE -> stringResource(R.string.gesture_hint_style_wave_desc)
+        GestureHintStyle.CAPSULE -> stringResource(R.string.gesture_hint_style_capsule_desc)
+        GestureHintStyle.BUBBLE -> stringResource(R.string.gesture_hint_style_bubble_desc)
+        GestureHintStyle.PIXEL_BACK -> stringResource(R.string.gesture_hint_style_pixel_back_desc)
+    }
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, borderColor, RoundedCornerShape(10.dp)),
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                GestureHintRenderer.drawStyleIcon(
+                    canvas = drawContext.canvas.nativeCanvas,
+                    style = style,
+                    boxSizePx = size.minDimension,
+                    density = density.density,
+                    themeColor = themeColorArgb,
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
+    }
+}
+
+@Composable
 private fun GestureSlotRow(
     label: String,
     actionLabel: String,
@@ -294,6 +392,30 @@ private fun SlotConfigDialog(
     val context = LocalContext.current
     val sideDefaultMode = settings.defaultTriggerModeFor(side)
 
+    if (pickingAction) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+            GestureActionPickerScreen(
+            trigger = trigger,
+            current = selectedAction,
+            onDismiss = { pickingAction = false },
+            onSelect = { action ->
+                requestPermissionForAdjustAction(context, action)
+                selectedAction = action
+                if (!selectedMode.supportsAction(action, trigger)) {
+                    selectedMode = action.preferredTriggerMode(trigger)
+                        ?: GestureTriggerMode.ON_RELEASE
+                }
+                pickingAction = false
+            },
+        )
+        }
+        return
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(triggerLabel(side, trigger)) },
@@ -305,7 +427,7 @@ private fun SlotConfigDialog(
                 )
                 SettingNavigationRow(
                     icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
-                    title = actionLabel(selectedAction),
+                    title = gestureActionLabel(selectedAction),
                     subtitle = stringResource(R.string.slot_pick_action),
                     onClick = { pickingAction = true },
                 )
@@ -334,23 +456,6 @@ private fun SlotConfigDialog(
         },
     )
 
-    if (pickingAction) {
-        ActionPickerDialog(
-            trigger = trigger,
-            current = selectedAction,
-            onDismiss = { pickingAction = false },
-            onSelect = { action ->
-                requestPermissionForAdjustAction(context, action)
-                selectedAction = action
-                if (!selectedMode.supportsAction(action, trigger)) {
-                    selectedMode = action.preferredTriggerMode(trigger)
-                        ?: GestureTriggerMode.ON_RELEASE
-                }
-                pickingAction = false
-            },
-        )
-    }
-
     if (pickingMode) {
         TriggerModePickerDialog(
             title = stringResource(R.string.slot_pick_trigger_mode),
@@ -366,83 +471,6 @@ private fun SlotConfigDialog(
             },
         )
     }
-}
-
-@Composable
-private fun ActionPickerDialog(
-    trigger: GestureTriggerType,
-    current: GestureAction,
-    onDismiss: () -> Unit,
-    onSelect: (GestureAction) -> Unit,
-) {
-    val context = LocalContext.current
-    val actionOptions = buildList {
-        add(GestureAction.None)
-        if (trigger.supportsIndex) add(GestureAction.OpenIndex)
-        add(GestureAction.QuickLauncher)
-        add(GestureAction.TaskSwitcher)
-        add(GestureAction.Back)
-        add(GestureAction.Home)
-        add(GestureAction.Recents)
-        add(GestureAction.CloseCurrentApp)
-        add(GestureAction.FreeWindowCurrentApp)
-        add(GestureAction.Flashlight)
-        if (trigger.supportsIndex) {
-            add(GestureAction.AdjustVolume)
-            add(GestureAction.AdjustBrightness)
-        }
-        add(GestureAction.LaunchAssistant)
-        if (trigger == GestureTriggerType.SHORT_SINGLE_TAP) add(GestureAction.ClickPassthrough)
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.slot_pick_action)) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 360.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                actionOptions.forEach { action ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(action) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        RadioButton(
-                            selected = action.type == current.type,
-                            onClick = { onSelect(action) },
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                        Column(modifier = Modifier.padding(start = 4.dp)) {
-                            Text(actionLabel(action))
-                            actionDescription(action)?.let { description ->
-                                Text(
-                                    text = description,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            actionPermissionHint(action, context)?.let { hint ->
-                                Text(
-                                    text = hint,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
 }
 
 @Composable
@@ -565,7 +593,7 @@ private fun triggerModeDescription(mode: GestureTriggerMode): String = when (mod
 private fun continuousTrackingActionsSummary(): String {
     val labels = mutableListOf<String>()
     for (action in GestureAction.continuousTrackingActions) {
-        labels.add(actionLabel(action))
+        labels.add(gestureActionLabel(action))
     }
     return labels.joinToString("、")
 }
@@ -595,54 +623,6 @@ private fun triggerLabel(side: PanelSide, trigger: GestureTriggerType): String =
         GestureTriggerType.LONG_SINGLE_TAP -> R.string.gesture_long_single_tap
     },
 )
-
-@Composable
-private fun actionLabel(action: GestureAction): String = when (action.type) {
-    GestureActionType.NONE -> stringResource(R.string.gesture_action_none)
-    GestureActionType.OPEN_INDEX -> stringResource(R.string.gesture_action_open_index)
-    GestureActionType.LAUNCH_APP -> stringResource(R.string.gesture_action_launch_app)
-    GestureActionType.QUICK_LAUNCHER -> stringResource(R.string.gesture_action_quick_launcher)
-    GestureActionType.TASK_SWITCHER -> stringResource(R.string.gesture_action_task_switcher)
-    GestureActionType.BACK -> stringResource(R.string.gesture_action_back)
-    GestureActionType.HOME -> stringResource(R.string.gesture_action_home)
-    GestureActionType.RECENTS -> stringResource(R.string.gesture_action_recents)
-    GestureActionType.CLOSE_CURRENT_APP -> stringResource(R.string.gesture_action_close_current_app)
-    GestureActionType.FREE_WINDOW_CURRENT_APP -> stringResource(R.string.gesture_action_free_window_current_app)
-    GestureActionType.CLICK_PASSTHROUGH -> stringResource(R.string.gesture_action_click_passthrough)
-    GestureActionType.FLASHLIGHT -> stringResource(R.string.gesture_action_flashlight)
-    GestureActionType.ADJUST_VOLUME -> stringResource(R.string.gesture_action_adjust_volume)
-    GestureActionType.ADJUST_BRIGHTNESS -> stringResource(R.string.gesture_action_adjust_brightness)
-    GestureActionType.LAUNCH_ASSISTANT -> stringResource(R.string.gesture_action_launch_assistant)
-}
-
-@Composable
-private fun actionDescription(action: GestureAction): String? = when (action.type) {
-    GestureActionType.ADJUST_VOLUME -> stringResource(R.string.gesture_action_adjust_volume_desc)
-    GestureActionType.ADJUST_BRIGHTNESS -> stringResource(R.string.gesture_action_adjust_brightness_desc)
-    else -> null
-}
-
-@Composable
-private fun actionPermissionHint(action: GestureAction, context: Context): String? =
-    when (action.type) {
-        GestureActionType.ADJUST_VOLUME -> {
-            if (PermissionHelper.hasNotificationPolicyAccess(context)) return null
-            stringResource(R.string.gesture_action_adjust_volume_permission)
-        }
-        GestureActionType.ADJUST_BRIGHTNESS -> {
-            if (PermissionHelper.canWriteSettings(context)) return null
-            stringResource(R.string.gesture_action_adjust_brightness_permission)
-        }
-        else -> null
-    }
-
-private fun requestPermissionForAdjustAction(context: Context, action: GestureAction) {
-    when (action) {
-        GestureAction.AdjustVolume -> PermissionHelper.requestNotificationPolicyAccess(context)
-        GestureAction.AdjustBrightness -> PermissionHelper.requestWriteSettingsAccess(context)
-        else -> Unit
-    }
-}
 
 @Composable
 fun SideGesturesEntryCard(onOpenLeft: () -> Unit, onOpenRight: () -> Unit) {

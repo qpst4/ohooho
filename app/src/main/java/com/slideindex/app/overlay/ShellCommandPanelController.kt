@@ -1,0 +1,757 @@
+package com.slideindex.app.overlay
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.os.SystemClock
+import android.view.MotionEvent
+import kotlin.math.abs
+import com.slideindex.app.R
+import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.shell.ShellCommand
+import com.slideindex.app.util.ShellCommandExecutor
+import com.slideindex.app.util.TaskManagerUtil
+import kotlin.math.ceil
+
+class ShellCommandPanelController(
+    private val host: Host,
+) {
+    interface Host {
+        val context: Context
+        fun settings(): AppSettings
+        fun isDialogShowing(): Boolean
+        fun requestEndSession()
+        fun showEditorDialog(
+            existing: ShellCommand?,
+            shizukuGranted: Boolean,
+            onDismissComplete: () -> Unit,
+            onSave: (ShellCommand) -> Unit,
+            onDelete: (() -> Unit)?,
+            onTest: (ShellCommand, (Int, String) -> Unit) -> Unit,
+        )
+        fun dismissDialogs()
+        fun viewWidth(): Int
+        fun viewHeight(): Int
+        fun dp(value: Float): Float
+        fun sp(value: Float): Float
+        fun invalidate()
+        fun post(action: () -> Unit)
+        fun postDelayed(delayMs: Long, action: () -> Unit)
+        fun postDelayedRunnable(delayMs: Long, runnable: Runnable)
+        fun removeCallbacks(runnable: Runnable)
+        fun hapticTick()
+        fun hapticConfirm()
+        fun endSession()
+        fun onPersist(commands: List<ShellCommand>)
+    }
+
+    private data class CellLayout(
+        val command: ShellCommand,
+        val cellRect: RectF,
+        val bodyRect: RectF,
+        val runRect: RectF,
+    )
+
+    private data class ResultOverlay(
+        val label: String,
+        val command: String,
+        val exitCode: Int,
+        val output: String,
+    )
+
+    val panelContentRect = RectF()
+    private var cellLayouts = emptyList<CellLayout>()
+    private var panelRect = RectF()
+    private var addButtonRect = RectF()
+    private var highlightedIndex = -1
+    private var resultOverlay: ResultOverlay? = null
+    private var executing = false
+    private var localCommands: List<ShellCommand> = emptyList()
+    private var resultLongPressRunnable: Runnable? = null
+    private var resultLongPressTriggered = false
+    private var resultCopyFeedbackUntilMs = 0L
+    private var resultScrollOffset = 0f
+    private var resultScrollMax = 0f
+    private var resultOutputScrollable = false
+    private var resultTouchDownY = 0f
+    private var resultScrollDragStartY = 0f
+    private var resultScrollDragStartOffset = 0f
+    private var resultTouchScrolling = false
+
+    fun syncSettings(settings: AppSettings) {
+        if (!host.isDialogShowing()) {
+            localCommands = settings.shellCommands
+        }
+    }
+
+    fun reset() {
+        highlightedIndex = -1
+        cancelResultLongPress()
+        resultOverlay = null
+        executing = false
+        resultCopyFeedbackUntilMs = 0L
+        resetResultScroll()
+        host.dismissDialogs()
+        cellLayouts = emptyList()
+    }
+
+    fun prepareForPanelExit() {
+        cancelResultLongPress()
+        resultOverlay = null
+        highlightedIndex = -1
+        resultCopyFeedbackUntilMs = 0L
+        resetResultScroll()
+    }
+
+    private fun clearResultOverlay() {
+        resultOverlay = null
+        resetResultScroll()
+        host.invalidate()
+    }
+
+    private fun resetResultScroll() {
+        resultScrollOffset = 0f
+        resultScrollMax = 0f
+        resultOutputScrollable = false
+        resultTouchScrolling = false
+    }
+
+    fun hasActiveUi(): Boolean =
+        resultOverlay != null || executing || host.isDialogShowing()
+
+    fun handleBackPress(): Boolean {
+        if (host.isDialogShowing()) {
+            host.dismissDialogs()
+            return true
+        }
+        if (resultOverlay != null) {
+            clearResultOverlay()
+            return true
+        }
+        host.requestEndSession()
+        return true
+    }
+
+    fun draw(canvas: Canvas, panelEnterProgress: Float) {
+        rebuildLayout()
+        panelContentRect.set(panelRect)
+        val theme = OverlayPanelTheme.colors(host.context)
+        val progress = easeOutCubic(panelEnterProgress.coerceIn(0f, 1f))
+        val scrimAlpha = (Color.alpha(theme.scrimHeavy) * progress).toInt().coerceIn(0, 255)
+        canvas.drawRect(
+            0f,
+            0f,
+            host.viewWidth().toFloat(),
+            host.viewHeight().toFloat(),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(scrimAlpha, 0, 0, 0)
+            },
+        )
+        val corner = host.dp(24f)
+        val scale = 0.9f + 0.1f * progress
+        val slideY = host.dp(28f) * (1f - progress)
+        val alpha = (255 * progress).toInt().coerceIn(0, 255)
+        canvas.save()
+        canvas.translate(panelRect.centerX(), panelRect.centerY() + slideY)
+        canvas.scale(scale, scale)
+        canvas.translate(-panelRect.centerX(), -panelRect.centerY())
+        val layer = canvas.saveLayerAlpha(null, alpha)
+        drawPanel(canvas, panelRect, corner, theme)
+        canvas.restoreToCount(layer)
+        canvas.restore()
+        resultOverlay?.let { drawResultOverlay(canvas, it, theme) }
+    }
+
+    private fun easeOutCubic(t: Float): Float {
+        val inv = 1f - t
+        return 1f - inv * inv * inv
+    }
+
+    fun handleTouch(
+        event: MotionEvent,
+        localX: Float,
+        localY: Float,
+        releaseImmediateLock: () -> Boolean,
+    ): Boolean {
+        if (host.isDialogShowing()) return true
+        if (resultOverlay != null) {
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    cancelResultLongPress()
+                    resultLongPressTriggered = false
+                    resultTouchScrolling = false
+                    resultTouchDownY = localY
+                    resultScrollDragStartY = localY
+                    resultScrollDragStartOffset = resultScrollOffset
+                    val runnable = Runnable {
+                        resultOverlay?.let { copyResultOutput(it) }
+                    }
+                    resultLongPressRunnable = runnable
+                    host.postDelayedRunnable(RESULT_LONG_PRESS_MS, runnable)
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = localY - resultTouchDownY
+                    if (abs(dy) > host.dp(RESULT_SCROLL_TOUCH_SLOP_DP)) {
+                        cancelResultLongPress()
+                        resultTouchScrolling = true
+                        resultScrollOffset = (resultScrollDragStartOffset - (localY - resultScrollDragStartY))
+                            .coerceIn(0f, resultScrollMax)
+                        host.invalidate()
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    cancelResultLongPress()
+                    if (!resultLongPressTriggered && !resultTouchScrolling) {
+                        clearResultOverlay()
+                    } else {
+                        resultLongPressTriggered = false
+                    }
+                    resultTouchScrolling = false
+                    return true
+                }
+            }
+            return true
+        }
+        rebuildLayout()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                if (!panelRect.contains(localX, localY)) {
+                    return true
+                }
+                when {
+                    addButtonRect.contains(localX, localY) -> return true
+                    else -> {
+                        highlightedIndex = indexAt(localX, localY, runOnly = false)
+                        if (highlightedIndex >= 0) host.hapticTick()
+                    }
+                }
+                host.invalidate()
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val prev = highlightedIndex
+                highlightedIndex = indexAt(localX, localY, runOnly = false)
+                if (highlightedIndex != prev && highlightedIndex >= 0) host.hapticTick()
+                host.invalidate()
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (releaseImmediateLock()) {
+                    host.invalidate()
+                    return true
+                }
+                when {
+                    addButtonRect.contains(localX, localY) -> openEditor(null)
+                    else -> {
+                        val runIndex = indexAt(localX, localY, runOnly = true)
+                        if (runIndex >= 0) {
+                            executeCommand(localCommands[runIndex])
+                        } else {
+                            val editIndex = indexAt(localX, localY, runOnly = false)
+                            if (editIndex >= 0) {
+                                openEditor(localCommands[editIndex])
+                            } else if (!panelRect.contains(localX, localY)) {
+                                host.requestEndSession()
+                            }
+                        }
+                    }
+                }
+                highlightedIndex = -1
+                host.invalidate()
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun executeCommand(command: ShellCommand) {
+        if (executing) return
+        executing = true
+        host.hapticConfirm()
+        Thread {
+            try {
+                val result = ShellCommandExecutor.execute(command)
+                host.post {
+                    resetResultScroll()
+                    resultOverlay = ResultOverlay(
+                        label = command.label,
+                        command = command.command,
+                        exitCode = result.exitCode,
+                        output = result.output,
+                    )
+                    host.invalidate()
+                }
+            } finally {
+                host.post {
+                    executing = false
+                    host.invalidate()
+                }
+            }
+        }.start()
+    }
+
+    private fun openEditor(existing: ShellCommand?) {
+        host.showEditorDialog(
+            existing = existing,
+            shizukuGranted = TaskManagerUtil.hasPermission(),
+            onDismissComplete = { host.invalidate() },
+            onSave = { saved ->
+                localCommands = if (existing == null) {
+                    localCommands + saved
+                } else {
+                    localCommands.map { if (it.id == saved.id) saved else it }
+                }
+                host.onPersist(localCommands)
+                host.invalidate()
+            },
+            onDelete = existing?.let { target ->
+                {
+                    localCommands = localCommands.filterNot { it.id == target.id }
+                    host.onPersist(localCommands)
+                    host.invalidate()
+                }
+            },
+            onTest = { command, callback ->
+                Thread {
+                    val result = ShellCommandExecutor.execute(command)
+                    host.post { callback(result.exitCode, result.output) }
+                }.start()
+            },
+        )
+    }
+
+    private fun indexAt(x: Float, y: Float, runOnly: Boolean): Int {
+        cellLayouts.forEachIndexed { index, layout ->
+            val rect = if (runOnly) layout.runRect else layout.bodyRect
+            if (rect.contains(x, y)) return index
+        }
+        return -1
+    }
+
+    private fun rebuildLayout() {
+        val commands = localCommands
+        val cols = COLUMNS
+        val rows = if (commands.isEmpty()) 1 else ceil(commands.size / cols.toFloat()).toInt()
+        val headerH = host.dp(56f)
+        val footerH = host.dp(44f)
+        val cellH = commandCellHeight()
+        val rowGap = host.dp(8f)
+        val gridTopPad = host.dp(8f)
+        val gridH = rows * cellH + (rows - 1).coerceAtLeast(0) * rowGap
+        val panelH = headerH + gridTopPad + gridH + footerH
+        val panelW = host.dp(320f).coerceAtMost(host.viewWidth() - host.dp(32f))
+        val left = (host.viewWidth() - panelW) / 2f
+        val top = ((host.viewHeight() - panelH) / 2f).coerceAtLeast(host.dp(24f))
+        panelRect = RectF(left, top, left + panelW, top + panelH)
+
+        addButtonRect = RectF(
+            panelRect.left + host.dp(16f),
+            panelRect.bottom - host.dp(40f),
+            panelRect.right - host.dp(16f),
+            panelRect.bottom - host.dp(10f),
+        )
+
+        val gridTop = panelRect.top + headerH + gridTopPad
+        val colGap = host.dp(8f)
+        val runW = host.dp(36f)
+        val usableW = panelRect.width() - host.dp(16f) * 2
+        val cellW = (usableW - colGap * (cols - 1)) / cols
+        cellLayouts = commands.mapIndexed { index, command ->
+            val row = index / cols
+            val col = index % cols
+            val cellLeft = panelRect.left + host.dp(16f) + col * (cellW + colGap)
+            val cellTop = gridTop + row * (cellH + rowGap)
+            val cellRect = RectF(cellLeft, cellTop, cellLeft + cellW, cellTop + cellH)
+            CellLayout(
+                command = command,
+                cellRect = cellRect,
+                bodyRect = RectF(cellLeft, cellTop, cellLeft + cellW - runW, cellTop + cellH),
+                runRect = RectF(cellRect.right - runW, cellTop, cellRect.right, cellTop + cellH),
+            )
+        }
+    }
+
+    private fun commandCellHeight(): Float {
+        val cmdLineHeight = host.sp(10.5f) + host.dp(2f)
+        return host.dp(12f) + host.sp(13f) + host.dp(4f) +
+            cmdLineHeight * COMMAND_PREVIEW_LINES + host.dp(10f)
+    }
+
+    private fun drawPanel(canvas: Canvas, panelRect: RectF, corner: Float, theme: OverlayPanelTheme.Colors) {
+        drawElevatedRoundRect(canvas, panelRect, corner, theme.panelBackground, theme.panelShadow)
+        drawHeader(canvas, panelRect, theme)
+        val gridTop = panelRect.top + host.dp(56f) + host.dp(8f)
+        if (localCommands.isEmpty()) {
+            val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = theme.textMuted
+                textSize = host.sp(12.5f)
+            }
+            canvas.drawText(
+                host.context.getString(R.string.shell_panel_overlay_empty),
+                panelRect.left + host.dp(16f),
+                gridTop + host.dp(24f) - hintPaint.ascent(),
+                hintPaint,
+            )
+        } else {
+            cellLayouts.forEachIndexed { index, layout ->
+                drawCell(canvas, layout, index == highlightedIndex, theme)
+            }
+        }
+        drawAddButton(canvas, theme)
+    }
+
+    private fun drawHeader(canvas: Canvas, panelRect: RectF, theme: OverlayPanelTheme.Colors) {
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.titleAccent
+            textSize = host.sp(13f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val statusPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textPrimary
+            textSize = host.sp(15f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText(
+            host.context.getString(R.string.shell_panel_shizuku_label),
+            panelRect.left + host.dp(16f),
+            panelRect.top + host.dp(22f) - titlePaint.ascent(),
+            titlePaint,
+        )
+        val status = if (TaskManagerUtil.hasPermission()) {
+            host.context.getString(R.string.shell_panel_shizuku_active)
+        } else {
+            host.context.getString(R.string.shell_panel_shizuku_inactive)
+        }
+        canvas.drawText(
+            status,
+            panelRect.left + host.dp(16f),
+            panelRect.top + host.dp(40f) - statusPaint.ascent(),
+            statusPaint,
+        )
+    }
+
+    private fun drawAddButton(canvas: Canvas, theme: OverlayPanelTheme.Colors) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.accent
+            textSize = host.sp(13f)
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.accentSoft }
+        canvas.drawRoundRect(addButtonRect, host.dp(12f), host.dp(12f), bg)
+        canvas.drawText(
+            host.context.getString(R.string.shell_panel_add),
+            addButtonRect.centerX(),
+            addButtonRect.centerY() - (paint.descent() + paint.ascent()) / 2f,
+            paint,
+        )
+    }
+
+    private fun drawCell(canvas: Canvas, layout: CellLayout, highlighted: Boolean, theme: OverlayPanelTheme.Colors) {
+        val cell = layout.cellRect
+        val inner = RectF(
+            cell.left + host.dp(2f),
+            cell.top + host.dp(2f),
+            cell.right - host.dp(2f),
+            cell.bottom - host.dp(2f),
+        )
+        val corner = host.dp(14f)
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.panelShadow }
+        canvas.drawRoundRect(
+            RectF(inner.left, inner.top + host.dp(1.5f), inner.right, inner.bottom + host.dp(1.5f)),
+            corner,
+            corner,
+            shadow,
+        )
+        val cardBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.cardBackground }
+        canvas.drawRoundRect(inner, corner, corner, cardBg)
+        val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.cardBorder
+            style = Paint.Style.STROKE
+            strokeWidth = host.dp(1f)
+        }
+        canvas.drawRoundRect(inner, corner, corner, border)
+        if (highlighted) {
+            val highlight = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.cardHighlight }
+            canvas.drawRoundRect(inner, corner, corner, highlight)
+        }
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.titleAccent
+            textSize = host.sp(13f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val cmdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textSecondary
+            textSize = host.sp(10.5f)
+        }
+        val bodyRight = layout.runRect.left - host.dp(6f)
+        canvas.drawText(
+            ellipsize(layout.command.label, bodyRight - cell.left - host.dp(10f), labelPaint),
+            cell.left + host.dp(10f),
+            cell.top + host.dp(16f) - labelPaint.ascent(),
+            labelPaint,
+        )
+        val cmdMaxWidth = bodyRight - cell.left - host.dp(10f)
+        val cmdLineHeight = cmdPaint.textSize + host.dp(2f)
+        val cmdLines = fitTextLines(layout.command.command, cmdMaxWidth, cmdPaint, COMMAND_PREVIEW_LINES)
+        var cmdY = cell.top + host.dp(34f) - cmdPaint.ascent()
+        cmdLines.forEach { line ->
+            canvas.drawText(line, cell.left + host.dp(10f), cmdY, cmdPaint)
+            cmdY += cmdLineHeight
+        }
+        val runBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.accentSoft }
+        val runInner = RectF(
+            layout.runRect.left + host.dp(4f),
+            layout.runRect.top + host.dp(6f),
+            layout.runRect.right - host.dp(4f),
+            layout.runRect.bottom - host.dp(6f),
+        )
+        canvas.drawRoundRect(runInner, host.dp(10f), host.dp(10f), runBg)
+        val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.accent
+            textSize = host.sp(18f)
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText(
+            "›",
+            layout.runRect.centerX(),
+            layout.runRect.centerY() - (arrowPaint.descent() + arrowPaint.ascent()) / 2f,
+            arrowPaint,
+        )
+    }
+
+    private fun drawResultOverlay(canvas: Canvas, state: ResultOverlay, theme: OverlayPanelTheme.Colors) {
+        canvas.drawRect(
+            0f,
+            0f,
+            host.viewWidth().toFloat(),
+            host.viewHeight().toFloat(),
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = theme.scrimLight },
+        )
+        val margin = host.dp(20f)
+        val dialogW = (host.viewWidth() - margin * 2).coerceAtMost(host.dp(360f))
+        val dialogLeft = (host.viewWidth() - dialogW) / 2f
+        val padding = host.dp(16f)
+        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textPrimary
+            textSize = host.sp(16f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val cmdPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textMuted
+            textSize = host.sp(11f)
+        }
+        val exitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (state.exitCode == 0) theme.titleAccent else theme.error
+            textSize = host.sp(12f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textSecondary
+            textSize = host.sp(10.5f)
+            typeface = Typeface.MONOSPACE
+        }
+        val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = theme.textMuted
+            textSize = host.sp(11f)
+            textAlign = Paint.Align.CENTER
+        }
+        val output = state.output.ifBlank { host.context.getString(R.string.shell_panel_no_output) }
+        val outputLines = wrapTextToLines(output, dialogW - padding * 2, bodyPaint)
+        val lineHeight = bodyPaint.textSize + host.dp(3f)
+        val headerH = padding + titlePaint.textSize + host.dp(8f) + cmdPaint.textSize + host.dp(10f) +
+            exitPaint.textSize + host.dp(10f)
+        val footerH = host.dp(28f)
+        val maxDialogH = host.viewHeight() * RESULT_DIALOG_MAX_HEIGHT_FRACTION
+        val minOutputViewportH = host.dp(120f)
+        val maxOutputViewportH = (maxDialogH - headerH - footerH).coerceAtLeast(minOutputViewportH)
+        val naturalOutputH = outputLines.size * lineHeight
+        val outputViewportH = naturalOutputH.coerceAtMost(maxOutputViewportH)
+        val dialogH = headerH + outputViewportH + footerH
+        val dialogTop = ((host.viewHeight() - dialogH) / 2f).coerceAtLeast(margin)
+        val dialogRect = RectF(dialogLeft, dialogTop, dialogLeft + dialogW, dialogTop + dialogH)
+        resultScrollMax = (naturalOutputH - outputViewportH).coerceAtLeast(0f)
+        resultOutputScrollable = resultScrollMax > 0f
+        resultScrollOffset = resultScrollOffset.coerceIn(0f, resultScrollMax)
+
+        drawElevatedRoundRect(canvas, dialogRect, host.dp(20f), theme.cardBackground, theme.panelShadow)
+        var y = dialogRect.top + padding - titlePaint.ascent()
+        canvas.drawText(state.label, dialogRect.left + padding, y, titlePaint)
+        y += titlePaint.textSize + host.dp(8f) - titlePaint.ascent() + cmdPaint.ascent()
+        canvas.drawText(ellipsize(state.command, dialogW - padding * 2, cmdPaint), dialogRect.left + padding, y, cmdPaint)
+        y += cmdPaint.textSize + host.dp(10f) - cmdPaint.ascent() + exitPaint.ascent()
+        canvas.drawText(
+            host.context.getString(R.string.shell_panel_exit_code, state.exitCode),
+            dialogRect.left + padding,
+            y,
+            exitPaint,
+        )
+        val outputTop = y + exitPaint.textSize + host.dp(10f) - exitPaint.ascent() + bodyPaint.ascent()
+        val outputClip = RectF(
+            dialogRect.left + padding,
+            outputTop - bodyPaint.textSize,
+            dialogRect.right - padding,
+            outputTop - bodyPaint.textSize + outputViewportH,
+        )
+        canvas.save()
+        canvas.clipRect(outputClip)
+        var lineY = outputTop - resultScrollOffset
+        outputLines.forEach { line ->
+            canvas.drawText(line, dialogRect.left + padding, lineY, bodyPaint)
+            lineY += lineHeight
+        }
+        canvas.restore()
+        if (resultOutputScrollable && resultScrollOffset < resultScrollMax - 1f) {
+            val bg = theme.cardBackground
+            val fadePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = android.graphics.LinearGradient(
+                    0f,
+                    outputClip.bottom - host.dp(18f),
+                    0f,
+                    outputClip.bottom,
+                    Color.argb(0, Color.red(bg), Color.green(bg), Color.blue(bg)),
+                    bg,
+                    android.graphics.Shader.TileMode.CLAMP,
+                )
+            }
+            canvas.drawRect(
+                outputClip.left,
+                outputClip.bottom - host.dp(18f),
+                outputClip.right,
+                outputClip.bottom,
+                fadePaint,
+            )
+        }
+        val hint = when {
+            SystemClock.uptimeMillis() < resultCopyFeedbackUntilMs ->
+                host.context.getString(R.string.shell_panel_copied)
+            resultOutputScrollable ->
+                host.context.getString(R.string.shell_panel_result_hint_scroll)
+            else ->
+                host.context.getString(R.string.shell_panel_result_hint)
+        }
+        canvas.drawText(
+            hint,
+            dialogRect.centerX(),
+            dialogRect.bottom - host.dp(12f) - hintPaint.ascent(),
+            hintPaint,
+        )
+    }
+
+    private fun copyResultOutput(state: ResultOverlay) {
+        val clipboard = host.context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val text = state.output.ifBlank { host.context.getString(R.string.shell_panel_no_output) }
+        clipboard.setPrimaryClip(ClipData.newPlainText("shell_output", text))
+        host.hapticConfirm()
+        resultLongPressTriggered = true
+        resultCopyFeedbackUntilMs = SystemClock.uptimeMillis() + COPY_FEEDBACK_MS
+        host.invalidate()
+    }
+
+    private fun cancelResultLongPress() {
+        resultLongPressRunnable?.let { host.removeCallbacks(it) }
+        resultLongPressRunnable = null
+    }
+
+    private fun drawElevatedRoundRect(
+        canvas: Canvas,
+        rect: RectF,
+        corner: Float,
+        color: Int,
+        shadowColor: Int,
+    ) {
+        val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = shadowColor }
+        canvas.drawRoundRect(
+            RectF(rect.left, rect.top + host.dp(2f), rect.right, rect.bottom + host.dp(2f)),
+            corner,
+            corner,
+            shadow,
+        )
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
+        canvas.drawRoundRect(rect, corner, corner, fill)
+    }
+
+    private fun ellipsize(text: String, maxWidth: Float, paint: Paint): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        var end = text.length
+        while (end > 1 && paint.measureText(text.substring(0, end) + "…") > maxWidth) end--
+        return text.substring(0, end.coerceAtLeast(1)) + "…"
+    }
+
+    private fun fitTextLines(text: String, maxWidth: Float, paint: Paint, maxLines: Int): List<String> {
+        val normalized = text.replace('\n', ' ').trim()
+        if (normalized.isEmpty()) return listOf("")
+        val lines = mutableListOf<String>()
+        var index = 0
+        while (index < normalized.length && lines.size < maxLines) {
+            val isLastAllowedLine = lines.size == maxLines - 1
+            var bestEnd = index
+            var probe = index + 1
+            while (probe <= normalized.length) {
+                val segment = normalized.substring(index, probe)
+                if (paint.measureText(segment) > maxWidth) break
+                bestEnd = probe
+                probe++
+            }
+            if (bestEnd == index) {
+                bestEnd = (index + 1).coerceAtMost(normalized.length)
+            } else if (!isLastAllowedLine && bestEnd < normalized.length) {
+                val chunk = normalized.substring(index, bestEnd)
+                val lastSpace = chunk.lastIndexOf(' ')
+                if (lastSpace > 0) bestEnd = index + lastSpace
+            }
+            val line = if (isLastAllowedLine && bestEnd < normalized.length) {
+                ellipsize(normalized.substring(index), maxWidth, paint)
+            } else {
+                normalized.substring(index, bestEnd).trimEnd()
+            }
+            if (line.isNotEmpty()) lines += line
+            index = bestEnd
+            while (index < normalized.length && normalized[index] == ' ') index++
+            if (isLastAllowedLine && bestEnd < normalized.length) break
+        }
+        return lines.ifEmpty { listOf("") }
+    }
+
+    private fun wrapTextToLines(text: String, maxWidth: Float, paint: Paint): List<String> {
+        if (text.isEmpty()) return listOf("")
+        val lines = mutableListOf<String>()
+        text.lineSequence().forEach { rawLine ->
+            var line = rawLine
+            while (line.isNotEmpty()) {
+                if (paint.measureText(line) <= maxWidth) {
+                    lines += line
+                    line = ""
+                } else {
+                    var end = line.length
+                    while (end > 1 && paint.measureText(line.substring(0, end) + "…") > maxWidth) end--
+                    val chunk = line.substring(0, end.coerceAtLeast(1))
+                    lines += chunk + if (end < line.length) "…" else ""
+                    line = if (end < line.length) line.substring(end) else ""
+                }
+            }
+        }
+        return lines.ifEmpty { listOf("") }
+    }
+
+    private fun wrapLines(text: String, maxWidth: Float, paint: Paint, maxLines: Int): List<String> {
+        return wrapTextToLines(text, maxWidth, paint).take(maxLines).ifEmpty { listOf("") }
+    }
+
+    companion object {
+        private const val COLUMNS = 2
+        private const val COMMAND_PREVIEW_LINES = 2
+        private const val RESULT_LONG_PRESS_MS = 500L
+        private const val COPY_FEEDBACK_MS = 1_500L
+        private const val RESULT_SCROLL_TOUCH_SLOP_DP = 8f
+        private const val RESULT_DIALOG_MAX_HEIGHT_FRACTION = 0.75f
+    }
+}

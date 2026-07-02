@@ -18,4 +18,10 @@ interface ITaskManagerService {
     boolean switchToTask(String taskId, String identifier, String topComponent) = 12;
     boolean showVoiceAssistant() = 13;
     boolean runShellCommand(in String[] cmd) = 14;
+    /** Returns "exitCode\\n---\\noutput" */
+    String runShellCommandOutput(in String[] cmd) = 15;
+    /** Returns "exitCode\\n---\\noutput" */
+    String runShellCommandLine(String command, boolean useRoot, boolean forceAdb) = 16;
+    /** Whether root execution is available from the current Shizuku service. */
+    boolean probeRootAvailable() = 17;
 }

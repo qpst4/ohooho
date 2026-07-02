@@ -5,4 +5,5 @@ enum class OverlayPanelMode {
     INDEX,
     QUICK_LAUNCHER,
     TASK_SWITCHER,
+    SHELL_COMMANDS,
 }

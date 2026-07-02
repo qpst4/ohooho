@@ -1,5 +1,7 @@
 package com.slideindex.app.gesture
 
+import com.slideindex.app.gesture.GestureAngleConfig
+import com.slideindex.app.gesture.SwipeDirection
 import com.slideindex.app.overlay.PanelSide
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -40,15 +42,33 @@ class SwipePathRecognizer(
     private var peakDy = 0f
     private var shortDistanceDp = DEFAULT_SHORT_DISTANCE_DP
     private var longDistanceDp = DEFAULT_LONG_DISTANCE_DP
+    private var angleConfig = GestureAngleConfig.DEFAULT
+    private var lastRawX = 0f
+    private var lastRawY = 0f
 
     fun applyDistances(shortDp: Float, longDp: Float) {
         shortDistanceDp = shortDp.coerceIn(MIN_DISTANCE_DP, MAX_DISTANCE_DP)
         longDistanceDp = longDp.coerceIn(shortDistanceDp + MIN_DISTANCE_GAP_DP, MAX_DISTANCE_DP)
     }
 
+    fun applyAngles(config: GestureAngleConfig) {
+        angleConfig = config.normalized()
+    }
+
+    fun currentSwipeAngleDegrees(): Float? {
+        if (!tracking) return null
+        val dx = lastRawX - startRawX
+        val dy = lastRawY - startRawY
+        val inward = inwardDelta(dx)
+        if (inward <= 0f) return null
+        return Math.toDegrees(kotlin.math.atan2(-dy.toDouble(), inward.toDouble())).toFloat()
+    }
+
     fun onTouchDown(rawX: Float, rawY: Float) {
         startRawX = rawX
         startRawY = rawY
+        lastRawX = rawX
+        lastRawY = rawY
         startTime = System.currentTimeMillis()
         tracking = true
         longPressTriggered = false
@@ -74,6 +94,8 @@ class SwipePathRecognizer(
 
     fun onTouchMove(rawX: Float, rawY: Float) {
         if (!tracking) return
+        lastRawX = rawX
+        lastRawY = rawY
         recordMovement(rawX, rawY)
         refreshLongPress(rawX, rawY)
     }
@@ -120,6 +142,23 @@ class SwipePathRecognizer(
     fun effectiveSwipeDistance(rawX: Float, rawY: Float): Float =
         maxOf(swipeDistance(rawX, rawY), peakSwipeDistance)
 
+    fun currentSwipeDistancePx(): Float = swipeDistance(lastRawX, lastRawY)
+
+    fun currentInwardPx(): Float {
+        if (!tracking) return 0f
+        val dx = lastRawX - startRawX
+        return inwardDelta(dx).coerceAtLeast(0f)
+    }
+
+    fun currentEdgeOffsetPx(): Float {
+        if (!tracking) return 0f
+        return lastRawY - startRawY
+    }
+
+    fun lastRawX(): Float = lastRawX
+
+    fun lastRawY(): Float = lastRawY
+
     fun shortThresholdPx(): Float = shortDistanceDp * density
 
     fun longThresholdPx(): Float = longDistanceDp * density
@@ -152,7 +191,7 @@ class SwipePathRecognizer(
 
     fun hasMetThreshold(trigger: GestureTriggerType, rawX: Float, rawY: Float): Boolean {
         if (!tracking) return false
-        val distance = maxOf(swipeDistance(rawX, rawY), peakSwipeDistance)
+        val distance = swipeDistance(rawX, rawY)
         return when {
             trigger.isLongPress -> longPressTriggered
             trigger.isSingleTap -> false
@@ -198,17 +237,14 @@ class SwipePathRecognizer(
         val dy = rawY - startRawY
         val inward = inwardDelta(dx)
         val distance = hypot(inward.toDouble(), dy.toDouble()).toFloat()
-        val releaseDistance = if (partial) distance else maxOf(distance, peakSwipeDistance)
-        val releaseInward = if (partial) inward else maxOf(inward, peakInward)
-        val releaseDy = if (!partial && peakSwipeDistance > distance) peakDy else dy
         val elapsed = System.currentTimeMillis() - startTime
         val tapSlop = TAP_SLOP_DP * density * options.tapSlopMultiplier
 
         val movedBeyondTap = peakSwipeDistance >= TAP_SLOP_DP * density ||
             peakSwipeDistance >= shortDistanceDp * density
         val trigger = when {
-            longPressTriggered && releaseDistance < tapSlop * 2 -> {
-                if (releaseDistance >= longDistanceDp * density) GestureTriggerType.LONG_LONG_PRESS
+            longPressTriggered && distance < tapSlop * 2 -> {
+                if (distance >= longDistanceDp * density) GestureTriggerType.LONG_LONG_PRESS
                 else GestureTriggerType.SHORT_LONG_PRESS
             }
             !partial && options.preferSingleTap && !longPressTriggered &&
@@ -220,12 +256,8 @@ class SwipePathRecognizer(
                 else null
             }
             partial && options.preferSingleTap && distance < tapSlop -> null
-            partial && releaseDistance < shortDistanceDp * density && !longPressTriggered -> null
-            else -> directionTrigger(
-                inward = if (partial) inward else releaseInward,
-                dy = if (partial) dy else releaseDy,
-                distance = if (partial) distance else releaseDistance,
-            )
+            partial && distance < shortDistanceDp * density && !longPressTriggered -> null
+            else -> directionTrigger(inward = inward, dy = dy, distance = distance)
         }
         return trigger?.let { SwipeClassification(it, inward, dy) }
     }
@@ -236,28 +268,23 @@ class SwipePathRecognizer(
     }
 
     private fun directionTrigger(inward: Float, dy: Float, distance: Float): GestureTriggerType? {
+        val direction = resolveDirection(inward, dy) ?: return null
         if (distance < shortDistanceDp * density) return null
-        val verticalDominant = abs(dy) >= INDEX_ENTER_DP * density &&
-            abs(dy) > abs(inward) * VERTICAL_DOMINANCE_RATIO
-        if (verticalDominant) {
-            val long = distance >= longDistanceDp * density
-            return when {
-                dy < 0f -> if (long) GestureTriggerType.LONG_SWIPE_UP else GestureTriggerType.SHORT_SWIPE_UP
-                dy > 0f -> if (long) GestureTriggerType.LONG_SWIPE_DOWN else GestureTriggerType.SHORT_SWIPE_DOWN
-                else -> null
-            }
-        }
-        if (inward <= 0f) return null
         val long = distance >= longDistanceDp * density
-        val angle = Math.toDegrees(kotlin.math.atan2(-dy.toDouble(), inward.toDouble()))
-        return when {
-            angle in -22.5..22.5 -> if (long) GestureTriggerType.LONG_SWIPE_IN else GestureTriggerType.SHORT_SWIPE_IN
-            angle in 22.5..67.5 -> if (long) GestureTriggerType.LONG_SWIPE_UP_RIGHT else GestureTriggerType.SHORT_SWIPE_UP_RIGHT
-            angle in -67.5..-22.5 -> if (long) GestureTriggerType.LONG_SWIPE_DOWN_RIGHT else GestureTriggerType.SHORT_SWIPE_DOWN_RIGHT
-            angle in 67.5..112.5 -> if (long) GestureTriggerType.LONG_SWIPE_UP else GestureTriggerType.SHORT_SWIPE_UP
-            angle in -112.5..-67.5 -> if (long) GestureTriggerType.LONG_SWIPE_DOWN else GestureTriggerType.SHORT_SWIPE_DOWN
-            else -> null
-        }
+        return direction.toTrigger(long)
+    }
+
+    fun currentSwipeDirection(): SwipeDirection? {
+        if (!tracking) return null
+        val dx = lastRawX - startRawX
+        val dy = lastRawY - startRawY
+        return resolveDirection(inwardDelta(dx), dy)
+    }
+
+    private fun resolveDirection(inward: Float, dy: Float): SwipeDirection? {
+        if (inward <= 0f) return null
+        val angle = Math.toDegrees(kotlin.math.atan2(-dy.toDouble(), inward.toDouble())).toFloat()
+        return angleConfig.resolveDirection(angle)
     }
 
     companion object {

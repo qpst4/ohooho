@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
+import com.slideindex.app.gesture.GestureAngleConfig
+import com.slideindex.app.settings.GestureHintStyle
 import com.slideindex.app.gesture.GestureRule
 import com.slideindex.app.gesture.GestureRuleCodec
 import com.slideindex.app.gesture.GestureTriggerMode
@@ -20,6 +22,8 @@ import com.slideindex.app.gesture.withSlotAction
 import com.slideindex.app.gesture.withSlotTriggerMode
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.overlay.PanelSide
+import com.slideindex.app.shell.ShellCommand
+import com.slideindex.app.shell.ShellCommandCodec
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
@@ -52,6 +56,9 @@ class SettingsRepository(private val context: Context) {
             ),
             shortSwipeDistanceDp = prefs[SHORT_SWIPE_DISTANCE_DP] ?: 60f,
             longSwipeDistanceDp = prefs[LONG_SWIPE_DISTANCE_DP] ?: 120f,
+            gestureHintEnabled = prefs[GESTURE_HINT_ENABLED] ?: true,
+            gestureHintStyleId = prefs[GESTURE_HINT_STYLE] ?: GestureHintStyle.BUBBLE.id,
+            gestureAngleConfig = readGestureAngleConfig(prefs),
             indexHeightFraction = prefs[INDEX_HEIGHT] ?: 0.42f,
             appsPerRow = prefs[APPS_PER_ROW] ?: 3,
             panelOpacity = prefs[PANEL_OPACITY] ?: 0.95f,
@@ -70,6 +77,7 @@ class SettingsRepository(private val context: Context) {
             gestureRules = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet()),
             quickLauncherLeft = QuickLauncherItemCodec.decodeAll(prefs[QUICK_LAUNCHER_LEFT] ?: emptySet()),
             quickLauncherRight = QuickLauncherItemCodec.decodeAll(prefs[QUICK_LAUNCHER_RIGHT] ?: emptySet()),
+            shellCommands = ShellCommandCodec.decodeAll(prefs[SHELL_COMMANDS] ?: emptySet()),
             themeColorArgb = prefs[THEME_COLOR] ?: 0xFF6750A4.toInt(),
         )
     }
@@ -181,6 +189,21 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLongSwipeDistanceDp(value: Float) = edit {
         val short = it[SHORT_SWIPE_DISTANCE_DP] ?: 60f
         it[LONG_SWIPE_DISTANCE_DP] = value.roundToInt().toFloat().coerceIn(short + 16f, 240f)
+    }
+
+    suspend fun setGestureHintEnabled(enabled: Boolean) = edit { it[GESTURE_HINT_ENABLED] = enabled }
+
+    suspend fun setGestureHintStyle(style: GestureHintStyle) = edit {
+        it[GESTURE_HINT_STYLE] = style.id
+    }
+
+    suspend fun setGestureAngleConfig(config: GestureAngleConfig) = edit { prefs ->
+        val normalized = config.normalized()
+        prefs[GESTURE_ANGLE_UP] = normalized.upDegrees
+        prefs[GESTURE_ANGLE_UP_RIGHT] = normalized.upRightDegrees
+        prefs[GESTURE_ANGLE_IN] = normalized.inDegrees
+        prefs[GESTURE_ANGLE_DOWN_RIGHT] = normalized.downRightDegrees
+        prefs[GESTURE_ANGLE_DOWN] = normalized.downDegrees
     }
     suspend fun setIndexHeightFraction(value: Float) = edit { it[INDEX_HEIGHT] = value }
     suspend fun setAppsPerRow(value: Int) = edit { it[APPS_PER_ROW] = value.coerceIn(2, 5) }
@@ -303,6 +326,10 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun setShellCommands(items: List<ShellCommand>) = edit { prefs ->
+        prefs[SHELL_COMMANDS] = ShellCommandCodec.encodeAll(items)
+    }
+
     private fun legacyLaunchPolicy(prefs: Preferences): Int {
         return if (prefs[FREE_WINDOW_ENABLED] == true) {
             AppLaunchPolicy.ALWAYS_FREE_WINDOW.id
@@ -310,6 +337,15 @@ class SettingsRepository(private val context: Context) {
             AppLaunchPolicy.ALWAYS_FULLSCREEN.id
         }
     }
+
+    private fun readGestureAngleConfig(prefs: Preferences): GestureAngleConfig =
+        GestureAngleConfig(
+            upDegrees = prefs[GESTURE_ANGLE_UP] ?: GestureAngleConfig.DEFAULT_UP,
+            upRightDegrees = prefs[GESTURE_ANGLE_UP_RIGHT] ?: GestureAngleConfig.DEFAULT_UP_RIGHT,
+            inDegrees = prefs[GESTURE_ANGLE_IN] ?: GestureAngleConfig.DEFAULT_IN,
+            downRightDegrees = prefs[GESTURE_ANGLE_DOWN_RIGHT] ?: GestureAngleConfig.DEFAULT_DOWN_RIGHT,
+            downDegrees = prefs[GESTURE_ANGLE_DOWN] ?: GestureAngleConfig.DEFAULT_DOWN,
+        ).normalized()
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.dataStore.edit { prefs ->
@@ -334,6 +370,13 @@ class SettingsRepository(private val context: Context) {
         private val RIGHT_DEFAULT_TRIGGER_MODE = intPreferencesKey("right_default_trigger_mode")
         private val SHORT_SWIPE_DISTANCE_DP = floatPreferencesKey("short_swipe_distance_dp")
         private val LONG_SWIPE_DISTANCE_DP = floatPreferencesKey("long_swipe_distance_dp")
+        private val GESTURE_HINT_ENABLED = booleanPreferencesKey("gesture_hint_enabled")
+        private val GESTURE_HINT_STYLE = intPreferencesKey("gesture_hint_style")
+        private val GESTURE_ANGLE_UP = floatPreferencesKey("gesture_angle_up")
+        private val GESTURE_ANGLE_UP_RIGHT = floatPreferencesKey("gesture_angle_up_right")
+        private val GESTURE_ANGLE_IN = floatPreferencesKey("gesture_angle_in")
+        private val GESTURE_ANGLE_DOWN_RIGHT = floatPreferencesKey("gesture_angle_down_right")
+        private val GESTURE_ANGLE_DOWN = floatPreferencesKey("gesture_angle_down")
         private val EDGE_TRIGGER_WIDTH = floatPreferencesKey("edge_trigger_width_dp")
         private val TRIGGER_TOP = floatPreferencesKey("trigger_top_fraction")
         private val TRIGGER_HEIGHT = floatPreferencesKey("trigger_height_fraction")
@@ -355,6 +398,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_RULES = stringSetPreferencesKey("gesture_rules")
         private val QUICK_LAUNCHER_LEFT = stringSetPreferencesKey("quick_launcher_left")
         private val QUICK_LAUNCHER_RIGHT = stringSetPreferencesKey("quick_launcher_right")
+        private val SHELL_COMMANDS = stringSetPreferencesKey("shell_commands")
         private val THEME_COLOR = intPreferencesKey("theme_color_argb")
     }
 }

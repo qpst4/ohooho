@@ -26,6 +26,7 @@ import com.slideindex.app.ui.LayoutSettingsScreen
 import com.slideindex.app.ui.MainScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.SettingsDestination
+import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.SideGestureSettingsScreen
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.overlay.PanelSide
@@ -129,6 +130,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenSideGesturesRight = {
                             destination = SettingsDestination.SideGesturesRight
+                        },
+                        onOpenShellCommands = {
+                            destination = SettingsDestination.ShellCommands
                         },
                         onThemeColorChange = { color ->
                             lifecycleScope.launch { app.settingsRepository.setThemeColor(color) }
@@ -265,6 +269,16 @@ class MainActivity : ComponentActivity() {
                                 app.settingsRepository.setLongSwipeDistanceDp(value)
                             }
                         },
+                        onGestureHintEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setGestureHintEnabled(enabled)
+                            }
+                        },
+                        onGestureHintStyleChange = { style ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setGestureHintStyle(style)
+                            }
+                        },
                         onOpenQuickLauncherEditor = {
                             destination = SettingsDestination.QuickLauncherLeft
                         },
@@ -337,6 +351,16 @@ class MainActivity : ComponentActivity() {
                                 app.settingsRepository.setLongSwipeDistanceDp(value)
                             }
                         },
+                        onGestureHintEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setGestureHintEnabled(enabled)
+                            }
+                        },
+                        onGestureHintStyleChange = { style ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setGestureHintStyle(style)
+                            }
+                        },
                         onOpenQuickLauncherEditor = {
                             destination = SettingsDestination.QuickLauncherRight
                         },
@@ -395,6 +419,20 @@ class MainActivity : ComponentActivity() {
                             lifecycleScope.launch {
                                 app.settingsRepository.setQuickLauncherItems(PanelSide.RIGHT, items)
                             }
+                        },
+                    )
+
+                    SettingsDestination.ShellCommands -> ShellCommandPanelScreen(
+                        settings = settings,
+                        shizukuGranted = shizukuGranted,
+                        onBack = { destination = SettingsDestination.Main },
+                        onSaveCommands = { items ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShellCommands(items)
+                            }
+                        },
+                        onRequestShizuku = {
+                            TaskManagerUtil.requestPermission()
                         },
                     )
                 }

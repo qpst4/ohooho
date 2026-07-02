@@ -72,8 +72,11 @@ object RecentTasksLoader {
             return
         }
         Thread {
-            val fresh = TaskManagerUtil.runOnTaskWorker {
+            val fresh = runCatching {
                 syncFromSystem(appRepository)
+            }.getOrElse { error ->
+                Log.w(TAG, "refreshAsync failed", error)
+                emptyList()
             }
             mainHandler.post { onComplete(fresh) }
         }.start()

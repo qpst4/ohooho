@@ -42,15 +42,25 @@ sealed class AppPackageEntry {
 fun AppPackageListRow(
     entry: AppPackageEntry,
     actionIcon: ImageVector,
-    actionDescription: String,
+    actionDescription: String?,
     missingIcon: ImageVector,
     onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+    showAction: Boolean = true,
+    title: String? = null,
+    subtitle: String? = null,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onAction)
+            .then(
+                if (showAction) {
+                    Modifier.clickable(onClick = onAction)
+                } else {
+                    Modifier
+                },
+            )
             .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -70,12 +80,12 @@ fun AppPackageListRow(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = entry.app.label,
+                        text = title ?: entry.app.label,
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 1,
                     )
                     Text(
-                        text = entry.app.packageName,
+                        text = subtitle ?: entry.app.packageName,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -98,23 +108,34 @@ fun AppPackageListRow(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = entry.packageName,
+                        text = title ?: entry.packageName,
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 1,
                     )
-                    Text(
-                        text = stringResource(R.string.app_package_uninstalled),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    } else if (title == null) {
+                        Text(
+                            text = stringResource(R.string.app_package_uninstalled),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
-        IconButton(onClick = onAction) {
-            Icon(
-                imageVector = actionIcon,
-                contentDescription = actionDescription,
-            )
+        if (showAction) {
+            IconButton(onClick = onAction) {
+                Icon(
+                    imageVector = actionIcon,
+                    contentDescription = actionDescription,
+                )
+            }
         }
     }
 }

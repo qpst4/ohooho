@@ -11,6 +11,7 @@ class OverlayManager(
     private val context: Context,
     private val appRepository: AppRepository,
     private val scope: CoroutineScope,
+    private val onShellCommandsPersist: (List<com.slideindex.app.shell.ShellCommand>) -> Unit = {},
 ) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var leftController: SideOverlayController? = null
@@ -31,7 +32,14 @@ class OverlayManager(
         }
 
         syncControllers(settings)
+        recoverOverlaysIfIdle()
         refreshTriggerVisibility()
+    }
+
+    fun recoverOverlaysIfIdle() {
+        if (!currentSettings.serviceEnabled) return
+        leftController?.forceCollapseIfIdle()
+        rightController?.forceCollapseIfIdle()
     }
 
     fun updateForegroundPackage(packageName: String?) {
@@ -63,6 +71,7 @@ class OverlayManager(
                 appRepository = appRepository,
                 scope = scope,
                 clickPassthroughHandler = ::performClickPassthrough,
+                onShellCommandsPersist = onShellCommandsPersist,
             )
         }
         leftController?.updateSettings(settings, screenWidth)
@@ -75,6 +84,7 @@ class OverlayManager(
                 appRepository = appRepository,
                 scope = scope,
                 clickPassthroughHandler = ::performClickPassthrough,
+                onShellCommandsPersist = onShellCommandsPersist,
             )
         }
         rightController?.updateSettings(settings, screenWidth)

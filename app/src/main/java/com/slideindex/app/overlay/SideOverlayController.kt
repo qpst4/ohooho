@@ -8,6 +8,7 @@ import com.slideindex.app.data.AppRepository
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.edgeTriggerWidthDp
 import com.slideindex.app.settings.interceptWindowWidthDp
+import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.util.OverlayBrightnessControl
 import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ class SideOverlayController(
     private val appRepository: AppRepository,
     private val scope: CoroutineScope,
     private val clickPassthroughHandler: ((Float, Float, () -> Unit) -> Unit)? = null,
+    private val onShellCommandsPersist: (List<ShellCommand>) -> Unit = {},
 ) {
     private var settings: AppSettings = AppSettings()
     private var screenHeightPx: Int = 0
@@ -32,6 +34,10 @@ class SideOverlayController(
     private var windowParams: WindowManager.LayoutParams? = null
     private var loadJob: Job? = null
     private var overlayBrightnessFraction: Float? = null
+    private var lastOverlayBrightnessApplyMs = 0L
+    private var pendingOverlayBrightnessFraction: Float? = null
+    private var overlayBrightnessApplyRunnable: Runnable? = null
+    private val overlayBrightnessHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val density get() = context.resources.displayMetrics.density
 
@@ -47,12 +53,17 @@ class SideOverlayController(
             overlayView?.isSessionActive() != true &&
             !previewMode
         ) {
-            applyTriggerLayout(windowParams!!)
-            applyNormalTouchFlags(windowParams!!)
-            runCatching { windowManager.updateViewLayout(overlayView, windowParams) }
+            forceCollapseIfIdle()
         } else if (previewMode) {
             overlayView?.invalidate()
         }
+    }
+
+    fun forceCollapseIfIdle() {
+        val view = overlayView ?: return
+        if (view.isSessionActive() || previewMode) return
+        view.forceRecoverInteractionState()
+        collapseWindow()
     }
 
     fun setPreviewMode(enabled: Boolean, content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY) {
@@ -82,6 +93,7 @@ class SideOverlayController(
                 expandWindow()
             },
             onSessionEndCallback = {
+                overlayView?.forceRecoverInteractionState()
                 if (overlayView?.keepsOverlayExpanded() != true && overlayView?.isSessionActive() != true) {
                     if (previewMode) {
                         overlayView?.setPreviewMode(true, previewContent)
@@ -90,6 +102,10 @@ class SideOverlayController(
                         collapseWindow()
                     }
                 }
+            },
+            onGestureTrackingStartCallback = {
+                overlayView?.setPreviewMode(false)
+                expandWindow()
             },
             onAdjustPanelLayoutCallback = { anchorRawY ->
                 overlayView?.setPreviewMode(false)
@@ -106,6 +122,8 @@ class SideOverlayController(
                     onComplete()
                 }
             },
+            onShellCommandsPersist = onShellCommandsPersist,
+            onShellPanelFocusChange = { focusable -> setOverlayFocusable(focusable) },
             overlayBrightness = OverlayBrightnessControl { fraction ->
                 applyOverlayWindowBrightness(fraction)
             },
@@ -252,11 +270,51 @@ class SideOverlayController(
         }
     }
 
+    private fun setOverlayFocusable(focusable: Boolean) {
+        val view = overlayView ?: return
+        val params = windowParams ?: return
+        if (focusable) {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            view.clearFocus()
+        }
+        runCatching { windowManager.updateViewLayout(view, params) }
+            .onFailure { Log.e(TAG, "Failed to update overlay focus", it) }
+        if (focusable) {
+            view.isFocusableInTouchMode = true
+            view.requestFocus()
+        }
+    }
+
     private fun dp(value: Float): Float = value * density
 
     private fun applyOverlayWindowBrightness(fraction: Float?) {
         if (overlayBrightnessFraction == fraction) return
+        pendingOverlayBrightnessFraction = fraction
+        val now = android.os.SystemClock.uptimeMillis()
+        val elapsed = now - lastOverlayBrightnessApplyMs
+        if (elapsed >= OVERLAY_BRIGHTNESS_MIN_INTERVAL_MS) {
+            flushOverlayWindowBrightness()
+            return
+        }
+        overlayBrightnessApplyRunnable?.let { overlayBrightnessHandler.removeCallbacks(it) }
+        val runnable = Runnable {
+            overlayBrightnessApplyRunnable = null
+            flushOverlayWindowBrightness()
+        }
+        overlayBrightnessApplyRunnable = runnable
+        overlayBrightnessHandler.postDelayed(
+            runnable,
+            OVERLAY_BRIGHTNESS_MIN_INTERVAL_MS - elapsed,
+        )
+    }
+
+    private fun flushOverlayWindowBrightness() {
+        val fraction = pendingOverlayBrightnessFraction
+        if (overlayBrightnessFraction == fraction) return
         overlayBrightnessFraction = fraction
+        lastOverlayBrightnessApplyMs = android.os.SystemClock.uptimeMillis()
         val view = overlayView ?: return
         val params = windowParams ?: return
         params.screenBrightness = when (fraction) {
@@ -270,5 +328,6 @@ class SideOverlayController(
     companion object {
         private const val TAG = "SideOverlayController"
         private const val MIN_OVERLAY_BRIGHTNESS = 0.01f
+        private const val OVERLAY_BRIGHTNESS_MIN_INTERVAL_MS = 32L
     }
 }

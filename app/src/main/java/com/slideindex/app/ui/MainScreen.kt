@@ -41,6 +41,7 @@ fun MainScreen(
     onOpenExcludedAppsSettings: () -> Unit,
     onOpenSideGesturesLeft: () -> Unit,
     onOpenSideGesturesRight: () -> Unit,
+    onOpenShellCommands: () -> Unit,
     onThemeColorChange: (Int) -> Unit,
 ) {
     val permissionsReady = overlayGranted && notificationGranted
@@ -126,6 +127,10 @@ fun MainScreen(
                     onClick = onOpenExcludedAppsSettings,
                 )
                 FreeWindowEntryCard(onClick = onOpenFreeWindowSettings)
+                ShellCommandEntryCard(
+                    commandCount = settings.shellCommands.size,
+                    onClick = onOpenShellCommands,
+                )
             }
 
             SettingsSectionTitle(stringResource(R.string.settings_section_feedback))

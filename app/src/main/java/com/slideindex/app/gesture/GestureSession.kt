@@ -121,6 +121,8 @@ class GestureSession(
 
         pathRecognizer.applyDistances(newSettings.shortSwipeDistanceDp, newSettings.longSwipeDistanceDp)
 
+        pathRecognizer.applyAngles(newSettings.gestureAngleConfig)
+
     }
 
 
@@ -152,13 +154,21 @@ class GestureSession(
 
     fun taskSwitcherContinuousPickActive(): Boolean = taskSwitcherContinuousPick
 
+    private var quickLauncherContinuousPick = false
+
+    fun quickLauncherContinuousPickActive(): Boolean = quickLauncherContinuousPick
+
+    private var shellCommandContinuousPick = false
+
+    fun shellCommandContinuousPickActive(): Boolean = shellCommandContinuousPick
+
     fun adjustAnchorRawY(): Float = adjustLayoutAnchorRawY
 
 
 
     fun onTouchDown(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
 
-        if (active) return true
+        if (active) return false
 
         if (!zoneLayout.containsTrigger(localX, localY)) return false
 
@@ -211,8 +221,9 @@ class GestureSession(
 
         lastLocalY = localY
 
-        if (adjustMode != null) {
-            actionExecutor.updateContinuousAdjust(adjustMode!!, rawY)
+        val currentAdjustMode = adjustMode
+        if (currentAdjustMode != null) {
+            actionExecutor.updateContinuousAdjust(currentAdjustMode, rawY)
             callbacks.onRequestInvalidate()
             return
         }
@@ -314,7 +325,7 @@ class GestureSession(
 
             }
 
-            OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.TASK_SWITCHER -> Unit
+            OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.TASK_SWITCHER, OverlayPanelMode.SHELL_COMMANDS -> Unit
 
             OverlayPanelMode.NONE -> {
 
@@ -355,10 +366,17 @@ class GestureSession(
 
                 val mode = settings.resolvedTriggerMode(side, classification.trigger)
 
-                if (mode == GestureTriggerMode.IMMEDIATE ||
+                if (mode == GestureTriggerMode.IMMEDIATE) {
 
-                    (mode == GestureTriggerMode.CONTINUOUS && !indexMode)
+                    endSession()
 
+                    return
+
+                }
+
+                val action = settings.actionFor(side, classification.trigger)
+                if (mode == GestureTriggerMode.CONTINUOUS && !indexMode &&
+                    (moveTimeActionFired || action.supportsContinuousTracking(classification.trigger))
                 ) {
 
                     endSession()
@@ -392,47 +410,40 @@ class GestureSession(
 
 
     fun endSession() {
+        if (!active && panelMode == OverlayPanelMode.NONE && adjustMode == null) return
+        forceReset(notifySessionEnd = true)
+    }
 
-        if (!active) return
+    fun forceReset(notifySessionEnd: Boolean = true) {
+        val shouldNotify = notifySessionEnd &&
+            (active || panelMode != OverlayPanelMode.NONE || adjustMode != null)
 
         active = false
-
         indexMode = false
-
         adjustMode = null
         adjustLayoutAnchorRawY = 0f
-
         panelMode = OverlayPanelMode.NONE
-
         moveTimeActionFired = false
         taskSwitcherContinuousPick = false
-
+        quickLauncherContinuousPick = false
+        shellCommandContinuousPick = false
         wasAboveShortThreshold = false
-
         wasAboveLongThreshold = false
-
         longPressHapticFired = false
 
         callbacks.cancelDelayed(longPressCheckRunnable)
-
         actionExecutor.endContinuousAdjust()
-
         pathRecognizer.reset()
-
         indexSession.endSession()
 
-        callbacks.onSessionEnd()
-
+        if (shouldNotify) {
+            callbacks.onSessionEnd()
+        }
         callbacks.onRequestInvalidate()
-
     }
 
-
-
     fun reset() {
-
-        if (active) endSession()
-
+        forceReset(notifySessionEnd = true)
     }
 
 
@@ -450,19 +461,13 @@ class GestureSession(
         }
 
     private fun trackDistanceHaptics(rawX: Float, rawY: Float) {
-        val distance = pathRecognizer.effectiveSwipeDistance(rawX, rawY)
+        val distance = pathRecognizer.swipeDistance(rawX, rawY)
         val aboveShort = distance >= pathRecognizer.shortThresholdPx()
         val aboveLong = distance >= pathRecognizer.longThresholdPx()
         if (aboveShort && !wasAboveShortThreshold) {
-            val classification = pathRecognizer.classifyPartial(rawX, rawY, classifyOptions())
-            val action = classification?.let { settings.actionFor(side, it.trigger) }
-            if (classification != null && action != GestureAction.None &&
-                action !is GestureAction.ClickPassthrough
-            ) {
-                callbacks.cancelDelayed(longPressCheckRunnable)
-                pathRecognizer.disqualifyLongPress()
-                callbacks.hapticGestureStart()
-            }
+            callbacks.cancelDelayed(longPressCheckRunnable)
+            pathRecognizer.disqualifyLongPress()
+            callbacks.hapticGestureStart()
         }
         if (aboveLong && !wasAboveLongThreshold) {
             callbacks.hapticLongThreshold()
@@ -567,6 +572,20 @@ class GestureSession(
                 }
             }
 
+            GestureAction.QuickLauncher -> {
+                if (panelMode != OverlayPanelMode.QUICK_LAUNCHER) {
+                    quickLauncherContinuousPick = true
+                    openPanel(OverlayPanelMode.QUICK_LAUNCHER)
+                }
+            }
+
+            GestureAction.ShellCommandPanel -> {
+                if (panelMode != OverlayPanelMode.SHELL_COMMANDS) {
+                    shellCommandContinuousPick = true
+                    openPanel(OverlayPanelMode.SHELL_COMMANDS)
+                }
+            }
+
             GestureAction.AdjustVolume -> enterAdjustMode(ContinuousAdjustController.Mode.VOLUME, rawY)
 
             GestureAction.AdjustBrightness -> enterAdjustMode(ContinuousAdjustController.Mode.BRIGHTNESS, rawY)
@@ -652,7 +671,6 @@ class GestureSession(
                 val adjustControllerMode = when (action) {
                     GestureAction.AdjustVolume -> ContinuousAdjustController.Mode.VOLUME
                     GestureAction.AdjustBrightness -> ContinuousAdjustController.Mode.BRIGHTNESS
-                    else -> error("unreachable")
                 }
                 val triggerMode = settings.resolvedTriggerMode(side, classification.trigger)
                 when (triggerMode) {
@@ -672,8 +690,15 @@ class GestureSession(
             }
 
             is GestureAction.QuickLauncher -> {
+                quickLauncherContinuousPick = false
                 callbacks.hapticConfirmLaunch()
                 openPanel(OverlayPanelMode.QUICK_LAUNCHER)
+            }
+
+            is GestureAction.ShellCommandPanel -> {
+                shellCommandContinuousPick = false
+                callbacks.hapticConfirmLaunch()
+                openPanel(OverlayPanelMode.SHELL_COMMANDS)
             }
 
             is GestureAction.TaskSwitcher -> {
@@ -683,6 +708,16 @@ class GestureSession(
             }
 
             is GestureAction.LaunchApp -> {
+
+                callbacks.hapticConfirmLaunch()
+
+                actionExecutor.execute(action, settings)
+
+                endSession()
+
+            }
+
+            is GestureAction.LaunchShortcut -> {
 
                 callbacks.hapticConfirmLaunch()
 
@@ -726,6 +761,25 @@ class GestureSession(
 
                 endSession()
 
+            }
+
+            GestureAction.ToggleMute,
+            GestureAction.MediaPlayPause,
+            GestureAction.MediaPrevious,
+            GestureAction.MediaNext,
+            GestureAction.PreviousApp,
+            GestureAction.OpenNotifications,
+            GestureAction.OpenQuickSettings,
+            GestureAction.LockScreen,
+            GestureAction.Screenshot,
+            GestureAction.PowerMenu,
+            GestureAction.KeepScreenOn,
+            GestureAction.ScrollToTop,
+            GestureAction.ScrollToBottom,
+            -> {
+                callbacks.hapticConfirmLaunch()
+                endSession()
+                actionExecutor.execute(action, settings)
             }
 
             GestureAction.None -> endSession()

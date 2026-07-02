@@ -2,11 +2,13 @@ package com.slideindex.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Intent
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -15,7 +17,22 @@ import com.slideindex.app.gesture.GestureAction
 
 class SlideIndexAccessibilityService : AccessibilityService() {
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var prevPackageName: String? = null
+    private var currPackageName: String? = null
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val packageName = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
+        if (packageName == applicationContext.packageName) return
+        if (!hasLaunchIntent(packageName)) return
+        if (currPackageName == packageName) return
+        prevPackageName = currPackageName
+        currPackageName = packageName
+        if (prevPackageName == null) {
+            prevPackageName = currPackageName
+        }
+    }
 
     override fun onInterrupt() = Unit
 
@@ -25,15 +42,45 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         private val mainHandler = Handler(Looper.getMainLooper())
 
+        private var pendingScrollRunnable: Runnable? = null
+
         fun perform(action: GestureAction): Boolean {
             val service = instance ?: return false
-            val globalAction = when (action) {
-                GestureAction.Back -> GLOBAL_ACTION_BACK
-                GestureAction.Home -> GLOBAL_ACTION_HOME
-                GestureAction.Recents -> GLOBAL_ACTION_RECENTS
-                else -> return false
+            return when (action) {
+                GestureAction.Back -> service.performGlobalAction(GLOBAL_ACTION_BACK)
+                GestureAction.Home -> service.performGlobalAction(GLOBAL_ACTION_HOME)
+                GestureAction.Recents -> service.performGlobalAction(GLOBAL_ACTION_RECENTS)
+                GestureAction.OpenNotifications -> service.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
+                GestureAction.OpenQuickSettings -> service.performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS)
+                GestureAction.LockScreen -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        service.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                    } else {
+                        false
+                    }
+                }
+                GestureAction.Screenshot -> {
+                    service.takeScreenshotDelayed()
+                    true
+                }
+                GestureAction.PowerMenu -> service.performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+                GestureAction.PreviousApp -> service.launchPreviousApp()
+                GestureAction.KeepScreenOn -> service.toggleKeepScreenOn()
+                GestureAction.ScrollToTop -> scheduleFastVerticalScroll(service, toTop = true)
+                GestureAction.ScrollToBottom -> scheduleFastVerticalScroll(service, toTop = false)
+                else -> false
             }
-            return service.performGlobalAction(globalAction)
+        }
+
+        private fun scheduleFastVerticalScroll(service: SlideIndexAccessibilityService, toTop: Boolean): Boolean {
+            pendingScrollRunnable?.let { mainHandler.removeCallbacks(it) }
+            val runnable = Runnable {
+                pendingScrollRunnable = null
+                service.fastVerticalScroll(toTop)
+            }
+            pendingScrollRunnable = runnable
+            mainHandler.postDelayed(runnable, SCROLL_GESTURE_DELAY_MS)
+            return true
         }
 
         /**
@@ -245,7 +292,6 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         private fun releaseNode(node: AccessibilityNodeInfo?) {
             if (node == null) return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // API 33+ nodes are recycled automatically when GC'd.
                 return
             }
             @Suppress("DEPRECATION")
@@ -255,16 +301,111 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         private const val TAG = "SlideIndexA11y"
         private const val TAP_DURATION_MS = 120L
         private const val GESTURE_TIMEOUT_MS = 600L
+        private const val SCREENSHOT_DELAY_MS = 500L
+        private const val SCROLL_GESTURE_DELAY_MS = 180L
+        private const val SCROLL_BOTTOM_STROKE_COUNT = 10
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        Log.i("SlideIndexA11y", "onServiceConnected")
+        Log.i(TAG, "onServiceConnected")
     }
 
     override fun onDestroy() {
+        wakeLock?.release()
+        wakeLock = null
         instance = null
         super.onDestroy()
+    }
+
+    private fun hasLaunchIntent(packageName: String): Boolean =
+        packageManager.getLaunchIntentForPackage(packageName) != null
+
+    private fun launchPreviousApp(): Boolean {
+        val prevPkgName = prevPackageName
+        val curPkgName = currPackageName
+        if (prevPkgName.isNullOrEmpty() || curPkgName.isNullOrEmpty()) return false
+        if (currPackageNameError()) {
+            return launchPackage(curPkgName)
+        }
+        if (prevPkgName == curPkgName) return false
+        if (launchPackage(prevPkgName)) {
+            prevPackageName = curPkgName
+            currPackageName = prevPkgName
+            return true
+        }
+        return false
+    }
+
+    private fun currPackageNameError(): Boolean {
+        val activePkg = rootInActiveWindow?.packageName?.toString()
+        return activePkg != currPackageName
+    }
+
+    private fun launchPackage(packageName: String): Boolean {
+        val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
+        return runCatching {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun toggleKeepScreenOn(): Boolean {
+        if (wakeLock != null) {
+            wakeLock?.release()
+            wakeLock = null
+            return true
+        }
+        val powerManager = getSystemService(POWER_SERVICE) as? PowerManager ?: return false
+        @Suppress("DEPRECATION")
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ON_AFTER_RELEASE,
+            "SlideIndex:KeepScreenOn",
+        )
+        return runCatching {
+            wakeLock?.acquire()
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun takeScreenshotDelayed() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        mainHandler.postDelayed({
+            performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT)
+        }, SCREENSHOT_DELAY_MS)
+    }
+
+    private fun fastVerticalScroll(toTop: Boolean): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+        val metrics = resources.displayMetrics
+        val centerX = metrics.widthPixels / 2f
+        val centerY = metrics.heightPixels / 2f
+        val builder = GestureDescription.Builder()
+        if (toTop) {
+            val path = Path().apply {
+                moveTo(centerX, centerY)
+                lineTo(centerX, centerY + Int.MAX_VALUE)
+            }
+            builder.addStroke(GestureDescription.StrokeDescription(path, 0, 120))
+        } else {
+            val strokeCount = SCROLL_BOTTOM_STROKE_COUNT
+                .coerceAtMost(GestureDescription.getMaxStrokeCount())
+            repeat(strokeCount) { index ->
+                val path = Path().apply {
+                    moveTo(centerX, centerY)
+                    lineTo(centerX, 0f)
+                }
+                builder.addStroke(
+                    GestureDescription.StrokeDescription(path, index * 80L, 12),
+                )
+            }
+        }
+        val accepted = dispatchGesture(builder.build(), null, null)
+        if (!accepted) {
+            Log.w(TAG, "fastVerticalScroll(toTop=$toTop) rejected")
+        }
+        return accepted
     }
 }
