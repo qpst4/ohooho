@@ -267,6 +267,7 @@
     <string name="action_picker_select">选择</string>
     <string name="task_switcher_close_all">全部关闭</string>
     <string name="task_switcher_empty">无后台任务</string>
+    <string name="task_switcher_loading">加载中…</string>
     <string name="task_switcher_quick_share">快速分享</string>
     <string name="task_switcher_no_shizuku">需要 Shizuku 权限以显示后台任务</string>
     <string name="task_switcher_menu_free_window">小窗打开</string>

@@ -2,12 +2,10 @@ package com.slideindex.app.shizuku
 
 import android.app.ActivityOptions
 import android.content.Context
-import android.content.Intent
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Process
-import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.Keep
 import com.slideindex.app.util.ShortcutDisplayRules
@@ -24,8 +22,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     override fun removeTaskById(taskIdStr: String?): Boolean {
         val id = taskIdStr?.toIntOrNull()?.takeIf { it > 0 } ?: return false
-        invalidateActivityDumps()
-        if (removeTaskViaSystemApi(id)) {
+        if (SystemRecentsAccess.removeTask(id)) {
             Log.i(TAG, "removeTaskById($id) via system API succeeded")
             return true
         }
@@ -58,15 +55,9 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     override fun getFrontTaskPackage(): String {
         return try {
-            val activitiesDump = shellOutput("dumpsys", "activity", "activities")
-            val task = TaskShellParser.findFrontTask(activitiesDump)
-            val packageName = task?.packageName?.takeIf { it.isNotBlank() }
-                ?: task?.taskId?.let { taskId ->
-                    val taskListDump = shellOutput("cmd", "activity", "task", "list")
-                    TaskShellParser.findPackageForTaskId(taskId, activitiesDump, taskListDump)
-                }.orEmpty()
-            Log.i(TAG, "getFrontTaskPackage -> $packageName")
-            packageName
+            readFrontTask()?.packageName?.takeIf { it.isNotBlank() }.orEmpty().also {
+                Log.i(TAG, "getFrontTaskPackage -> $it")
+            }
         } catch (error: Exception) {
             Log.e(TAG, "getFrontTaskPackage failed", error)
             ""
@@ -77,64 +68,29 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     override fun getTaskIdsForPackage(packageName: String?): Array<String> {
         if (packageName.isNullOrBlank()) return emptyArray()
-        val dumps = readActivityDumps()
-        TaskShellParser.findTaskIdForIdentifier(
-            packageName,
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        )?.let { exactId ->
-            return arrayOf(exactId.toString())
-        }
-        val ids = TaskShellParser.findTaskIdsForPackage(
-            packageName,
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        )
-        return ids.map { it.toString() }.toTypedArray()
+        return SystemRecentsAccess.listTasks()
+            .filter { SystemRecentsAccess.matchesPackage(it, packageName) }
+            .map { it.taskId }
+            .filter { it > 0 }
+            .distinct()
+            .map { it.toString() }
+            .toTypedArray()
     }
 
     override fun getRecentTaskPackages(): Array<String> {
-        val dumps = readActivityDumps()
-        val packages = TaskShellParser.listRecentPackages(
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        )
-        return packages.toTypedArray()
+        return SystemRecentsAccess.listTasks()
+            .map { it.packageName }
+            .distinct()
+            .toTypedArray()
     }
 
     override fun getRecentTasks(): Array<String> {
-        val dumps = readActivityDumps()
-        val titleMap = TaskShellParser.parseTaskTitles(
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        )
-        val componentMap = TaskShellParser.parseTaskTopComponents(
-            dumps.activities,
-            dumps.taskList,
-            dumps.recents,
-        )
-        val entries = TaskShellParser.listRecentTaskEntries(
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        ).map { entry ->
-            TaskShellParser.enrichTaskEntry(entry, titleMap, componentMap)
-        }
-        if (entries.isNotEmpty()) {
-            return entries.map { entry ->
-                val topComponent = componentMap[entry.taskId].orEmpty()
-                "${entry.taskId}\t${entry.rawIdentifier}\t${entry.taskTitle.orEmpty()}\t$topComponent"
-            }.toTypedArray()
-        }
-        return TaskShellParser.listRecentPackages(
-            dumps.recents,
-            dumps.taskList,
-            dumps.activities,
-        ).map { "0\t$it" }.toTypedArray()
+        val entries = SystemRecentsAccess.listTasks()
+        Log.i(TAG, "getRecentTasks -> ${entries.size}")
+        return entries.map { task ->
+            val topComponent = task.component.takeIf { it.contains('/') }.orEmpty()
+            "${task.taskId}\t${task.component}\t${task.title.orEmpty()}\t$topComponent"
+        }.toTypedArray()
     }
 
     override fun switchToTask(
@@ -142,52 +98,15 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         identifier: String?,
         topComponentStr: String?,
     ): Boolean {
-        invalidateActivityDumps()
-        val dumps = readActivityDumps()
         val rawId = identifier?.trim().orEmpty()
-        val taskId = taskIdStr?.toIntOrNull()?.takeIf { it > 0 }
-            ?: if (rawId.isNotEmpty()) {
-                TaskShellParser.findTaskIdForIdentifier(
-                    rawId,
-                    dumps.recents,
-                    dumps.taskList,
-                    dumps.activities,
-                )
-            } else {
-                null
-            } ?: run {
-                Log.w(TAG, "switchToTask unresolved taskIdStr=$taskIdStr identifier=$rawId")
-                return false
-            }
-
-        val component = topComponentStr?.trim()?.takeIf { it.contains('/') }
-            ?: TaskShellParser.findComponentForTaskId(
-                taskId,
-                dumps.taskList,
-                dumps.activities,
-                dumps.recents,
-            )
-
-        Log.i(TAG, "switchToTask taskId=$taskId identifier=$rawId component=$component")
-
-        if (switchToTaskViaRecents(taskId)) {
-            Log.i(TAG, "switchToTask($taskId) via recents succeeded")
-            return true
+        val knownTaskId = taskIdStr?.toIntOrNull()?.takeIf { it > 0 }
+        val resolvedId = knownTaskId
+            ?: if (rawId.isNotEmpty()) SystemRecentsAccess.findTaskId(rawId) else null
+        if (resolvedId == null || resolvedId <= 0) {
+            Log.w(TAG, "switchToTask unresolved taskIdStr=$taskIdStr identifier=$rawId")
+            return false
         }
-        if (switchToTaskViaMoveToFront(taskId)) {
-            Log.i(TAG, "switchToTask($taskId) via moveTaskToFront succeeded")
-            return true
-        }
-        if (focusTaskViaShell(taskId)) {
-            Log.i(TAG, "switchToTask($taskId) via shell focus succeeded")
-            return true
-        }
-        if (component != null && launchComponentForTask(taskId, component)) {
-            Log.i(TAG, "switchToTask($taskId) via component launch succeeded")
-            return true
-        }
-        Log.w(TAG, "switchToTask($taskId) failed")
-        return false
+        return SystemRecentsAccess.switchToTask(resolvedId)
     }
 
     override fun showVoiceAssistant(): Boolean {
@@ -231,133 +150,6 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         }
     }
 
-    private fun buildPlainShellArgs(command: String): Array<String> =
-        arrayOf(resolveShPath(), "-c", command)
-
-    private fun runAsRootUser(command: String): ShellExecResult {
-        if (Process.myUid() == 0) {
-            return shellCommandWithOutput(*buildPlainShellArgs(command))
-        }
-        val su = resolveSuInvocation()
-        val q = shellQuote(command)
-        val scripts = listOf(
-            "$su -c $q",
-            "$su 0 sh -c $q",
-        )
-        return runFirstSuccessfulShellScript(scripts, command)
-    }
-
-    private fun runAsShellUser(command: String): ShellExecResult {
-        if (Process.myUid() != 0) {
-            return shellCommandWithOutput(*buildPlainShellArgs(command))
-        }
-        val wrapper = findShellDowngradeWrapper()
-            ?: return ShellExecResult(
-                exitCode = -1,
-                output = "无法降级到 adb/shell 身份（Shizuku 当前以 Root 运行）。\n" +
-                    "请改用 adb/无线调试方式启动 Shizuku。",
-            )
-        val result = shellCommandWithOutput(resolveShPath(), "-c", wrapper(command))
-        return ShellExecResult(
-            exitCode = result.exitCode,
-            output = SHELL_DOWNGRADE_HINT + result.output,
-        )
-    }
-
-    /** Probe each candidate wrapper with `id -u`, then reuse the first that yields a non-root uid. */
-    private fun findShellDowngradeWrapper(): ((String) -> String)? {
-        val sh = resolveShPath()
-        val su = resolveSuInvocation()
-        val candidates = listOf(
-            { cmd: String -> "toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "/system/bin/toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "/system/bin/toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "setuidgid shell $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "$su --user shell -c ${shellQuote(cmd)}" },
-            { cmd: String -> "$su shell -c ${shellQuote(cmd)}" },
-            { cmd: String -> "$su shell $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "$su -c \"$sh -c ${shellQuote(cmd)}\" shell" },
-            { cmd: String -> "$su 2000 $sh -c ${shellQuote(cmd)}" },
-            { cmd: String -> "/data/adb/ap/bin/apd su shell -c ${shellQuote(cmd)}" },
-            { cmd: String -> "/data/adb/ksud su shell -c ${shellQuote(cmd)}" },
-        )
-        for (wrap in candidates) {
-            val probe = shellCommandWithOutput(sh, "-c", wrap("id -u"))
-            val uid = parseNumericUid(probe.output)
-            if (probe.exitCode == 0 && uid != null && uid != 0) {
-                return wrap
-            }
-        }
-        return null
-    }
-
-    private fun runFirstSuccessfulShellScript(scripts: List<String>, command: String): ShellExecResult {
-        var last = ShellExecResult(-1, "su 执行失败")
-        for (script in scripts) {
-            val result = shellCommandWithOutput(resolveShPath(), "-c", script)
-            last = result
-            if (result.exitCode == 0) return result
-        }
-        return last
-    }
-
-    private fun parseNumericUid(output: String): Int? {
-        val trimmed = output.trim()
-        trimmed.toIntOrNull()?.let { return it }
-        return Regex("""uid=(\d+)""").find(trimmed)?.groupValues?.get(1)?.toIntOrNull()
-    }
-
-    private fun resolveShPath(): String =
-        if (java.io.File(SYSTEM_SH).exists()) SYSTEM_SH else "/bin/sh"
-
-    private fun resolveSuInvocation(): String {
-        val candidates = listOf(
-            "/sbin/su",
-            "/system/xbin/su",
-            SYSTEM_SU,
-            "/vendor/bin/su",
-            "/debug_ramdisk/su",
-            "/data/adb/magisk/magisk",
-        )
-        return candidates.firstOrNull { java.io.File(it).exists() } ?: "su"
-    }
-
-    private fun shellQuote(command: String): String =
-        "'" + command.replace("'", "'\\''") + "'"
-
-    private fun launchComponentForTask(taskId: Int, component: String): Boolean {
-        val attempts = listOf(
-            arrayOf(
-                "am", "start", "-n", component,
-                "--activity-single-top", "--activity-clear-top", "--activity-reorder-to-front",
-            ),
-            arrayOf(
-                "am", "start", "-n", component,
-                "--activity-single-top", "--activity-clear-top",
-            ),
-            arrayOf("am", "start", "-n", component),
-        )
-        for (command in attempts) {
-            if (shellCommand(*command)) {
-                focusTaskViaShell(taskId)
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun relaunchTopActivityForTask(taskId: Int, dumps: ActivityDumps): Boolean {
-        val component = TaskShellParser.findComponentForTaskId(
-            taskId,
-            dumps.taskList,
-            dumps.activities,
-            dumps.recents,
-        ) ?: return false
-        return launchComponentForTask(taskId, component)
-    }
-
     override fun forceStopPackage(packageName: String?): Boolean {
         if (packageName.isNullOrBlank()) return false
         val stopped = shellCommand("am", "force-stop", packageName)
@@ -369,9 +161,7 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         if (packageName.isNullOrBlank()) return emptyArray()
         val merged = linkedMapOf<String, String>()
         fun absorb(entries: List<Pair<String, String>>) {
-            entries.forEach { (id, label) ->
-                merged.putIfAbsent(id, label)
-            }
+            entries.forEach { (id, label) -> merged.putIfAbsent(id, label) }
         }
         val flagSets = listOf("15", "1039")
         for (flags in flagSets) {
@@ -392,25 +182,6 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         val filtered = merged.filter { (id, label) -> ShortcutDisplayRules.isDisplayable(id, label) }
         Log.i(TAG, "getPublishedShortcuts($packageName) -> ${filtered.size}")
         return filtered.map { (id, label) -> "$id\t$label" }.toTypedArray()
-    }
-
-    private fun resolveDefaultLauncherPackage(): String {
-        val roleDump = shellOutput("cmd", "role", "get-role-holders", "android.app.role.HOME")
-        parseLauncherPackage(roleDump)?.let { return it }
-        val legacyDump = shellOutput("cmd", "shortcut", "get-default-launcher", "--user", "0")
-        return parseLauncherPackage(legacyDump).orEmpty()
-    }
-
-    private fun parseLauncherPackage(dump: String): String? {
-        return dump.lineSequence()
-            .map { it.trim() }
-            .firstOrNull { line ->
-                line.isNotBlank() &&
-                    !line.equals("Success", ignoreCase = true) &&
-                    !line.startsWith("Error:", ignoreCase = true) &&
-                    line.contains('.') &&
-                    !line.contains(' ')
-            }
     }
 
     override fun startPublishedShortcut(packageName: String?, shortcutId: String?): Boolean {
@@ -452,65 +223,152 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         }
     }
 
+    private fun buildPlainShellArgs(command: String): Array<String> =
+        arrayOf(resolveShPath(), "-c", command)
+
+    private fun runAsRootUser(command: String): ShellExecResult {
+        if (Process.myUid() == 0) {
+            return shellCommandWithOutput(*buildPlainShellArgs(command))
+        }
+        val su = resolveSuInvocation()
+        val q = shellQuote(command)
+        val scripts = listOf(
+            "$su -c $q",
+            "$su 0 sh -c $q",
+        )
+        return runFirstSuccessfulShellScript(scripts)
+    }
+
+    private fun runAsShellUser(command: String): ShellExecResult {
+        if (Process.myUid() != 0) {
+            return shellCommandWithOutput(*buildPlainShellArgs(command))
+        }
+        val wrapper = findShellDowngradeWrapper()
+            ?: return ShellExecResult(
+                exitCode = -1,
+                output = "无法降级到 adb/shell 身份（Shizuku 当前以 Root 运行）。\n" +
+                    "请改用 adb/无线调试方式启动 Shizuku。",
+            )
+        val result = shellCommandWithOutput(resolveShPath(), "-c", wrapper(command))
+        return ShellExecResult(
+            exitCode = result.exitCode,
+            output = SHELL_DOWNGRADE_HINT + result.output,
+        )
+    }
+
+    private fun findShellDowngradeWrapper(): ((String) -> String)? {
+        val sh = resolveShPath()
+        val su = resolveSuInvocation()
+        val candidates = listOf(
+            { cmd: String -> "toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/system/bin/toybox setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/system/bin/toybox setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "setuidgid 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "setuidgid shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su --user shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su shell $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "$su -c \"$sh -c ${shellQuote(cmd)}\" shell" },
+            { cmd: String -> "$su 2000 $sh -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/data/adb/ap/bin/apd su shell -c ${shellQuote(cmd)}" },
+            { cmd: String -> "/data/adb/ksud su shell -c ${shellQuote(cmd)}" },
+        )
+        for (wrap in candidates) {
+            val probe = shellCommandWithOutput(sh, "-c", wrap("id -u"))
+            val uid = parseNumericUid(probe.output)
+            if (probe.exitCode == 0 && uid != null && uid != 0) {
+                return wrap
+            }
+        }
+        return null
+    }
+
+    private fun runFirstSuccessfulShellScript(scripts: List<String>): ShellExecResult {
+        var last = ShellExecResult(-1, "su 执行失败")
+        for (script in scripts) {
+            val result = shellCommandWithOutput(resolveShPath(), "-c", script)
+            last = result
+            if (result.exitCode == 0) return result
+        }
+        return last
+    }
+
+    private fun parseNumericUid(output: String): Int? {
+        val trimmed = output.trim()
+        trimmed.toIntOrNull()?.let { return it }
+        return Regex("""uid=(\d+)""").find(trimmed)?.groupValues?.get(1)?.toIntOrNull()
+    }
+
+    private fun resolveShPath(): String =
+        if (java.io.File(SYSTEM_SH).exists()) SYSTEM_SH else "/bin/sh"
+
+    private fun resolveSuInvocation(): String {
+        val candidates = listOf(
+            "/sbin/su",
+            "/system/xbin/su",
+            SYSTEM_SU,
+            "/vendor/bin/su",
+            "/debug_ramdisk/su",
+            "/data/adb/magisk/magisk",
+        )
+        return candidates.firstOrNull { java.io.File(it).exists() } ?: "su"
+    }
+
+    private fun shellQuote(command: String): String =
+        "'" + command.replace("'", "'\\''") + "'"
+
+    private fun resolveDefaultLauncherPackage(): String {
+        val roleDump = shellOutput("cmd", "role", "get-role-holders", "android.app.role.HOME")
+        parseLauncherPackage(roleDump)?.let { return it }
+        val legacyDump = shellOutput("cmd", "shortcut", "get-default-launcher", "--user", "0")
+        return parseLauncherPackage(legacyDump).orEmpty()
+    }
+
+    private fun parseLauncherPackage(dump: String): String? {
+        return dump.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { line ->
+                line.isNotBlank() &&
+                    !line.equals("Success", ignoreCase = true) &&
+                    !line.startsWith("Error:", ignoreCase = true) &&
+                    line.contains('.') &&
+                    !line.contains(' ')
+            }
+    }
+
+    private fun readFrontTask(): ShellTaskEntry? =
+        SystemRecentsAccess.frontTask()?.let { SystemRecentsAccess.toShellEntry(it) }
+
     private fun moveFrontTaskToFreeWindow(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) {
-                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via recents mode=$mode succeeded")
-                return true
-            }
+            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) return true
         }
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) {
-                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via ATM mode=$mode succeeded")
-                return true
-            }
+            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) return true
         }
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (relaunchViaShell(taskId, mode, bounds)) {
-                Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) via am start mode=$mode succeeded")
-                return true
-            }
+            if (relaunchViaShell(taskId, mode, bounds)) return true
         }
-        val shellResized = moveTaskToFreeWindowViaShell(taskId, bounds)
-        Log.i(TAG, "moveFrontTaskToFreeWindow($taskId) shell resize success=$shellResized")
-        return shellResized
+        return moveTaskToFreeWindowViaShell(taskId, bounds)
     }
 
     private fun moveBackgroundTaskToFreeWindow(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (relaunchViaShell(taskId, mode, bounds)) {
-                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via am start mode=$mode succeeded")
-                return true
-            }
+            if (relaunchViaShell(taskId, mode, bounds)) return true
         }
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) {
-                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via ATM mode=$mode succeeded")
-                return true
-            }
+            if (moveTaskToFreeWindowViaSystemApi(taskId, mode, bounds)) return true
         }
-        if (focusAndResizeTaskViaShell(taskId, bounds)) {
-            Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via shell focus+resize succeeded")
-            return true
-        }
+        if (focusAndResizeTaskViaShell(taskId, bounds)) return true
         for (mode in candidateWindowingModes(windowingMode)) {
-            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) {
-                Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) via recents mode=$mode succeeded")
-                return true
-            }
+            if (moveTaskToFreeWindowViaRecents(taskId, mode, bounds)) return true
         }
-        val shellResized = moveTaskToFreeWindowViaShell(taskId, bounds)
-        Log.i(TAG, "moveBackgroundTaskToFreeWindow($taskId) shell resize success=$shellResized")
-        return shellResized
+        return moveTaskToFreeWindowViaShell(taskId, bounds)
     }
 
-    private fun readFrontTask(): ShellTaskEntry? {
-        return TaskShellParser.findFrontTask(shellOutput("dumpsys", "activity", "activities"))
-    }
-
-    private fun candidateWindowingModes(primary: Int): IntArray {
-        return linkedSetOf(primary, 11, 5, 100, 102).toIntArray()
-    }
+    private fun candidateWindowingModes(primary: Int): IntArray =
+        linkedSetOf(primary, 11, 5, 100, 102).toIntArray()
 
     private fun moveTaskToFreeWindowViaRecents(taskId: Int, windowingMode: Int, bounds: Rect): Boolean {
         return try {
@@ -523,45 +381,20 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
             }
             invokeStartActivityFromRecents(taskId, bundle)
         } catch (e: Exception) {
-            Log.w(TAG, "startActivityFromRecents failed taskId=$taskId mode=$windowingMode", e)
+            Log.w(TAG, "moveTaskToFreeWindowViaRecents failed taskId=$taskId", e)
             false
         }
-    }
-
-    private fun switchToTaskViaRecents(taskId: Int): Boolean {
-        return invokeStartActivityFromRecents(taskId, ActivityOptions.makeBasic().toBundle() ?: Bundle())
     }
 
     private fun invokeStartActivityFromRecents(taskId: Int, bundle: Bundle): Boolean {
         return try {
             val atm = activityTaskManager()
-            val method = atm.javaClass.getMethod(
-                "startActivityFromRecents",
-                Int::class.javaPrimitiveType,
-                Bundle::class.java,
-            )
-            val result = (method.invoke(atm, taskId, bundle) as? Number)?.toInt() ?: return false
-            Log.i(TAG, "startActivityFromRecents taskId=$taskId result=$result")
-            result in START_SUCCESS..START_DELIVERED_TO_TOP
+            val result = SystemReflect.invoke(atm, "startActivityFromRecents", taskId, bundle) as? Number
+                ?: return false
+            val code = result.toInt()
+            code in START_SUCCESS..START_DELIVERED_TO_TOP
         } catch (e: Exception) {
             Log.w(TAG, "invokeStartActivityFromRecents failed taskId=$taskId", e)
-            false
-        }
-    }
-
-    private fun switchToTaskViaMoveToFront(taskId: Int): Boolean {
-        return try {
-            val atm = activityTaskManager()
-            runCatching {
-                atm.javaClass.getMethod(
-                    "moveTaskToFront",
-                    Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType,
-                    Bundle::class.java,
-                ).invoke(atm, taskId, 0, null)
-            }.isSuccess
-        } catch (e: Exception) {
-            Log.w(TAG, "switchToTaskViaMoveToFront failed taskId=$taskId", e)
             false
         }
     }
@@ -619,13 +452,9 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
     }
 
     private fun focusAndResizeTaskViaShell(taskId: Int, bounds: Rect): Boolean {
-        val focused = focusTaskViaShell(taskId)
+        val focused = shellCommand("cmd", "activity", "task", "focus", taskId.toString())
         val resized = moveTaskToFreeWindowViaShell(taskId, bounds)
         return focused && resized
-    }
-
-    private fun focusTaskViaShell(taskId: Int): Boolean {
-        return shellCommand("cmd", "activity", "task", "focus", taskId.toString())
     }
 
     private fun moveTaskToFreeWindowViaShell(taskId: Int, bounds: Rect): Boolean {
@@ -658,25 +487,6 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
         return moveTaskToFreeWindowViaShell(taskId, bounds)
     }
 
-    private fun removeTaskViaSystemApi(taskId: Int): Boolean {
-        return try {
-            val atm = activityTaskManager()
-            val attempts = listOf(
-                { atm.javaClass.getMethod("removeTask", Int::class.javaPrimitiveType).invoke(atm, taskId) as? Boolean },
-                {
-                    atm.javaClass.getMethod(
-                        "removeTask",
-                        Int::class.javaPrimitiveType,
-                        Boolean::class.javaPrimitiveType,
-                    ).invoke(atm, taskId, true) as? Boolean
-                },
-            )
-            attempts.any { runCatching { it() }.getOrNull() == true }
-        } catch (e: Exception) {
-            false
-        }
-    }
-
     private fun activityTaskManager(): Any {
         val serviceManager = Class.forName("android.os.ServiceManager")
         val binder = serviceManager.getMethod("getService", String::class.java)
@@ -686,19 +496,11 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
             ?: error("IActivityTaskManager is null")
     }
 
-    private fun shellCommand(vararg cmd: String): Boolean {
-        return runCatching {
-            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-            val exitCode = process.waitFor()
-            process.inputStream.bufferedReader().readText()
-            process.destroy()
-            exitCode == 0
-        }.getOrDefault(false)
-    }
+    private fun shellCommand(vararg cmd: String): Boolean =
+        shellCommandWithOutput(*cmd).exitCode == 0
 
-    private fun shellOutput(vararg cmd: String): String {
-        return shellCommandWithOutput(*cmd).output
-    }
+    private fun shellOutput(vararg cmd: String): String =
+        shellCommandWithOutput(*cmd).output
 
     private data class ShellExecResult(val exitCode: Int, val output: String)
 
@@ -735,41 +537,13 @@ class TaskManagerUserService() : ITaskManagerService.Stub() {
     private fun formatShellOutput(exitCode: Int, output: String): String =
         "$exitCode\n---\n$output"
 
-    private data class ActivityDumps(
-        val atMs: Long,
-        val recents: String,
-        val taskList: String,
-        val activities: String,
-    )
-
-    @Volatile
-    private var cachedActivityDumps: ActivityDumps? = null
-
-    private fun readActivityDumps(): ActivityDumps {
-        val now = SystemClock.elapsedRealtime()
-        cachedActivityDumps?.let { cache ->
-            if (now - cache.atMs < ACTIVITY_DUMP_CACHE_MS) return cache
-        }
-        return ActivityDumps(
-            atMs = now,
-            recents = shellOutput("dumpsys", "activity", "recents"),
-            taskList = shellOutput("cmd", "activity", "task", "list"),
-            activities = shellOutput("dumpsys", "activity", "activities"),
-        ).also { cachedActivityDumps = it }
-    }
-
-    private fun invalidateActivityDumps() {
-        cachedActivityDumps = null
-    }
-
     companion object {
         private const val TAG = "TaskManagerUserService"
         const val API_VERSION = ShizukuUserServiceHost.SERVICE_BUILD
         const val SHELL_DOWNGRADE_HINT = "提示:已将root降权至shell\n"
-        private const val SHELL_COMMAND_TIMEOUT_MS = 30_000L
+        private const val SHELL_COMMAND_TIMEOUT_MS = 2_500L
         private const val SYSTEM_SH = "/system/bin/sh"
         private const val SYSTEM_SU = "/system/bin/su"
-        private const val ACTIVITY_DUMP_CACHE_MS = 1_500L
         private const val RESIZE_MODE_SYSTEM = 0
         private const val KEY_WINDOWING_MODE = "android.activity.windowingMode"
         private const val START_SUCCESS = 0

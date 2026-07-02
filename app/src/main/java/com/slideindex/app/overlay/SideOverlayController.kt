@@ -106,6 +106,7 @@ class SideOverlayController(
             onGestureTrackingStartCallback = {
                 overlayView?.setPreviewMode(false)
                 expandWindow()
+                TaskManagerUtil.ensureServiceBound()
             },
             onAdjustPanelLayoutCallback = { anchorRawY ->
                 overlayView?.setPreviewMode(false)
@@ -134,7 +135,7 @@ class SideOverlayController(
             windowManager.addView(view, params)
             overlayView = view
             windowParams = params
-            TaskManagerUtil.prefetchRecentTasks()
+            TaskManagerUtil.ensureServiceBound()
             preloadApps()
             if (previewMode) {
                 view.setPreviewMode(true, previewContent)

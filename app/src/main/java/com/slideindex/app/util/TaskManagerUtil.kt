@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Looper
-import android.os.SystemClock
 import android.util.Log
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.OverlayService
@@ -22,7 +21,6 @@ import java.util.concurrent.TimeoutException
 object TaskManagerUtil {
 
     private const val TAG = "TaskManagerUtil"
-    private const val PREFETCH_DEBOUNCE_MS = 800L
     private const val MIN_RECENT_TASKS_API = 11
     private const val MIN_SWITCH_TO_TASK_API = 12
     private const val MIN_REMOVE_TASK_API = 1
@@ -54,10 +52,7 @@ object TaskManagerUtil {
     }
 
     @Volatile
-    private var cachedRecentPackages: List<String> = emptyList()
-
-    @Volatile
-    private var lastRecentRefreshElapsedMs = 0L
+    private var warmUpInFlight = false
 
     private val taskWorkerLock = Any()
 
@@ -100,78 +95,53 @@ object TaskManagerUtil {
     }
 
     fun warmUp() {
-        if (!hasPermission()) return
+        if (!hasPermission() || warmUpInFlight) return
+        warmUpInFlight = true
         Thread {
-            runCatching {
-                bindFreshService()
-                RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
-            }.onFailure { error ->
+            try {
+                bindService(appContext())
+            } catch (error: Exception) {
                 Log.w(TAG, "warmUp failed", error)
+            } finally {
+                warmUpInFlight = false
             }
         }.start()
     }
 
-    fun prefetchRecentTasks() {
-        if (!hasPermission()) return
-        val elapsed = SystemClock.elapsedRealtime() - lastRecentRefreshElapsedMs
-        if (elapsed in 0 until PREFETCH_DEBOUNCE_MS) return
-        Thread {
-            runCatching {
-                RecentTasksLoader.syncFromSystem(SlideIndexApp.instance.appRepository)
-            }.onFailure { error ->
-                Log.w(TAG, "prefetchRecentTasks failed", error)
-            }
-        }.start()
+    fun prefetchRecentTasks(force: Boolean = false) {
+        ensureServiceBound()
     }
-
-    fun invalidateRecentCache() {
-        lastRecentRefreshElapsedMs = 0L
-    }
-
-    fun peekRecentTaskPackages(): List<String> = cachedRecentPackages
 
     fun refreshRecentTaskPackages(): List<String> {
         return refreshRecentTasks().map { it.identifier }
     }
 
+    fun ensureServiceBound() {
+        if (!hasPermission() || peekBoundService() != null) return
+        Thread {
+            runCatching { bindService(appContext()) }
+                .onFailure { error -> Log.w(TAG, "ensureServiceBound failed", error) }
+        }.start()
+    }
+
     fun refreshRecentTasks(): List<RecentTaskRef> {
         if (!hasPermission()) return emptyList()
-        val taskService = bindService(appContext()) ?: bindFreshService() ?: return cachedTasksOrEmpty()
+        val taskService = peekBoundService() ?: bindService(appContext()) ?: return emptyList()
+        return fetchRecentTasksFromService(taskService)
+    }
+
+    private fun fetchRecentTasksFromService(taskService: ITaskManagerService): List<RecentTaskRef> {
         val tasks = runCatching {
-            loadRecentTasksFromService(taskService)
+            taskService.getRecentTasks().mapNotNull(::parseRecentTaskRow)
         }.getOrElse { error ->
-            Log.e(TAG, "refreshRecentTasks failed, falling back to packages", error)
-            loadRecentTasksFromPackages(taskService)
+            Log.e(TAG, "refreshRecentTasks failed", error)
+            emptyList()
         }
-        cachedRecentPackages = tasks.map { it.identifier }
-        markRecentRefresh()
         Log.i(
             TAG,
             "refreshRecentTasks (${tasks.size}): ${tasks.joinToString { "${it.taskId}|${it.identifier}" }}",
         )
         return tasks
-    }
-
-    private fun loadRecentTasksFromService(taskService: ITaskManagerService): List<RecentTaskRef> {
-        val api = runCatching { taskService.apiVersion }.getOrDefault(0)
-        if (api < MIN_RECENT_TASKS_API) {
-            Log.w(TAG, "loadRecentTasksFromService using package fallback (api=$api)")
-            return loadRecentTasksFromPackages(taskService)
-        }
-        val tasks = runCatching {
-            taskService.getRecentTasks().mapNotNull(::parseRecentTaskRow)
-        }.getOrElse { error ->
-            Log.e(TAG, "getRecentTasks failed", error)
-            emptyList()
-        }
-        if (tasks.isNotEmpty()) return tasks
-        return loadRecentTasksFromPackages(taskService)
-    }
-
-    private fun loadRecentTasksFromPackages(taskService: ITaskManagerService): List<RecentTaskRef> {
-        return taskService.getRecentTaskPackages()
-            .filter { it.isNotBlank() }
-            .map { RecentTaskRef(taskId = 0, identifier = it) }
     }
 
     private fun parseRecentTaskRow(row: String): RecentTaskRef? {
@@ -191,21 +161,6 @@ object TaskManagerUtil {
         val identifier = match.groupValues[2].trim()
         if (identifier.isEmpty()) return null
         return RecentTaskRef(taskId, identifier)
-    }
-
-    private fun cachedTasksOrEmpty(): List<RecentTaskRef> {
-        if (cachedRecentPackages.isEmpty()) return emptyList()
-        return cachedRecentPackages.map { RecentTaskRef(taskId = 0, identifier = it) }
-    }
-
-    private fun markRecentRefresh() {
-        lastRecentRefreshElapsedMs = SystemClock.elapsedRealtime()
-    }
-
-    fun removePackageFromCache(packageName: String) {
-        cachedRecentPackages = cachedRecentPackages.filterNot {
-            RecentPackageResolver.matches(it, packageName)
-        }
     }
 
     fun removeTaskById(taskId: Int): Boolean {
@@ -228,8 +183,8 @@ object TaskManagerUtil {
             Log.w(TAG, "switchToTask skipped: no taskId or identifier")
             return false
         }
-        val service = bindService(appContext()) ?: run {
-            Log.e(TAG, "switchToTask failed: UserService unavailable")
+        val service = peekBoundService() ?: bindService(appContext()) ?: run {
+            Log.w(TAG, "switchToTask failed: UserService unavailable")
             return false
         }
         val api = runCatching { service.apiVersion }.getOrDefault(0)
@@ -487,15 +442,38 @@ object TaskManagerUtil {
     private fun invokeShellBinderBooleanWithTimeout(
         timeoutMs: Long = SHELL_BINDER_TIMEOUT_MS,
         block: () -> Boolean,
+    ): Boolean? = invokeTaskBinderBooleanWithTimeout(timeoutMs, block)
+
+    private fun invokeTaskBinderBooleanWithTimeout(
+        timeoutMs: Long,
+        block: () -> Boolean,
     ): Boolean? {
         val executor = Executors.newSingleThreadExecutor()
         return try {
             executor.submit(Callable { block() }).get(timeoutMs, TimeUnit.MILLISECONDS)
         } catch (error: TimeoutException) {
-            Log.e(TAG, "Shell binder call timed out", error)
+            Log.e(TAG, "Task binder call timed out after ${timeoutMs}ms", error)
             null
         } catch (error: Exception) {
-            Log.e(TAG, "Shell binder call failed", error)
+            Log.e(TAG, "Task binder call failed", error)
+            null
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    private fun invokeTaskBinderWithTimeout(
+        timeoutMs: Long,
+        block: () -> Array<String>,
+    ): Array<String>? {
+        val executor = Executors.newSingleThreadExecutor()
+        return try {
+            executor.submit(Callable { block() }).get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (error: TimeoutException) {
+            Log.e(TAG, "Task binder call timed out after ${timeoutMs}ms", error)
+            null
+        } catch (error: Exception) {
+            Log.e(TAG, "Task binder call failed", error)
             null
         } finally {
             executor.shutdownNow()

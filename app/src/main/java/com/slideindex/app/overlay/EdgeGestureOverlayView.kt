@@ -234,6 +234,7 @@ class EdgeGestureOverlayView(
     private var taskSwitcherOverscrollAnimator: ValueAnimator? = null
     private var taskSwitcherGestureScrolled = false
     private var taskSwitcherExiting = false
+    private var taskSwitcherLoading = false
     private var panelEnterProgress = 1f
     private var shellPanelExiting = false
     private var lastAdjustInvalidateMs = 0L
@@ -1537,7 +1538,6 @@ class EdgeGestureOverlayView(
                                 RecentTasksLoader.removeTaskIds(listOf(entry.taskId))
                             } else {
                                 recentApps.removeAll { it.app.packageName == packageName }
-                                TaskManagerUtil.removePackageFromCache(packageName)
                                 RecentTasksLoader.removePackages(listOf(packageName))
                             }
                             TaskSwitcherLockStore.setLocked(context, packageName, locked = false)
@@ -1558,7 +1558,6 @@ class EdgeGestureOverlayView(
                 val packages = entries.map { it.app.packageName }
                 val dismissed = packages.toSet()
                 recentApps.removeAll { it.app.packageName in dismissed }
-                dismissed.forEach { TaskManagerUtil.removePackageFromCache(it) }
                 RecentTasksLoader.removePackages(packages)
                 RecentTasksLoader.removeTaskIds(entries.map { it.taskId })
                 taskSwitcherLayout = null
@@ -1591,7 +1590,6 @@ class EdgeGestureOverlayView(
             }
             taskSwitcherRowHighlight >= 0 && !taskSwitcherRowLongPressTriggered -> {
                 val entry = layout.rows.getOrNull(taskSwitcherRowHighlight)?.entry
-                entry?.let { RecentTasksLoader.promoteEntry(it) }
                 endTaskSwitcherSession(runBeforeExit = true) {
                     entry?.let {
                         HapticHelper.confirmLaunch(this@EdgeGestureOverlayView, settings)
@@ -2745,7 +2743,7 @@ class EdgeGestureOverlayView(
                 taskSwitcherFrozenAnchorLocalY = null
                 taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY()
                 taskSwitcherLayout = null
-                loadTaskSwitcherApps(deferInvalidate = true)
+                loadTaskSwitcherApps(deferInvalidate = false)
             }
             OverlayPanelMode.INDEX, OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.SHELL_COMMANDS -> {
                 panelEnterProgress = 0f
@@ -2791,14 +2789,13 @@ class EdgeGestureOverlayView(
         taskSwitcherLayout = null
         clearTaskSwitcherPickHighlights()
 
-        val placeholder = RecentTasksLoader.peekCached()
-        recentApps = placeholder.toMutableList()
+        recentApps = mutableListOf()
+        taskSwitcherLoading = TaskManagerUtil.hasPermission()
         if (!deferInvalidate) {
             invalidateTaskSwitcherPanel()
         }
 
         if (!TaskManagerUtil.hasPermission()) {
-            recentApps = mutableListOf()
             if (!deferInvalidate) {
                 invalidateTaskSwitcherPanel()
             }
@@ -2812,6 +2809,7 @@ class EdgeGestureOverlayView(
             if (taskSwitcherContextMenuActive()) {
                 dismissTaskSwitcherContextMenu(immediate = true)
             }
+            taskSwitcherLoading = false
             recentApps = fresh.toMutableList()
             taskSwitcherLayout = null
             invalidateTaskSwitcherPanel()
@@ -3398,10 +3396,13 @@ class EdgeGestureOverlayView(
                 textSize = sp(13f)
                 textAlign = Paint.Align.CENTER
             }
-            val hint = if (TaskManagerUtil.hasPermission()) {
-                context.getString(R.string.task_switcher_empty)
-            } else {
-                context.getString(R.string.task_switcher_no_shizuku)
+            val hint = when {
+                !TaskManagerUtil.hasPermission() ->
+                    context.getString(R.string.task_switcher_no_shizuku)
+                taskSwitcherLoading ->
+                    context.getString(R.string.task_switcher_loading)
+                else ->
+                    context.getString(R.string.task_switcher_empty)
             }
             canvas.drawText(
                 hint,
@@ -4055,14 +4056,14 @@ class EdgeGestureOverlayView(
         if (taskSwitcherExiting) return
         dismissTaskSwitcherContextMenu(immediate = true)
         taskSwitcherExiting = true
+        runAfter?.invoke()
         if (runBeforeExit) {
-            runAfter?.invoke()
+            taskSwitcherExiting = false
+            gestureSession.endSession()
+            return
         }
         startPanelExitAnimation {
             taskSwitcherExiting = false
-            if (!runBeforeExit) {
-                runAfter?.invoke()
-            }
             gestureSession.endSession()
         }
     }

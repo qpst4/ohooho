@@ -37,6 +37,14 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    /** Resolve icon/label from PackageManager even when the app is not in the launcher cache. */
+    fun ensureAppInfo(packageName: String): AppInfo? {
+        if (packageName.isBlank() || packageName == context.packageName) return null
+        return lookupApp(packageName) ?: queryAppInfo(packageName)?.also { info ->
+            appsByPackage = appsByPackage + (packageName to info)
+        }
+    }
+
     /** Map a recents dump identifier to an installed package (handles Flyme class-style names). */
     fun resolveInstalledPackage(identifier: String): String? {
         val trimmed = identifier.trim()

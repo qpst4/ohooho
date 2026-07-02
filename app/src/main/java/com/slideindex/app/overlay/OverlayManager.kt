@@ -45,8 +45,7 @@ class OverlayManager(
     fun updateForegroundPackage(packageName: String?) {
         if (foregroundPackage == packageName) return
         foregroundPackage = packageName
-        TaskManagerUtil.invalidateRecentCache()
-        TaskManagerUtil.prefetchRecentTasks()
+        TaskManagerUtil.ensureServiceBound()
         refreshTriggerVisibility()
     }
 

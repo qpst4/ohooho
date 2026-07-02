@@ -547,10 +547,34 @@ internal object TaskShellParser {
         return current
     }
 
+    fun matchesIdentifier(entry: ShellTaskEntry, identifier: String): Boolean {
+        val raw = identifier.trim()
+        if (raw.isEmpty()) return false
+        return matchesEntry(entry, raw) || entry.rawIdentifier == raw
+    }
+
     private fun matchesEntry(entry: ShellTaskEntry, packageName: String): Boolean {
         return RecentPackageResolver.matches(entry.rawIdentifier, packageName) ||
             RecentPackageResolver.matches(entry.packageName, packageName)
     }
+
+    fun listRecentTaskEntriesFromCmdTaskList(taskListDump: String): List<ShellTaskEntry> {
+        return parseCmdTaskList(taskListDump).filter { entry ->
+            shouldIncludeRecentEntry(entry) && isValidTaskId(entry.taskId)
+        }
+    }
+
+    /** All tasks from cmd output — no recents-dump cross-check (Flyme / OEM fast path). */
+    fun listAllCmdTaskEntries(taskListDump: String): List<ShellTaskEntry> {
+        return parseCmdTaskList(taskListDump).filter { shouldIncludeRecentEntry(it) && isValidTaskId(it.taskId) }
+    }
+
+    fun listRecentTaskEntriesFromRecentsDump(recentsDump: String): List<ShellTaskEntry> {
+        return parseRecentsDump(recentsDump).filter { shouldIncludeRecentEntry(it) && isValidTaskId(it.taskId) }
+    }
+
+    fun filterRecentEntries(entries: List<ShellTaskEntry>): List<ShellTaskEntry> =
+        entries.filter { shouldIncludeRecentEntry(it) && (isValidTaskId(it.taskId) || it.taskId == 0) }
 
     private fun shouldIncludeRecentEntry(entry: ShellTaskEntry): Boolean {
         if (entry.packageName in EXCLUDED_PACKAGES) return false
