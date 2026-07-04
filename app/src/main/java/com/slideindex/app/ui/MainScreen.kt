@@ -103,6 +103,20 @@ fun MainScreen(
                 )
             }
 
+            SettingsSectionTitle(stringResource(R.string.settings_section_gestures))
+            SettingsCard {
+                SettingNavigationRow(
+                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    title = stringResource(R.string.trigger_collection_title),
+                    subtitle = stringResource(R.string.trigger_collection_desc),
+                    onClick = onOpenTriggerCollection,
+                )
+                GestureAngleEntryCard(
+                    enabled = permissionsReady,
+                    onClick = onOpenGestureAngle,
+                )
+            }
+
             SettingsSectionTitle(stringResource(R.string.settings_section_features))
             SettingsCard {
                 LayoutSettingsEntryCard(
@@ -121,20 +135,6 @@ fun MainScreen(
                 )
             }
 
-            SettingsSectionTitle(stringResource(R.string.settings_section_gestures))
-            SettingsCard {
-                SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
-                    title = stringResource(R.string.trigger_collection_title),
-                    subtitle = stringResource(R.string.trigger_collection_desc),
-                    onClick = onOpenTriggerCollection,
-                )
-                GestureAngleEntryCard(
-                    enabled = permissionsReady,
-                    onClick = onOpenGestureAngle,
-                )
-            }
-
             SettingsSectionTitle(stringResource(R.string.settings_section_apps))
             SettingsCard {
                 HiddenAppsEntryCard(
@@ -148,7 +148,7 @@ fun MainScreen(
                 FreeWindowEntryCard(onClick = onOpenFreeWindowSettings)
             }
 
-            SettingsSectionTitle(stringResource(R.string.settings_section_feedback))
+            SettingsSectionTitle(stringResource(R.string.settings_section_feedback_appearance))
             SettingsCard {
                 SettingSwitchRow(
                     title = stringResource(R.string.haptic_enabled),
@@ -167,10 +167,6 @@ fun MainScreen(
                         onValueChange = { onHapticStrengthChange(it.roundToInt()) },
                     )
                 }
-            }
-
-            SettingsSectionTitle(stringResource(R.string.settings_section_appearance))
-            SettingsCard {
                 ThemeColorPicker(
                     selected = settings.themeColorArgb,
                     enabled = permissionsReady,

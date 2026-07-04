@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
@@ -94,6 +95,7 @@ fun TriggerCollectionScreen(
                             null
                         }
                         TriggerSideRow(
+                            side = PanelSide.LEFT,
                             dotColor = dotColor,
                             title = stringResource(R.string.trigger_side_left_item),
                             pairLabel = pairLabel,
@@ -102,6 +104,7 @@ fun TriggerCollectionScreen(
                             onClick = { onOpenLeftTrigger(pair.handleId) },
                         )
                         TriggerSideRow(
+                            side = PanelSide.RIGHT,
                             dotColor = dotColor,
                             title = stringResource(R.string.trigger_side_right_item),
                             pairLabel = pairLabel,
@@ -149,6 +152,7 @@ fun TriggerCollectionScreen(
 
 @Composable
 private fun TriggerSideRow(
+    side: PanelSide,
     dotColor: Color,
     title: String,
     pairLabel: String?,
@@ -174,6 +178,11 @@ private fun TriggerSideRow(
             imageVector = Icons.Default.SwipeRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
+            modifier = if (side == PanelSide.RIGHT) {
+                Modifier.graphicsLayer { scaleX = -1f }
+            } else {
+                Modifier
+            },
         )
         Column(modifier = Modifier.weight(1f)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

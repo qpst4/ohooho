@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.SwipeRight
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -82,7 +82,7 @@ fun SideGestureSettingsScreen(
             SettingsSectionTitle(stringResource(R.string.side_gestures_behavior_section))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.Tune, contentDescription = null) },
+                    icon = { Icon(Icons.Default.Animation, contentDescription = null) },
                     title = stringResource(R.string.trigger_appearance_entry),
                     subtitle = triggerAppearanceSummary(settings, side),
                     onClick = onOpenAppearanceSettings,

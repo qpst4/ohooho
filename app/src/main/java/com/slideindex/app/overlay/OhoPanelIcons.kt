@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -94,4 +95,39 @@ object OhoPanelIcons {
             }
         }.build()
     }
+
+    /** 3×4 tool-tile grid matching the quick-tools floating panel layout. */
+    val QuickToolsGrid: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "OhoQuickToolsGrid",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                quickToolsDot(7.5f, 6.5f)
+                quickToolsDot(12f, 6.5f)
+                quickToolsDot(16.5f, 6.5f)
+                quickToolsDot(7.5f, 10.5f)
+                quickToolsDot(12f, 10.5f)
+                quickToolsDot(16.5f, 10.5f)
+                quickToolsDot(7.5f, 14.5f)
+                quickToolsDot(12f, 14.5f)
+                quickToolsDot(16.5f, 14.5f)
+                quickToolsDot(7.5f, 18.5f)
+                quickToolsDot(12f, 18.5f)
+                quickToolsDot(16.5f, 18.5f)
+            }
+        }.build()
+    }
+}
+
+private fun PathBuilder.quickToolsDot(cx: Float, cy: Float) {
+    val half = 1.55f
+    moveTo(cx - half, cy - half)
+    horizontalLineTo(cx + half)
+    verticalLineTo(cy + half)
+    horizontalLineTo(cx - half)
+    close()
 }

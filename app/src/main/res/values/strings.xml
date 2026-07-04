@@ -69,6 +69,7 @@
     <string name="settings_section_apps">应用与启动</string>
     <string name="settings_section_feedback">交互反馈</string>
     <string name="settings_section_appearance">外观</string>
+    <string name="settings_section_feedback_appearance">交互与外观</string>
     <string name="settings_section_launch">启动方式</string>
     <string name="settings_section_free_window">小窗配置</string>
     <string name="hidden_apps_entry_count">已隐藏 %1$d 个应用</string>
