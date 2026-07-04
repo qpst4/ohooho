@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,7 +56,6 @@ import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.PinyinHelper
-import com.slideindex.app.util.ShortcutKind
 import com.slideindex.app.util.ShortcutScanPhase
 import com.slideindex.app.util.ShortcutScanProgress
 import kotlinx.coroutines.Dispatchers
@@ -247,6 +247,14 @@ private fun ActionPickerActionRow(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
+        Icon(
+            imageVector = gestureActionIcon(action),
+            contentDescription = null,
+            modifier = Modifier
+                .padding(top = 10.dp, end = 8.dp)
+                .size(24.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
         RadioButton(
             selected = selected,
             onClick = onClick,
@@ -356,12 +364,7 @@ private fun ActionPickerShortcutsTab(
     }
 
     val createHosts = catalog?.createHosts.orEmpty()
-    var shortcutKindTab by remember { mutableIntStateOf(0) }
-    val kindGroups = when (shortcutKindTab) {
-        0 -> catalog?.staticGroups
-        1 -> catalog?.dynamicGroups
-        else -> catalog?.pinnedGroups
-    }.orEmpty()
+    val launchGroups = catalog?.groups.orEmpty()
 
     val query = searchQuery.trim().lowercase()
     val filteredCreateHosts = remember(createHosts, query) {
@@ -372,8 +375,8 @@ private fun ActionPickerShortcutsTab(
                 PinyinHelper.sortKey(host.label).contains(query)
         }
     }
-    val filteredGroups = remember(kindGroups, query) {
-        kindGroups.mapNotNull { group ->
+    val filteredGroups = remember(launchGroups, query) {
+        launchGroups.mapNotNull { group ->
             val appMatches = query.isEmpty() ||
                 group.app.label.lowercase().contains(query) ||
                 group.app.packageName.lowercase().contains(query) ||
@@ -402,24 +405,6 @@ private fun ActionPickerShortcutsTab(
             onQueryChange = onSearchChange,
             modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        TabRow(selectedTabIndex = shortcutKindTab) {
-            Tab(
-                selected = shortcutKindTab == 0,
-                onClick = { shortcutKindTab = 0 },
-                text = { Text(stringResource(R.string.shortcut_kind_static)) },
-            )
-            Tab(
-                selected = shortcutKindTab == 1,
-                onClick = { shortcutKindTab = 1 },
-                text = { Text(stringResource(R.string.shortcut_kind_dynamic)) },
-            )
-            Tab(
-                selected = shortcutKindTab == 2,
-                onClick = { shortcutKindTab = 2 },
-                text = { Text(stringResource(R.string.shortcut_kind_pinned)) },
-            )
-        }
         Spacer(modifier = Modifier.height(8.dp))
         when {
             loading -> {

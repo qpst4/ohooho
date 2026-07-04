@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CeBian</string>
+    <string name="service_notification_title">CeBian is running</string>
+    <string name="service_notification_text">Swipe from the screen edge to open app index</string>
+    <string name="permission_overlay_desc">Overlay permission is required to show CeBian panels at the screen edge</string>
+    <string name="permission_usage_desc">Required to detect the foreground app and automatically disable CeBian triggers in selected apps</string>
+    <string name="service_enabled">Enable CeBian</string>
+    <string name="hidden_apps_entry_desc">Hide apps from the app index list</string>
+    <string name="hidden_apps_desc">Hidden apps won\'t appear in CeBian panels, but can still be opened from the home screen and elsewhere.</string>
+    <string name="excluded_apps_entry_title">Apps with CeBian disabled</string>
+    <string name="excluded_apps_title">Apps with CeBian disabled</string>
+    <string name="excluded_apps_desc">CeBian edge triggers won\'t appear while you\'re using these apps.</string>
+    <string name="excluded_apps_add">Disable CeBian</string>
+    <string name="shortcut_gestures_desc">A quick inward swipe from the edge trigger (within about 350 ms) can launch an app directly without opening the letter index. Slow swipes or long press still open the app index.</string>
+    <string name="accessibility_service_name">CeBian accessibility</string>
+    <string name="side_gestures_desc">Each gesture slot can be configured independently, including app index, volume/brightness sliders, quick launcher, and more.</string>
+    <string name="gesture_action_open_index">App index</string>
+    <string name="gesture_hint_style_capsule_desc">Rounded capsule expands with CeBian</string>
+    <string name="settings_section_features">Features</string>
+    <string name="layout_settings_title">App index</string>
+    <string name="layout_settings_entry_title">App index</string>
+    <string name="layout_settings_entry_desc">Adjust letter index height, columns, and panel opacity</string>
+    <string name="layout_settings_entry_summary">Index: %1$d columns</string>
+    <string name="quick_launcher_entry_desc">Edit quick launcher items</string>
+    <string name="quick_launcher_layout_section">Grid layout</string>
+    <string name="quick_launcher_page_switch">Page switch</string>
+    <string name="quick_launcher_page_indicator">Page %1$d / %2$d</string>
+    <string name="quick_launcher_page_previous">Previous page</string>
+    <string name="quick_launcher_page_next">Next page</string>
+</resources>

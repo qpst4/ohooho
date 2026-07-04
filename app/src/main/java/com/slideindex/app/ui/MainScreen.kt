@@ -8,10 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SwipeRight
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -103,12 +100,21 @@ fun MainScreen(
                 )
             }
 
-            SettingsSectionTitle(stringResource(R.string.settings_section_layout))
+            SettingsSectionTitle(stringResource(R.string.settings_section_features))
             SettingsCard {
                 LayoutSettingsEntryCard(
                     settings = settings,
                     enabled = permissionsReady,
                     onClick = onOpenLayoutSettings,
+                )
+                QuickLauncherEntryCard(
+                    settings = settings,
+                    enabled = permissionsReady,
+                    onClick = onOpenQuickLauncher,
+                )
+                ShellCommandEntryCard(
+                    commandCount = settings.shellCommands.size,
+                    onClick = onOpenShellCommands,
                 )
             }
 
@@ -117,12 +123,6 @@ fun MainScreen(
                 SideGesturesEntryCard(
                     onOpenLeft = onOpenSideGesturesLeft,
                     onOpenRight = onOpenSideGesturesRight,
-                )
-                SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
-                    title = stringResource(R.string.quick_launcher_editor_title),
-                    subtitle = stringResource(R.string.quick_launcher_editor_desc),
-                    onClick = onOpenQuickLauncher,
                 )
             }
 
@@ -137,10 +137,6 @@ fun MainScreen(
                     onClick = onOpenExcludedAppsSettings,
                 )
                 FreeWindowEntryCard(onClick = onOpenFreeWindowSettings)
-                ShellCommandEntryCard(
-                    commandCount = settings.shellCommands.size,
-                    onClick = onOpenShellCommands,
-                )
             }
 
             SettingsSectionTitle(stringResource(R.string.settings_section_feedback))

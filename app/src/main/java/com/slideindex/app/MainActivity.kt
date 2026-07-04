@@ -155,16 +155,6 @@ class MainActivity : ComponentActivity() {
                         onAppsPerRowChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setAppsPerRow(value) }
                         },
-                        onQuickLauncherColumnsChange = { value ->
-                            lifecycleScope.launch {
-                                app.settingsRepository.setQuickLauncherColumnsPerPage(value)
-                            }
-                        },
-                        onQuickLauncherRowsChange = { value ->
-                            lifecycleScope.launch {
-                                app.settingsRepository.setQuickLauncherRowsPerPage(value)
-                            }
-                        },
                         onPanelOpacityChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setPanelOpacity(value) }
                         },
@@ -413,6 +403,16 @@ class MainActivity : ComponentActivity() {
                         onSaveItems = { items ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setQuickLauncherItems(items)
+                            }
+                        },
+                        onColumnsChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherColumnsPerPage(value)
+                            }
+                        },
+                        onRowsChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherRowsPerPage(value)
                             }
                         },
                     )

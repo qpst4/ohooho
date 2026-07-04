@@ -6,6 +6,8 @@ import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -72,6 +74,8 @@ fun QuickLauncherEditorScreen(
     settings: AppSettings,
     onBack: () -> Unit,
     onSaveItems: (List<QuickLauncherItem>) -> Unit,
+    onColumnsChange: (Int) -> Unit,
+    onRowsChange: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val appRepository = remember { (context.applicationContext as SlideIndexApp).appRepository }
@@ -80,6 +84,8 @@ fun QuickLauncherEditorScreen(
     var searchQuery by remember { mutableStateOf("") }
     val currentItems = settings.quickLauncher
     var items by remember(currentItems) { mutableStateOf(currentItems) }
+    var gridInteractionActive by remember { mutableStateOf(false) }
+    val mainScrollState = rememberScrollState()
 
     LaunchedEffect(allApps, currentItems) {
         if (allApps.isNotEmpty() && items.isEmpty()) {
@@ -121,6 +127,35 @@ fun QuickLauncherEditorScreen(
         items = items + item
     }
 
+    fun removeItem(item: QuickLauncherItem) {
+        items = when (item.type) {
+            QuickLauncherItemType.APP ->
+                items.filterNot { it.type == QuickLauncherItemType.APP && it.payload == item.payload }
+            QuickLauncherItemType.SHORTCUT -> {
+                val key = QuickLauncherItemCodec.shortcutItemKey(item) ?: return
+                items.filterNot {
+                    it.type == QuickLauncherItemType.SHORTCUT &&
+                        QuickLauncherItemCodec.shortcutItemKey(it) == key
+                }
+            }
+            QuickLauncherItemType.ACTION -> {
+                val actionKey = QuickLauncherItemCodec.parseActionPayload(item.payload)
+                    ?.let(QuickLauncherItemCodec::actionKey) ?: return
+                items.filterNot {
+                    it.type == QuickLauncherItemType.ACTION &&
+                        QuickLauncherItemCodec.parseActionPayload(it.payload)
+                            ?.let(QuickLauncherItemCodec::actionKey) == actionKey
+                }
+            }
+            QuickLauncherItemType.WIDGET ->
+                items.filterNot { it.type == QuickLauncherItemType.WIDGET && it.payload == item.payload }
+        }
+    }
+
+    fun toggleItem(item: QuickLauncherItem, added: Boolean) {
+        if (added) removeItem(item) else addItem(item)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -153,14 +188,23 @@ fun QuickLauncherEditorScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .verticalScroll(mainScrollState, enabled = !gridInteractionActive)
                     .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
                     text = stringResource(R.string.quick_launcher_editor_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                SettingsSectionTitle(stringResource(R.string.quick_launcher_layout_section))
+                QuickLauncherLayoutSettings(
+                    settings = settings,
+                    enabled = true,
+                    onColumnsChange = onColumnsChange,
+                    onRowsChange = onRowsChange,
+                )
+                SettingsSectionTitle(stringResource(R.string.quick_launcher_page_switch))
                 QuickLauncherGridEditor(
                     settings = settings,
                     items = items,
@@ -170,6 +214,7 @@ fun QuickLauncherEditorScreen(
                         searchQuery = ""
                         mode = EditorMode.AddPicker
                     },
+                    onInteractionActiveChange = { gridInteractionActive = it },
                 )
             }
             EditorMode.AddPicker -> QuickLauncherEditorAddPicker(
@@ -180,14 +225,18 @@ fun QuickLauncherEditorScreen(
                 configuredAppPackages = configuredAppPackages,
                 configuredShortcutKeys = configuredShortcutKeys,
                 configuredActionKeys = configuredActionKeys,
-                onAddAction = { action, label ->
-                    addItem(QuickLauncherItem.action(action, label))
+                onToggleAction = { action, label, added ->
+                    val item = QuickLauncherItem.action(action, label)
+                    if (!added) {
+                        requestPermissionForAdjustAction(context, action)
+                    }
+                    toggleItem(item, added)
                 },
-                onAddApp = { app ->
-                    addItem(QuickLauncherItem.app(app.packageName, app.label))
+                onToggleApp = { app, added ->
+                    toggleItem(QuickLauncherItem.app(app.packageName, app.label), added)
                 },
-                onAddShortcut = { app, shortcut ->
-                    addItem(shortcut.toQuickLauncherItem(app.packageName))
+                onToggleShortcut = { app, shortcut, added ->
+                    toggleItem(shortcut.toQuickLauncherItem(app.packageName), added)
                 },
                 onCreatedShortcut = { created ->
                     addItem(created.toQuickLauncherItem())
@@ -206,9 +255,9 @@ private fun QuickLauncherEditorAddPicker(
     configuredAppPackages: Set<String>,
     configuredShortcutKeys: Set<String>,
     configuredActionKeys: Set<String>,
-    onAddAction: (GestureAction, String) -> Unit,
-    onAddApp: (AppInfo) -> Unit,
-    onAddShortcut: (AppInfo, TaskSwitcherMenuItem) -> Unit,
+    onToggleAction: (GestureAction, String, Boolean) -> Unit,
+    onToggleApp: (AppInfo, Boolean) -> Unit,
+    onToggleShortcut: (AppInfo, TaskSwitcherMenuItem, Boolean) -> Unit,
     onCreatedShortcut: (AppShortcutLoader.CreatedShortcut) -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -237,21 +286,21 @@ private fun QuickLauncherEditorAddPicker(
         when (QuickLauncherEditorAddTab.entries[selectedTab]) {
             QuickLauncherEditorAddTab.ACTIONS -> QuickLauncherEditorActionsTab(
                 configuredActionKeys = configuredActionKeys,
-                onAdd = onAddAction,
+                onToggle = onToggleAction,
             )
             QuickLauncherEditorAddTab.APPS -> QuickLauncherEditorAppsTab(
                 searchQuery = searchQuery,
                 onSearchChange = onSearchChange,
                 apps = apps,
                 configuredAppPackages = configuredAppPackages,
-                onAdd = onAddApp,
+                onToggle = onToggleApp,
             )
             QuickLauncherEditorAddTab.SHORTCUTS -> QuickLauncherEditorShortcutsTab(
                 apps = apps,
                 searchQuery = searchQuery,
                 onSearchChange = onSearchChange,
                 configuredShortcutKeys = configuredShortcutKeys,
-                onAdd = onAddShortcut,
+                onToggle = onToggleShortcut,
                 onCreatedShortcut = onCreatedShortcut,
             )
         }
@@ -261,7 +310,7 @@ private fun QuickLauncherEditorAddPicker(
 @Composable
 private fun QuickLauncherEditorActionsTab(
     configuredActionKeys: Set<String>,
-    onAdd: (GestureAction, String) -> Unit,
+    onToggle: (GestureAction, String, Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     val actionOptions = remember {
@@ -303,15 +352,18 @@ private fun QuickLauncherEditorActionsTab(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         items(sortedActions, key = { it.type.id }) { action ->
-            if (QuickLauncherItemCodec.actionKey(action) in configuredActionKeys) return@items
             val label = gestureActionLabel(action)
+            val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
             QuickLauncherActionRow(
+                action = action,
                 label = label,
                 subtitle = gestureActionDescription(action),
-                added = false,
+                added = added,
                 onToggle = {
-                    requestPermissionForAdjustAction(context, action)
-                    onAdd(action, label)
+                    if (!added) {
+                        requestPermissionForAdjustAction(context, action)
+                    }
+                    onToggle(action, label, added)
                 },
             )
         }
@@ -324,18 +376,16 @@ private fun QuickLauncherEditorAppsTab(
     onSearchChange: (String) -> Unit,
     apps: List<AppInfo>,
     configuredAppPackages: Set<String>,
-    onAdd: (AppInfo) -> Unit,
+    onToggle: (AppInfo, Boolean) -> Unit,
 ) {
     val query = searchQuery.trim().lowercase()
-    val filtered = remember(apps, query, configuredAppPackages) {
-        apps.filter { it.packageName !in configuredAppPackages }
-            .filter { app ->
-                query.isEmpty() ||
-                    app.label.lowercase().contains(query) ||
-                    app.packageName.lowercase().contains(query) ||
-                    PinyinHelper.sortKey(app.label).contains(query)
-            }
-            .sortedBy { PinyinHelper.sortKey(it.label) }
+    val filtered = remember(apps, query) {
+        apps.filter { app ->
+            query.isEmpty() ||
+                app.label.lowercase().contains(query) ||
+                app.packageName.lowercase().contains(query) ||
+                PinyinHelper.sortKey(app.label).contains(query)
+        }.sortedBy { PinyinHelper.sortKey(it.label) }
     }
     Column(
         modifier = Modifier
@@ -350,12 +400,11 @@ private fun QuickLauncherEditorAppsTab(
         Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             items(filtered, key = { it.packageName }) { app ->
-                AppPackageListRow(
+                val added = app.packageName in configuredAppPackages
+                QuickLauncherToggleRow(
                     entry = AppPackageEntry.Installed(app),
-                    actionIcon = Icons.Default.Add,
-                    actionDescription = stringResource(R.string.quick_launcher_add),
-                    missingIcon = Icons.Default.Add,
-                    onAction = { onAdd(app) },
+                    added = added,
+                    onToggle = { onToggle(app, added) },
                 )
             }
         }
@@ -368,7 +417,7 @@ private fun QuickLauncherEditorShortcutsTab(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     configuredShortcutKeys: Set<String>,
-    onAdd: (AppInfo, TaskSwitcherMenuItem) -> Unit,
+    onToggle: (AppInfo, TaskSwitcherMenuItem, Boolean) -> Unit,
     onCreatedShortcut: (AppShortcutLoader.CreatedShortcut) -> Unit,
 ) {
     val context = LocalContext.current
@@ -427,31 +476,18 @@ private fun QuickLauncherEditorShortcutsTab(
                 PinyinHelper.sortKey(host.label).contains(query)
         }
     }
-    val filteredGroups = remember(shortcutGroups, query, configuredShortcutKeys) {
+    val filteredGroups = remember(shortcutGroups, query) {
         shortcutGroups.mapNotNull { group ->
-            val available = group.shortcuts.filter { shortcut ->
-                val id = shortcut.shortcutId ?: shortcut.label
-                QuickLauncherItemCodec.shortcutToggleKey(
-                    group.app.packageName,
-                    id,
-                    shortcut.intentUris,
-                ) !in configuredShortcutKeys
-            }
-            if (available.isEmpty()) return@mapNotNull null
             val appMatches = query.isEmpty() ||
                 group.app.label.lowercase().contains(query) ||
                 group.app.packageName.lowercase().contains(query) ||
                 PinyinHelper.sortKey(group.app.label).contains(query)
-            val matchedShortcuts = if (query.isEmpty()) {
-                available
-            } else if (appMatches) {
-                available
-            } else {
-                available.filter { shortcut ->
+            val matchedShortcuts = group.shortcuts.filter { shortcut ->
+                query.isEmpty() ||
+                    appMatches ||
                     shortcut.label.lowercase().contains(query) ||
-                        (shortcut.shortcutId?.lowercase()?.contains(query) == true)
-                }
-            }
+                    (shortcut.shortcutId?.lowercase()?.contains(query) == true)
+            }.sortedBy { PinyinHelper.sortKey(it.label) }
             if (matchedShortcuts.isEmpty()) null
             else group.copy(shortcuts = matchedShortcuts)
         }
@@ -525,9 +561,17 @@ private fun QuickLauncherEditorShortcutsTab(
                                     "${group.app.packageName}:${shortcut.shortcutId ?: shortcut.label}"
                                 },
                             ) { shortcut ->
+                                val shortcutId = shortcut.shortcutId ?: shortcut.label
+                                val key = QuickLauncherItemCodec.shortcutToggleKey(
+                                    group.app.packageName,
+                                    shortcutId,
+                                    shortcut.intentUris,
+                                )
+                                val added = key in configuredShortcutKeys
                                 ShortcutCatalogRow(
                                     shortcut = shortcut,
-                                    onAdd = { onAdd(group.app, shortcut) },
+                                    added = added,
+                                    onToggle = { onToggle(group.app, shortcut, added) },
                                 )
                             }
                             item(key = "gap-${group.app.packageName}") {
@@ -554,14 +598,13 @@ private fun QuickLauncherEditorShortcutSectionHeader(title: String) {
 @Composable
 private fun ShortcutCatalogRow(
     shortcut: TaskSwitcherMenuItem,
-    onAdd: () -> Unit,
+    added: Boolean,
+    onToggle: () -> Unit,
 ) {
-    AppPackageListRow(
+    QuickLauncherToggleRow(
         entry = AppPackageEntry.Missing(shortcut.label),
-        actionIcon = Icons.Default.Add,
-        actionDescription = stringResource(R.string.quick_launcher_add),
-        missingIcon = Icons.AutoMirrored.Filled.Shortcut,
-        onAction = onAdd,
+        added = added,
+        onToggle = onToggle,
         modifier = Modifier.padding(start = 28.dp),
         title = shortcut.label,
         subtitle = shortcut.targetComponent,

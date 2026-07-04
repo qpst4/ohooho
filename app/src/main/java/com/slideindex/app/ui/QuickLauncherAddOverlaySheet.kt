@@ -453,7 +453,7 @@ private fun QuickLauncherAddOverlaySheetBody(
 }
 
 @Composable
-private fun QuickLauncherToggleRow(
+internal fun QuickLauncherToggleRow(
     entry: AppPackageEntry,
     added: Boolean,
     onToggle: () -> Unit,
@@ -490,6 +490,7 @@ private fun QuickLauncherShortcutSectionHeader(title: String) {
 
 @Composable
 internal fun QuickLauncherActionRow(
+    action: GestureAction,
     label: String,
     subtitle: String?,
     added: Boolean,
@@ -510,10 +511,11 @@ internal fun QuickLauncherActionRow(
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = label.firstOrNull()?.uppercaseChar()?.toString() ?: "•",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+            Icon(
+                imageVector = gestureActionIcon(action),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
@@ -594,6 +596,7 @@ private fun QuickLauncherAddActionsTab(
             val label = gestureActionLabel(action)
             val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
             QuickLauncherActionRow(
+                action = action,
                 label = label,
                 subtitle = gestureActionDescription(action),
                 added = added,

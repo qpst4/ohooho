@@ -1,7 +1,9 @@
 package com.slideindex.app.launcher
 
+import android.content.Intent
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
+import com.slideindex.app.util.KnownAppShortcuts
 
 enum class QuickLauncherItemType(val id: Int) {
     APP(0),
@@ -28,18 +30,22 @@ data class QuickLauncherItem(
         fun shortcut(componentFlat: String, label: String = "") =
             QuickLauncherItem(QuickLauncherItemType.SHORTCUT, componentFlat, label)
 
-        fun intentShortcut(intentUri: String, label: String = "") =
+        fun intentShortcut(intentUri: String, label: String = "", hostPackage: String? = null) =
             QuickLauncherItem(
                 QuickLauncherItemType.SHORTCUT,
-                "${QuickLauncherItemCodec.INTENT_PAYLOAD_PREFIX}$intentUri",
+                "${QuickLauncherItemCodec.INTENT_PAYLOAD_PREFIX}${
+                    QuickLauncherItemCodec.encodeIntentPayloadBody(intentUri, hostPackage)
+                }",
                 label,
             )
 
-        fun intentShortcuts(intentUris: List<String>, label: String = "") =
+        fun intentShortcuts(intentUris: List<String>, label: String = "", hostPackage: String? = null) =
             QuickLauncherItem(
                 QuickLauncherItemType.SHORTCUT,
                 "${QuickLauncherItemCodec.INTENT_LIST_PAYLOAD_PREFIX}${
-                    intentUris.joinToString(QuickLauncherItemCodec.INTENT_LIST_SEP)
+                    intentUris.joinToString(QuickLauncherItemCodec.INTENT_LIST_SEP) {
+                        QuickLauncherItemCodec.encodeIntentPayloadBody(it, hostPackage)
+                    }
                 }",
                 label,
             )
@@ -102,15 +108,43 @@ object QuickLauncherItemCodec {
 
     fun parseIntentPayload(payload: String): String? {
         if (!payload.startsWith(INTENT_PAYLOAD_PREFIX)) return null
-        return payload.removePrefix(INTENT_PAYLOAD_PREFIX).takeIf { it.isNotBlank() }
+        val body = payload.removePrefix(INTENT_PAYLOAD_PREFIX).takeIf { it.isNotBlank() } ?: return null
+        return extractIntentUriFromBody(body)
     }
 
     fun parseIntentListPayload(payload: String): List<String>? {
         if (!payload.startsWith(INTENT_LIST_PAYLOAD_PREFIX)) return null
         return payload.removePrefix(INTENT_LIST_PAYLOAD_PREFIX)
             .split(INTENT_LIST_SEP)
-            .filter { it.isNotBlank() }
+            .mapNotNull { part -> part.takeIf { it.isNotBlank() }?.let { extractIntentUriFromBody(it) } }
             .takeIf { it.isNotEmpty() }
+    }
+
+    fun encodeIntentPayloadBody(intentUri: String, hostPackage: String? = null): String {
+        if (hostPackage.isNullOrBlank()) return intentUri
+        return "$hostPackage$SHORTCUT_PAYLOAD_SEP$intentUri"
+    }
+
+    private fun extractIntentUriFromBody(body: String): String {
+        val sep = body.indexOf(SHORTCUT_PAYLOAD_SEP)
+        if (sep <= 0) return body
+        val prefix = body.substring(0, sep)
+        if (prefix.contains('.') && !prefix.startsWith("#")) {
+            return body.substring(sep + 1)
+        }
+        return body
+    }
+
+    private fun parseIntentHostPackage(payload: String): String? {
+        if (!payload.startsWith(INTENT_PAYLOAD_PREFIX)) return null
+        return parseIntentHostPackageBody(payload.removePrefix(INTENT_PAYLOAD_PREFIX))
+    }
+
+    private fun parseIntentHostPackageBody(body: String): String? {
+        val sep = body.indexOf(SHORTCUT_PAYLOAD_SEP)
+        if (sep <= 0) return null
+        val prefix = body.substring(0, sep)
+        return prefix.takeIf { it.contains('.') && !it.startsWith("#") }
     }
 
     fun shortcutItemKey(item: QuickLauncherItem): String? {
@@ -139,6 +173,56 @@ object QuickLauncherItemCodec {
         val shortcutId = payload.substring(index + 1)
         if (packageName.isBlank() || shortcutId.isBlank()) return null
         return packageName to shortcutId
+    }
+
+    fun resolveHostPackageName(payload: String): String? {
+        if (payload.startsWith(INTENT_PAYLOAD_PREFIX)) {
+            parseIntentHostPackage(payload)?.let { return it }
+            parseIntentPayload(payload)?.let { uri ->
+                packageNameFromIntentUri(uri)?.let { return it }
+                KnownAppShortcuts.packageForIntentUri(uri)?.let { return it }
+            }
+            return null
+        }
+        if (payload.startsWith(INTENT_LIST_PAYLOAD_PREFIX)) {
+            val body = payload.removePrefix(INTENT_LIST_PAYLOAD_PREFIX)
+            body.split(INTENT_LIST_SEP).firstOrNull { it.isNotBlank() }?.let { part ->
+                parseIntentHostPackageBody(part)?.let { return it }
+                extractIntentUriFromBody(part).let { uri ->
+                    packageNameFromIntentUri(uri)?.let { return it }
+                    KnownAppShortcuts.packageForIntentUri(uri)?.let { return it }
+                }
+            }
+            return null
+        }
+        parseShortcutPayload(payload)?.first?.let { return it }
+        if (payload.startsWith("c:")) {
+            val componentFlat = payload.removePrefix("c:").substringBefore('\u001D')
+            return packageNameFromComponentFlat(componentFlat)
+        }
+        if ('/' in payload) {
+            return packageNameFromComponentFlat(payload.substringBefore('/'))
+        }
+        return null
+    }
+
+    private fun packageNameFromComponentFlat(componentFlat: String): String? =
+        componentFlat.trim().takeIf { it.isNotBlank() }
+
+    private fun packageNameFromIntentUri(uri: String): String? = runCatching {
+        val intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME)
+        intent.`package`?.takeIf { it.isNotBlank() }
+            ?: intent.component?.packageName?.takeIf { it.isNotBlank() }
+    }.getOrNull() ?: packageNameFromIntentUriText(uri)
+
+    private fun packageNameFromIntentUriText(uri: String): String? {
+        Regex("""(?:^|;)package=([^;]+)""").find(uri)?.groupValues?.get(1)?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        Regex("""(?:^|;)component=([^;/]+)""").find(uri)?.groupValues?.get(1)?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        return null
     }
 
     fun shortcutKey(packageName: String, shortcutId: String): String =

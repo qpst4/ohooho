@@ -67,6 +67,8 @@ import com.slideindex.app.util.RecentTasksLoader
 import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.util.TaskSwitcherLockStore
 import com.slideindex.app.util.TaskSwitcherMenuActions
+import com.slideindex.app.util.GestureActionIconBitmap
+import com.slideindex.app.util.QuickLauncherIconResolver
 import com.slideindex.app.util.coerceSafe
 import kotlin.math.ceil
 import kotlin.math.min
@@ -518,6 +520,7 @@ class EdgeGestureOverlayView(
         stopGestureHintAnimation()
         stopPixelBackHintAnimation()
         stopAdjustPanelLevelSync()
+        GestureActionIconBitmap.clear()
         super.onDetachedFromWindow()
     }
 
@@ -3195,6 +3198,7 @@ class EdgeGestureOverlayView(
                     quickLauncherEdgeAutoPageSeeded = false
                     quickLauncherPanelController.ensureDefaultsPersisted(settings)
                     warmQuickLauncherShortcutCache()
+                    warmQuickLauncherActionIconCache()
                     if (gestureSession.quickLauncherContinuousPickActive()) {
                         quickLauncherFrozenAnchorLocalY = null
                         quickLauncherAnchorRawY = pathRecognizer.gestureStartRawY()
@@ -3790,6 +3794,16 @@ class EdgeGestureOverlayView(
         }.start()
     }
 
+    private fun warmQuickLauncherActionIconCache() {
+        val sizePx = gridIconSize.toInt().coerceAtLeast(1)
+        quickLauncherRootItems().forEach { item ->
+            if (item.type != QuickLauncherItemType.ACTION) return@forEach
+            QuickLauncherItemCodec.parseActionPayload(item.payload)?.let { action ->
+                GestureActionIconBitmap.preload(action, sizePx)
+            }
+        }
+    }
+
     private fun quickLauncherItemLabel(item: QuickLauncherItem): String = when (item.type) {
         QuickLauncherItemType.APP -> apps.find { it.packageName == item.payload }?.label ?: item.label
         QuickLauncherItemType.SHORTCUT -> item.label.ifBlank { "快捷方式" }
@@ -3797,18 +3811,22 @@ class EdgeGestureOverlayView(
         QuickLauncherItemType.WIDGET -> item.label.ifBlank { "小组件" }
     }
 
-    private fun quickLauncherItemIcon(item: QuickLauncherItem): Bitmap? = when (item.type) {
-        QuickLauncherItemType.APP ->
-            apps.find { it.packageName == item.payload }?.let { iconFor(it) }
-        QuickLauncherItemType.SHORTCUT -> {
-            val packageName = QuickLauncherItemCodec.parseShortcutPayload(item.payload)?.first
-                ?: item.payload.substringBefore('/').takeIf { it.isNotBlank() }
-            packageName?.let { pkg ->
-                apps.find { it.packageName == pkg }?.let { iconFor(it) }
-            }
+    private fun quickLauncherItemIcon(item: QuickLauncherItem): Bitmap? {
+        val appsMap = apps.associateBy { it.packageName }
+        QuickLauncherIconResolver.iconBitmap(
+            item = item,
+            appsByPackage = appsMap,
+            size = gridIconSize.toInt().coerceAtLeast(1),
+            context = context,
+        )?.let { return it }
+        if (item.type != QuickLauncherItemType.ACTION) return null
+        return QuickLauncherItemCodec.parseActionPayload(item.payload)?.let { action ->
+            GestureActionIconBitmap.get(
+                action = action,
+                sizePx = gridIconSize.toInt().coerceAtLeast(1),
+                tintArgb = android.graphics.Color.WHITE,
+            )
         }
-        QuickLauncherItemType.WIDGET -> null
-        QuickLauncherItemType.ACTION -> null
     }
 
     private fun drawQuickLauncherPanel(canvas: Canvas, drawToolbar: Boolean = true) {

@@ -20,6 +20,37 @@ internal object KnownAppShortcuts {
 
     fun supports(packageName: String): Boolean = packageName in supportedPackages
 
+    fun packageForIntentUri(intentUri: String): String? {
+        val target = runCatching {
+            Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME)
+        }.getOrNull() ?: return null
+        supportedPackages.forEach { packageName ->
+            load(packageName).forEach { item ->
+                item.shortcutIntent?.let { shortcutIntent ->
+                    if (intentsMatchForIcon(target, shortcutIntent)) return packageName
+                }
+            }
+        }
+        return null
+    }
+
+    private fun intentsMatchForIcon(left: Intent, right: Intent): Boolean {
+        if (left.action != right.action) return false
+        if (!dataMatches(left.data, right.data)) return false
+        val leftComponent = left.component
+        val rightComponent = right.component
+        if (leftComponent != null || rightComponent != null) {
+            return leftComponent == rightComponent
+        }
+        return true
+    }
+
+    private fun dataMatches(left: Uri?, right: Uri?): Boolean {
+        if (left == null && right == null) return true
+        if (left == null || right == null) return false
+        return left.toString() == right.toString()
+    }
+
     fun load(packageName: String): List<TaskSwitcherMenuItem> {
         return when (packageName) {
             WECHAT -> weChatShortcuts()

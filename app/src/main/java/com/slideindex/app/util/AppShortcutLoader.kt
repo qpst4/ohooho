@@ -161,14 +161,25 @@ object AppShortcutLoader {
     fun TaskSwitcherMenuItem.toQuickLauncherItem(packageName: String): QuickLauncherItem {
         val uris = intentUris
         if (!uris.isNullOrEmpty()) {
-            return if (uris.size == 1) {
-                QuickLauncherItem.intentShortcut(uris[0], label)
+            val enrichedUris = uris.map { enrichIntentUriWithPackage(it, packageName) }
+            return if (enrichedUris.size == 1) {
+                QuickLauncherItem.intentShortcut(enrichedUris[0], label, packageName)
             } else {
-                QuickLauncherItem.intentShortcuts(uris, label)
+                QuickLauncherItem.intentShortcuts(enrichedUris, label, packageName)
             }
         }
         val id = shortcutId?.takeIf { it.isNotBlank() } ?: label
         return QuickLauncherItem.dynamicShortcut(packageName, id, label)
+    }
+
+    private fun enrichIntentUriWithPackage(intentUri: String, packageName: String): String {
+        return runCatching {
+            val intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME)
+            if (intent.`package`.isNullOrBlank() && intent.component == null) {
+                intent.setPackage(packageName)
+            }
+            intent.toUri(Intent.URI_INTENT_SCHEME)
+        }.getOrDefault(intentUri)
     }
 
     fun cacheShortcutForLaunch(packageName: String, item: TaskSwitcherMenuItem) {
@@ -364,7 +375,9 @@ object AppShortcutLoader {
     }
 
     fun CreatedShortcut.toQuickLauncherItem(): QuickLauncherItem {
-        intentUri?.let { return QuickLauncherItem.intentShortcut(it, label) }
+        intentUri?.let {
+            return QuickLauncherItem.intentShortcut(it, label, hostPackageName)
+        }
         componentFlat?.let { return QuickLauncherItem.shortcut(it, label) }
         error("CreatedShortcut has no launch target")
     }

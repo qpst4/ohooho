@@ -3,7 +3,8 @@ package com.slideindex.app.ui
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,8 +26,6 @@ fun LayoutSettingsScreen(
     onBack: () -> Unit,
     onIndexHeightChange: (Float) -> Unit,
     onAppsPerRowChange: (Int) -> Unit,
-    onQuickLauncherColumnsChange: (Int) -> Unit,
-    onQuickLauncherRowsChange: (Int) -> Unit,
     onPanelOpacityChange: (Float) -> Unit,
     onLayoutPreviewStart: () -> Unit,
     onLayoutPreviewStop: () -> Unit,
@@ -68,32 +67,6 @@ fun LayoutSettingsScreen(
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsSliderRow(
-                title = stringResource(R.string.quick_launcher_grid_columns),
-                value = settings.quickLauncherColumnsPerPage.toFloat(),
-                valueRange = 2f..5f,
-                steps = 2,
-                enabled = serviceEnabled,
-                label = stringResource(
-                    R.string.quick_launcher_grid_columns_label,
-                    settings.quickLauncherColumnsPerPage,
-                ),
-                onValueChange = { onQuickLauncherColumnsChange(it.roundToInt()) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            SettingsSliderRow(
-                title = stringResource(R.string.quick_launcher_grid_rows),
-                value = settings.quickLauncherRowsPerPage.toFloat(),
-                valueRange = 2f..6f,
-                steps = 3,
-                enabled = serviceEnabled,
-                label = stringResource(
-                    R.string.quick_launcher_grid_rows_label,
-                    settings.quickLauncherRowsPerPage,
-                ),
-                onValueChange = { onQuickLauncherRowsChange(it.roundToInt()) },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            SettingsSliderRow(
                 title = stringResource(R.string.panel_opacity),
                 value = settings.panelOpacity,
                 valueRange = 0.75f..1f,
@@ -118,17 +91,75 @@ fun LayoutSettingsEntryCard(
         stringResource(
             R.string.layout_settings_entry_summary,
             settings.appsPerRow,
-            settings.quickLauncherColumnsPerPage,
-            settings.quickLauncherRowsPerPage,
         )
     } else {
         stringResource(R.string.layout_settings_entry_desc)
     }
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Tune, contentDescription = null) },
+        icon = { Icon(Icons.Default.SortByAlpha, contentDescription = null) },
         title = stringResource(R.string.layout_settings_entry_title),
         subtitle = subtitle,
         enabled = enabled,
         onClick = onClick,
     )
+}
+
+@Composable
+fun QuickLauncherEntryCard(
+    settings: AppSettings,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val subtitle = if (enabled) {
+        stringResource(
+            R.string.quick_launcher_entry_summary,
+            settings.quickLauncherColumnsPerPage,
+            settings.quickLauncherRowsPerPage,
+        )
+    } else {
+        stringResource(R.string.quick_launcher_entry_desc)
+    }
+    SettingNavigationRow(
+        icon = { Icon(Icons.Default.Apps, contentDescription = null) },
+        title = stringResource(R.string.quick_launcher_editor_title),
+        subtitle = subtitle,
+        enabled = enabled,
+        onClick = onClick,
+    )
+}
+
+@Composable
+fun QuickLauncherLayoutSettings(
+    settings: AppSettings,
+    enabled: Boolean,
+    onColumnsChange: (Int) -> Unit,
+    onRowsChange: (Int) -> Unit,
+) {
+    SettingsCard {
+        SettingsSliderRow(
+            title = stringResource(R.string.quick_launcher_grid_columns),
+            value = settings.quickLauncherColumnsPerPage.toFloat(),
+            valueRange = 2f..5f,
+            steps = 2,
+            enabled = enabled,
+            label = stringResource(
+                R.string.quick_launcher_grid_columns_label,
+                settings.quickLauncherColumnsPerPage,
+            ),
+            onValueChange = { onColumnsChange(it.roundToInt()) },
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        SettingsSliderRow(
+            title = stringResource(R.string.quick_launcher_grid_rows),
+            value = settings.quickLauncherRowsPerPage.toFloat(),
+            valueRange = 2f..6f,
+            steps = 3,
+            enabled = enabled,
+            label = stringResource(
+                R.string.quick_launcher_grid_rows_label,
+                settings.quickLauncherRowsPerPage,
+            ),
+            onValueChange = { onRowsChange(it.roundToInt()) },
+        )
+    }
 }

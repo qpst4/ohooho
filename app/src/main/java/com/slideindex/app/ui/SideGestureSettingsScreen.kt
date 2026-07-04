@@ -1,11 +1,11 @@
 package com.slideindex.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwipeRight
@@ -34,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -44,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import android.content.Context
 import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
-import com.slideindex.app.gesture.GestureActionType
 import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.gesture.SwipePathRecognizer
@@ -55,7 +55,6 @@ import com.slideindex.app.gesture.slotTriggerMode
 import com.slideindex.app.gesture.supportsAction
 import com.slideindex.app.overlay.GestureHintRenderer
 import com.slideindex.app.overlay.PanelSide
-import androidx.compose.foundation.Canvas
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.GestureHintStyle
 import com.slideindex.app.settings.gestureHintStyle
@@ -225,7 +224,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.shortDistanceEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
+                        action = settings.actionFor(side, trigger),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -236,7 +235,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.pressTapEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
+                        action = settings.actionFor(side, trigger),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -247,7 +246,7 @@ fun SideGestureSettingsScreen(
                 GestureTriggerType.longDistanceEntries().forEach { trigger ->
                     GestureSlotRow(
                         label = triggerLabel(side, trigger),
-                        actionLabel = gestureActionLabel(settings.actionFor(side, trigger)),
+                        action = settings.actionFor(side, trigger),
                         modeLabel = triggerModeLabel(settings.slotTriggerMode(side, trigger)),
                         onClick = { pickingTrigger = trigger },
                     )
@@ -352,14 +351,19 @@ private fun GestureHintStyleRow(
 @Composable
 private fun GestureSlotRow(
     label: String,
-    actionLabel: String,
+    action: GestureAction,
     modeLabel: String,
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+        icon = {
+            Icon(
+                imageVector = gestureActionIcon(action),
+                contentDescription = null,
+            )
+        },
         title = label,
-        subtitle = "$actionLabel · $modeLabel",
+        subtitle = "${gestureActionLabel(action)} · $modeLabel",
         onClick = onClick,
     )
 }
@@ -415,7 +419,12 @@ private fun SlotConfigDialog(
                     style = MaterialTheme.typography.labelLarge,
                 )
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            imageVector = gestureActionIcon(selectedAction),
+                            contentDescription = null,
+                        )
+                    },
                     title = gestureActionLabel(selectedAction),
                     subtitle = stringResource(R.string.slot_pick_action),
                     onClick = { pickingAction = true },
