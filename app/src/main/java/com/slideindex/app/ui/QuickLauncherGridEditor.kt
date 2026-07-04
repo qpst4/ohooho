@@ -89,7 +89,7 @@ fun QuickLauncherGridEditor(
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(settings.appsPerRow.coerceIn(2, 5)),
+                    columns = GridCells.Fixed(settings.quickLauncherColumnsPerPage.coerceIn(2, 5)),
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 220.dp, max = 420.dp),

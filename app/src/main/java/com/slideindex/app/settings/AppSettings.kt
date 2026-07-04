@@ -27,6 +27,10 @@ data class AppSettings(
     val gestureAngleConfig: GestureAngleConfig = GestureAngleConfig.DEFAULT,
     val indexHeightFraction: Float = 0.42f,
     val appsPerRow: Int = 3,
+    /** Fixed grid columns per quick-launcher page. */
+    val quickLauncherColumnsPerPage: Int = 3,
+    /** Fixed grid rows per quick-launcher page (panel height). */
+    val quickLauncherRowsPerPage: Int = 4,
     val panelOpacity: Float = 0.95f,
     val hapticEnabled: Boolean = true,
     val hapticStrengthLevel: Int = HapticStrength.MEDIUM.level,

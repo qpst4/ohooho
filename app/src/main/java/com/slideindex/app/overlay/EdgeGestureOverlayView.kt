@@ -1282,6 +1282,10 @@ class EdgeGestureOverlayView(
                         invalidate()
                         return true
                     }
+                    if (quickLauncherPageSnapAnimator?.isRunning == true) {
+                        invalidate()
+                        return true
+                    }
                     if (quickLauncherContinuousPickReady() &&
                         isQuickLauncherSelectableTouch(localX, localY, panelRect)
                     ) {
@@ -1437,7 +1441,7 @@ class EdgeGestureOverlayView(
     private fun quickLauncherContinuousPickReady(): Boolean = panelEnterProgress >= 1f
 
     private fun quickLauncherPageInteractionActive(): Boolean =
-        quickLauncherPageSwipeLocked
+        quickLauncherPageSwipeLocked || quickLauncherPageSnapAnimator?.isRunning == true
 
     private fun consumeQuickLauncherPageSwipeMove(touchX: Float, localY: Float): Boolean {
         if (gestureSession.isMoveTimeActionLocked()) return false
@@ -1606,12 +1610,22 @@ class EdgeGestureOverlayView(
         }
         if (delta == 0) return false
 
-        quickLauncherPageIndex += delta
+        animateQuickLauncherPageTurn(delta)
+        return true
+    }
+
+    private fun animateQuickLauncherPageTurn(delta: Int) {
+        if (delta == 0) return
+        if (quickLauncherPageSnapAnimator?.isRunning == true) return
+        cancelQuickLauncherPageSnapAnimation()
+        val panelWidth = quickLauncherPanelRect().width().coerceAtLeast(1f)
+        quickLauncherPageIndex = (quickLauncherPageIndex + delta)
+            .coerceIn(0, quickLauncherPageCount - 1)
         quickLauncherPageChangedThisGesture = true
+        quickLauncherPageDragOffset += if (delta > 0) panelWidth else -panelWidth
         clearQuickLauncherHighlight()
         HapticHelper.appTick(this, settings)
-        invalidate()
-        return true
+        animateQuickLauncherPageSnapTo(0f)
     }
 
     private fun quickLauncherEdgePageZoneFor(touchX: Float, panelRect: RectF): Int {
@@ -3413,6 +3427,19 @@ class EdgeGestureOverlayView(
 
     private fun appsPerRow(): Int = settings.appsPerRow.coerceIn(2, 5)
 
+    private fun quickLauncherColumnsPerPage(): Int =
+        settings.quickLauncherColumnsPerPage.coerceIn(2, 5)
+
+    private fun quickLauncherRowsPerPage(): Int =
+        settings.quickLauncherRowsPerPage.coerceIn(2, QUICK_LAUNCHER_MAX_ROWS)
+
+    private fun quickLauncherGridLayoutInfo(): GridLayoutInfo {
+        val m = quickLauncherColumnsPerPage()
+        val rows = quickLauncherRowsPerPage()
+        val panelWidth = m * cellWidth + gridPadding * 2
+        return GridLayoutInfo(m, m, rows, panelWidth)
+    }
+
     private fun gridLayoutInfo(appCount: Int): GridLayoutInfo {
         val m = appsPerRow()
         val panelColumns = if (appCount in 1 until m) appCount else m
@@ -3795,7 +3822,8 @@ class EdgeGestureOverlayView(
         val dragOffset = quickLauncherPageDragOffset
         val panelWidth = panelRect.width().coerceAtLeast(1f)
         val pagingActive = quickLauncherPageSwipeLocked ||
-            quickLauncherPageSnapAnimator?.isRunning == true
+            quickLauncherPageSnapAnimator?.isRunning == true ||
+            kotlin.math.abs(dragOffset) > dp(0.5f)
         val clipLayer = canvas.save()
         canvas.clipRect(panelRect)
         drawQuickLauncherPageCells(
@@ -3859,7 +3887,7 @@ class EdgeGestureOverlayView(
         if (layer >= 0) {
             canvas.translate(translateX, 0f)
         }
-        val m = appsPerRow()
+        val m = quickLauncherColumnsPerPage()
         val appCount = entries.size
         val dragSourceIndex = if (recordCells) quickLauncherPanelController.dragSourceIndex() else -1
         fun drawCellAt(index: Int) {
@@ -4468,7 +4496,7 @@ class EdgeGestureOverlayView(
     }
 
     private fun quickLauncherCellOrigin(index: Int, appCount: Int, grid: RectF): Pair<Float, Float> {
-        val m = appsPerRow()
+        val m = quickLauncherColumnsPerPage()
         val row = index / m
         val visualCol = visualColumn(index, m, appCount)
         val left = grid.left + gridPadding + visualCol * cellWidth
@@ -4576,7 +4604,8 @@ class EdgeGestureOverlayView(
         )
     }
 
-    private fun quickLauncherPageSize(): Int = appsPerRow() * QUICK_LAUNCHER_MAX_ROWS
+    private fun quickLauncherPageSize(): Int =
+        quickLauncherColumnsPerPage() * quickLauncherRowsPerPage()
 
     private fun quickLauncherPagination(): Triple<Int, Int, Int> {
         val allCount = quickLauncherRootItems().size
@@ -4605,12 +4634,6 @@ class EdgeGestureOverlayView(
         return quickLauncherRootItems().drop(pageStart).take(pageSize)
     }
 
-    private fun quickLauncherDisplayRowCount(itemCount: Int): Int {
-        val m = appsPerRow()
-        val rows = if (itemCount == 0) 1 else kotlin.math.ceil(itemCount / m.toFloat()).toInt()
-        return minOf(QUICK_LAUNCHER_MAX_ROWS, rows)
-    }
-
     private fun endQuickLauncherSessionAnimated() {
         if (quickLauncherExiting) return
         if (gestureSession.panelMode() != OverlayPanelMode.QUICK_LAUNCHER) {
@@ -4625,11 +4648,8 @@ class EdgeGestureOverlayView(
     }
 
     private fun quickLauncherPanelRect(): RectF {
-        val pageEntries = quickLauncherPagedItems()
-        if (pageEntries.isEmpty()) return RectF()
-        val layout = gridLayoutInfo(pageEntries.size).copy(
-            rows = quickLauncherDisplayRowCount(pageEntries.size),
-        )
+        val layout = quickLauncherGridLayoutInfo()
+        quickLauncherPagination()
         val base = if (gestureSession.quickLauncherContinuousPickActive()) {
             anchoredUtilityPanelRect(layout.panelWidth, layout.rows)
         } else {

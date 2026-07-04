@@ -61,6 +61,10 @@ class SettingsRepository(private val context: Context) {
             gestureAngleConfig = readGestureAngleConfig(prefs),
             indexHeightFraction = prefs[INDEX_HEIGHT] ?: 0.42f,
             appsPerRow = prefs[APPS_PER_ROW] ?: 3,
+            quickLauncherColumnsPerPage = prefs[QUICK_LAUNCHER_COLUMNS_PER_PAGE]
+                ?: prefs[APPS_PER_ROW]
+                ?: 3,
+            quickLauncherRowsPerPage = prefs[QUICK_LAUNCHER_ROWS_PER_PAGE] ?: 4,
             panelOpacity = prefs[PANEL_OPACITY] ?: 0.95f,
             hapticEnabled = prefs[HAPTIC_ENABLED] ?: true,
             hapticStrengthLevel = prefs[HAPTIC_STRENGTH] ?: HapticStrength.MEDIUM.level,
@@ -206,6 +210,12 @@ class SettingsRepository(private val context: Context) {
     }
     suspend fun setIndexHeightFraction(value: Float) = edit { it[INDEX_HEIGHT] = value }
     suspend fun setAppsPerRow(value: Int) = edit { it[APPS_PER_ROW] = value.coerceIn(2, 5) }
+
+    suspend fun setQuickLauncherColumnsPerPage(value: Int) =
+        edit { it[QUICK_LAUNCHER_COLUMNS_PER_PAGE] = value.coerceIn(2, 5) }
+
+    suspend fun setQuickLauncherRowsPerPage(value: Int) =
+        edit { it[QUICK_LAUNCHER_ROWS_PER_PAGE] = value.coerceIn(2, 6) }
     suspend fun setPanelOpacity(value: Float) = edit { it[PANEL_OPACITY] = value }
     suspend fun setHapticEnabled(enabled: Boolean) = edit { it[HAPTIC_ENABLED] = enabled }
     suspend fun setHapticStrengthLevel(level: Int) = edit {
@@ -384,6 +394,8 @@ class SettingsRepository(private val context: Context) {
         private val TRIGGER_HEIGHT = floatPreferencesKey("trigger_height_fraction")
         private val INDEX_HEIGHT = floatPreferencesKey("index_height_fraction")
         private val APPS_PER_ROW = intPreferencesKey("apps_per_row")
+        private val QUICK_LAUNCHER_COLUMNS_PER_PAGE = intPreferencesKey("quick_launcher_columns_per_page")
+        private val QUICK_LAUNCHER_ROWS_PER_PAGE = intPreferencesKey("quick_launcher_rows_per_page")
         private val PANEL_OPACITY = floatPreferencesKey("panel_opacity")
         private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength_level")

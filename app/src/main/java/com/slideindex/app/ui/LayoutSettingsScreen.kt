@@ -25,6 +25,8 @@ fun LayoutSettingsScreen(
     onBack: () -> Unit,
     onIndexHeightChange: (Float) -> Unit,
     onAppsPerRowChange: (Int) -> Unit,
+    onQuickLauncherColumnsChange: (Int) -> Unit,
+    onQuickLauncherRowsChange: (Int) -> Unit,
     onPanelOpacityChange: (Float) -> Unit,
     onLayoutPreviewStart: () -> Unit,
     onLayoutPreviewStop: () -> Unit,
@@ -66,6 +68,32 @@ fun LayoutSettingsScreen(
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsSliderRow(
+                title = stringResource(R.string.quick_launcher_grid_columns),
+                value = settings.quickLauncherColumnsPerPage.toFloat(),
+                valueRange = 2f..5f,
+                steps = 2,
+                enabled = serviceEnabled,
+                label = stringResource(
+                    R.string.quick_launcher_grid_columns_label,
+                    settings.quickLauncherColumnsPerPage,
+                ),
+                onValueChange = { onQuickLauncherColumnsChange(it.roundToInt()) },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            SettingsSliderRow(
+                title = stringResource(R.string.quick_launcher_grid_rows),
+                value = settings.quickLauncherRowsPerPage.toFloat(),
+                valueRange = 2f..6f,
+                steps = 3,
+                enabled = serviceEnabled,
+                label = stringResource(
+                    R.string.quick_launcher_grid_rows_label,
+                    settings.quickLauncherRowsPerPage,
+                ),
+                onValueChange = { onQuickLauncherRowsChange(it.roundToInt()) },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            SettingsSliderRow(
                 title = stringResource(R.string.panel_opacity),
                 value = settings.panelOpacity,
                 valueRange = 0.75f..1f,
@@ -90,6 +118,8 @@ fun LayoutSettingsEntryCard(
         stringResource(
             R.string.layout_settings_entry_summary,
             settings.appsPerRow,
+            settings.quickLauncherColumnsPerPage,
+            settings.quickLauncherRowsPerPage,
         )
     } else {
         stringResource(R.string.layout_settings_entry_desc)

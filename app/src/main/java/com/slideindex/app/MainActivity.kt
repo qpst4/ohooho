@@ -155,6 +155,16 @@ class MainActivity : ComponentActivity() {
                         onAppsPerRowChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setAppsPerRow(value) }
                         },
+                        onQuickLauncherColumnsChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherColumnsPerPage(value)
+                            }
+                        },
+                        onQuickLauncherRowsChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setQuickLauncherRowsPerPage(value)
+                            }
+                        },
                         onPanelOpacityChange = { value ->
                             lifecycleScope.launch { app.settingsRepository.setPanelOpacity(value) }
                         },
