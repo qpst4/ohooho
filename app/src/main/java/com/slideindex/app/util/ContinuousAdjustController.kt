@@ -76,6 +76,33 @@ class ContinuousAdjustController(
     fun currentFraction(): Float =
         if (lastFraction.isNaN()) 0f else lastFraction.coerceIn(0f, 1f)
 
+    fun setFraction(mode: Mode, fraction: Float, previewOnly: Boolean = false) {
+        if (!hasAccess(mode)) return
+        val clamped = fraction.coerceIn(0f, 1f)
+        lastFraction = clamped
+        when (mode) {
+            Mode.VOLUME ->
+                VolumeControlHelper.setFraction(
+                    appContext,
+                    VolumeControlHelper.Stream.MEDIA,
+                    clamped,
+                )
+            Mode.BRIGHTNESS -> {
+                if (overlayBrightness != null) {
+                    overlayBrightness.apply(clamped)
+                    if (!previewOnly) {
+                        Thread {
+                            ensureManualBrightness()
+                            writeSystemBrightness(clamped)
+                        }.start()
+                    }
+                } else {
+                    writeSystemBrightness(clamped)
+                }
+            }
+        }
+    }
+
     private fun hasAccess(mode: Mode): Boolean = when (mode) {
         Mode.VOLUME -> VolumeControlHelper.hasAccess(appContext)
         Mode.BRIGHTNESS ->

@@ -8,16 +8,19 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Shortcut
@@ -26,9 +29,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -42,6 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -56,6 +64,7 @@ import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.PinyinHelper
+import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.util.ShortcutScanPhase
 import com.slideindex.app.util.ShortcutScanProgress
 import kotlinx.coroutines.Dispatchers
@@ -189,12 +198,17 @@ private fun ActionPickerActionsTab(
             add(GestureAction.QuickLauncher)
             add(GestureAction.TaskSwitcher)
             add(GestureAction.ShellCommandPanel)
+            add(GestureAction.QuickToolsOverlay)
             add(GestureAction.Back)
             add(GestureAction.Home)
             add(GestureAction.Recents)
             add(GestureAction.CloseCurrentApp)
             add(GestureAction.FreeWindowCurrentApp)
             add(GestureAction.Flashlight)
+            add(GestureAction.ToggleDnd)
+            add(GestureAction.ScreenRecord)
+            add(GestureAction.ToggleWifi)
+            add(GestureAction.ToggleMobileData)
             add(GestureAction.ToggleMute)
             add(GestureAction.MediaPlayPause)
             add(GestureAction.MediaPrevious)
@@ -215,9 +229,9 @@ private fun ActionPickerActionsTab(
         }
     }
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         items(actionOptions, key = { it.type.id }) { action ->
             ActionPickerActionRow(
@@ -240,44 +254,86 @@ private fun ActionPickerActionRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    Row(
+    val context = LocalContext.current
+    val description = gestureActionDescription(action)
+    val permissionHint = gestureActionPermissionHint(action, context)
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLow
+    }
+
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.Top,
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        tonalElevation = if (selected) 2.dp else 0.dp,
     ) {
-        Icon(
-            imageVector = gestureActionIcon(action),
-            contentDescription = null,
-            modifier = Modifier
-                .padding(top = 10.dp, end = 8.dp)
-                .size(24.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            modifier = Modifier.padding(top = 2.dp),
-        )
-        Column(modifier = Modifier.padding(start = 4.dp)) {
-            Text(gestureActionLabel(action))
-            gestureActionDescription(action)?.let { description ->
+        ListItem(
+            modifier = Modifier.fillMaxWidth(),
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            leadingContent = {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.surface
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    },
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = gestureActionIcon(action),
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (selected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            },
+            headlineContent = {
                 Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = gestureActionLabel(action),
+                    style = MaterialTheme.typography.bodyLarge,
                 )
-            }
-            val context = LocalContext.current
-            gestureActionPermissionHint(action, context)?.let { hint ->
-                Text(
-                    text = hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
+            },
+            supportingContent = if (description != null || permissionHint != null) {
+                {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        description?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        permissionHint?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
+                    }
+                }
+            } else {
+                null
+            },
+            trailingContent = {
+                RadioButton(
+                    selected = selected,
+                    onClick = onClick,
                 )
-            }
-        }
+            },
+        )
     }
 }
 
@@ -584,6 +640,11 @@ internal fun gestureActionSortKey(context: Context, action: GestureAction): Stri
             GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top)
             GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom)
             GestureActionType.SHELL_COMMAND_PANEL -> context.getString(R.string.gesture_action_shell_command_panel)
+            GestureActionType.QUICK_TOOLS_OVERLAY -> context.getString(R.string.gesture_action_quick_tools_overlay)
+            GestureActionType.TOGGLE_DND -> context.getString(R.string.gesture_action_toggle_dnd)
+            GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
+            GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
+            GestureActionType.TOGGLE_MOBILE_DATA -> context.getString(R.string.gesture_action_toggle_mobile_data)
             GestureActionType.LAUNCH_APP -> context.getString(R.string.gesture_action_launch_app)
             GestureActionType.LAUNCH_SHORTCUT -> context.getString(R.string.gesture_action_launch_shortcut)
         }
@@ -639,6 +700,11 @@ fun gestureActionLabel(action: GestureAction): String = when (action) {
         GestureActionType.SCROLL_TO_TOP -> stringResource(R.string.gesture_action_scroll_to_top)
         GestureActionType.SCROLL_TO_BOTTOM -> stringResource(R.string.gesture_action_scroll_to_bottom)
         GestureActionType.SHELL_COMMAND_PANEL -> stringResource(R.string.gesture_action_shell_command_panel)
+        GestureActionType.QUICK_TOOLS_OVERLAY -> stringResource(R.string.gesture_action_quick_tools_overlay)
+        GestureActionType.TOGGLE_DND -> stringResource(R.string.gesture_action_toggle_dnd)
+        GestureActionType.SCREEN_RECORD -> stringResource(R.string.gesture_action_screen_record)
+        GestureActionType.TOGGLE_WIFI -> stringResource(R.string.gesture_action_toggle_wifi)
+        GestureActionType.TOGGLE_MOBILE_DATA -> stringResource(R.string.gesture_action_toggle_mobile_data)
         GestureActionType.LAUNCH_APP -> stringResource(R.string.gesture_action_launch_app)
         GestureActionType.LAUNCH_SHORTCUT -> stringResource(R.string.gesture_action_launch_shortcut)
     }
@@ -668,6 +734,18 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             if (PermissionHelper.hasNotificationPolicyAccess(context)) return null
             stringResource(R.string.gesture_action_toggle_mute_permission)
         }
+        GestureActionType.TOGGLE_DND -> {
+            if (PermissionHelper.hasNotificationPolicyAccess(context)) return null
+            stringResource(R.string.gesture_action_toggle_mute_permission)
+        }
+        GestureActionType.TOGGLE_WIFI, GestureActionType.TOGGLE_MOBILE_DATA -> {
+            if (TaskManagerUtil.hasPermission()) return null
+            stringResource(R.string.gesture_action_toggle_shell_permission)
+        }
+        GestureActionType.SCREEN_RECORD -> {
+            if (PermissionHelper.canDrawOverlays(context)) return null
+            stringResource(R.string.gesture_action_screen_record_permission)
+        }
         GestureActionType.LOCK_SCREEN, GestureActionType.SCREENSHOT -> {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) return null
             stringResource(R.string.gesture_action_requires_android_p)
@@ -676,14 +754,28 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) return null
             stringResource(R.string.gesture_action_requires_android_n)
         }
+        GestureActionType.QUICK_TOOLS_OVERLAY -> {
+            if (PermissionHelper.canDrawOverlays(context)) return null
+            stringResource(R.string.gesture_action_quick_tools_overlay_permission)
+        }
         else -> null
     }
 
 internal fun requestPermissionForAdjustAction(context: Context, action: GestureAction) {
     when (action) {
-        GestureAction.AdjustVolume, GestureAction.ToggleMute ->
+        GestureAction.AdjustVolume, GestureAction.ToggleMute, GestureAction.ToggleDnd ->
             PermissionHelper.requestNotificationPolicyAccess(context)
         GestureAction.AdjustBrightness -> PermissionHelper.requestWriteSettingsAccess(context)
+        GestureAction.QuickToolsOverlay -> {
+            if (!PermissionHelper.canDrawOverlays(context)) {
+                context.startActivity(PermissionHelper.overlaySettingsIntent(context))
+            }
+        }
+        GestureAction.ScreenRecord -> {
+            if (!PermissionHelper.canDrawOverlays(context)) {
+                context.startActivity(PermissionHelper.overlaySettingsIntent(context))
+            }
+        }
         else -> Unit
     }
 }

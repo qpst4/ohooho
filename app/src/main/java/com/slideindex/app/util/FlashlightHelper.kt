@@ -7,6 +7,8 @@ import android.hardware.camera2.CameraManager
 object FlashlightHelper {
     private var torchOn = false
 
+    fun isOn(): Boolean = torchOn
+
     fun toggle(context: Context): Boolean {
         val cameraManager = context.getSystemService(CameraManager::class.java) ?: return false
         val cameraId = cameraManager.cameraIdList.firstOrNull { id ->

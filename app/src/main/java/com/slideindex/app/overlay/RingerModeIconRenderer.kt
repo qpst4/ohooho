@@ -15,6 +15,12 @@ object RingerModeIconRenderer {
     private var vibrate: Drawable? = null
     private var silent: Drawable? = null
 
+    fun iconResFor(ringerMode: Int): Int = when (ringerMode) {
+        AudioManager.RINGER_MODE_VIBRATE -> R.drawable.ic_ringer_vibrate
+        AudioManager.RINGER_MODE_SILENT -> R.drawable.ic_ringer_silent
+        else -> R.drawable.ic_ringer_normal
+    }
+
     fun draw(
         context: Context,
         canvas: Canvas,

@@ -10,6 +10,8 @@ import com.slideindex.app.data.AppRepository
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
+import com.slideindex.app.overlay.OhoQuickToolsOverlayWindow
+import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
 import com.slideindex.app.service.OverlayService
@@ -27,6 +29,8 @@ import com.slideindex.app.util.BrightnessControlHelper
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
 import com.slideindex.app.util.OverlayBrightnessControl
+import com.slideindex.app.util.QuickToolsHelper
+import com.slideindex.app.util.ScreenRecordHelper
 import com.slideindex.app.util.SystemGestureActions
 import com.slideindex.app.util.VolumeControlHelper
 import android.view.KeyEvent
@@ -36,6 +40,7 @@ class ActionExecutor(
     private val appRepository: AppRepository,
     private val clickPassthroughHandler: ((Float, Float, () -> Unit) -> Unit)? = null,
     overlayBrightness: OverlayBrightnessControl? = null,
+    private val side: PanelSide? = null,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val continuousAdjust = ContinuousAdjustController(context, overlayBrightness)
@@ -91,12 +96,21 @@ class ActionExecutor(
         VolumeControlHelper.setFraction(context, stream, fraction)
     }
 
+    fun setBrightnessFraction(fraction: Float, previewOnly: Boolean = false) {
+        continuousAdjust.setFraction(
+            ContinuousAdjustController.Mode.BRIGHTNESS,
+            fraction,
+            previewOnly = previewOnly,
+        )
+    }
+
     fun execute(action: GestureAction, settings: AppSettings, longPressArmed: Boolean = false) {
         when (action) {
             GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.TaskSwitcher,
             GestureAction.ShellCommandPanel,
             GestureAction.None, GestureAction.ClickPassthrough,
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
+            GestureAction.QuickToolsOverlay -> OhoQuickToolsOverlayWindow.show(context, settings, side)
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
             is GestureAction.LaunchShortcut -> launchGestureShortcut(action, settings, longPressArmed)
             GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {
@@ -105,6 +119,10 @@ class ActionExecutor(
             GestureAction.CloseCurrentApp -> closeCurrentApp()
             GestureAction.FreeWindowCurrentApp -> freeWindowForegroundApp(settings)
             GestureAction.Flashlight -> FlashlightHelper.toggle(context)
+            GestureAction.ToggleDnd -> VolumeControlHelper.toggleDnd(context)
+            GestureAction.ScreenRecord -> ScreenRecordHelper.toggle(context)
+            GestureAction.ToggleWifi -> QuickToolsHelper.toggleWifi(context)
+            GestureAction.ToggleMobileData -> QuickToolsHelper.toggleMobileData(context)
             GestureAction.LaunchAssistant -> AssistantLauncher.launchDefault(context)
             GestureAction.ToggleMute -> SystemGestureActions.toggleMute(context)
             GestureAction.MediaPlayPause -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)

@@ -7,6 +7,11 @@ import android.provider.Settings
 import android.view.KeyEvent
 
 object SystemGestureActions {
+    fun isMuted(context: Context): Boolean {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+        return audioManager.ringerMode == AudioManager.RINGER_MODE_SILENT
+    }
+
     fun toggleMute(context: Context): Boolean {
         if (!PermissionHelper.hasNotificationPolicyAccess(context)) {
             PermissionHelper.requestNotificationPolicyAccess(context)

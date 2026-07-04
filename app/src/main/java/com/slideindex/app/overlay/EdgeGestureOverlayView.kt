@@ -117,6 +117,7 @@ class EdgeGestureOverlayView(
         appRepository = appRepository,
         clickPassthroughHandler = onClickPassthroughCallback,
         overlayBrightness = overlayBrightness,
+        side = side,
     )
     private val pathRecognizer = SwipePathRecognizer(side, resources.displayMetrics.density)
     private val gestureSession = GestureSession(
@@ -416,6 +417,13 @@ class EdgeGestureOverlayView(
     private val cellWidth get() = dp(68f)
     private val gridIconSize get() = dp(44f)
     private val gridPadding get() = dp(10f)
+    private val quickLauncherCellHeight get() = dp(64f)
+    private val quickLauncherCellWidth get() = dp(56f)
+    private val quickLauncherGridIconSize get() = dp(38f)
+    private val quickLauncherGridPadding get() = dp(8f)
+    private val quickLauncherHeaderHeight get() = dp(24f)
+    private val quickLauncherGridIconTopInset get() = dp(4f)
+    private val quickLauncherGridIconLabelGap get() = dp(4f)
     private val gridIconTopInset get() = dp(6f)
     private val gridIconLabelGap get() = dp(3f)
     private val gridCellInset get() = dp(4f)
@@ -3179,7 +3187,8 @@ class EdgeGestureOverlayView(
                 taskSwitcherLayout = null
                 loadTaskSwitcherApps(deferInvalidate = false)
             }
-            OverlayPanelMode.INDEX, OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.SHELL_COMMANDS -> {
+            OverlayPanelMode.INDEX, OverlayPanelMode.QUICK_LAUNCHER,
+            OverlayPanelMode.SHELL_COMMANDS -> {
                 panelEnterProgress = 0f
                 if (mode == OverlayPanelMode.SHELL_COMMANDS) {
                     shellPanelController.syncSettings(settings)
@@ -3440,9 +3449,12 @@ class EdgeGestureOverlayView(
     private fun quickLauncherGridLayoutInfo(): GridLayoutInfo {
         val m = quickLauncherColumnsPerPage()
         val rows = quickLauncherRowsPerPage()
-        val panelWidth = m * cellWidth + gridPadding * 2
+        val panelWidth = m * quickLauncherCellWidth + quickLauncherGridPadding * 2
         return GridLayoutInfo(m, m, rows, panelWidth)
     }
+
+    private fun quickLauncherPanelContentHeight(rows: Int): Float =
+        rows * quickLauncherCellHeight + quickLauncherGridPadding * 2 + quickLauncherHeaderHeight
 
     private fun gridLayoutInfo(appCount: Int): GridLayoutInfo {
         val m = appsPerRow()
@@ -3795,7 +3807,7 @@ class EdgeGestureOverlayView(
     }
 
     private fun warmQuickLauncherActionIconCache() {
-        val sizePx = gridIconSize.toInt().coerceAtLeast(1)
+        val sizePx = quickLauncherGridIconSize.toInt().coerceAtLeast(1)
         quickLauncherRootItems().forEach { item ->
             if (item.type != QuickLauncherItemType.ACTION) return@forEach
             QuickLauncherItemCodec.parseActionPayload(item.payload)?.let { action ->
@@ -3816,14 +3828,14 @@ class EdgeGestureOverlayView(
         QuickLauncherIconResolver.iconBitmap(
             item = item,
             appsByPackage = appsMap,
-            size = gridIconSize.toInt().coerceAtLeast(1),
+            size = quickLauncherGridIconSize.toInt().coerceAtLeast(1),
             context = context,
         )?.let { return it }
         if (item.type != QuickLauncherItemType.ACTION) return null
         return QuickLauncherItemCodec.parseActionPayload(item.payload)?.let { action ->
             GestureActionIconBitmap.get(
                 action = action,
-                sizePx = gridIconSize.toInt().coerceAtLeast(1),
+                sizePx = quickLauncherGridIconSize.toInt().coerceAtLeast(1),
                 tintArgb = android.graphics.Color.WHITE,
             )
         }
@@ -3888,7 +3900,7 @@ class EdgeGestureOverlayView(
         letterPaint.color = Color.WHITE
         letterPaint.textSize = sp(14f)
         letterPaint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText("快速启动器", grid.left + gridPadding, grid.top + dp(18f), letterPaint)
+        canvas.drawText("快速启动器", grid.left + quickLauncherGridPadding, grid.top + dp(16f), letterPaint)
         letterPaint.textAlign = Paint.Align.CENTER
     }
 
@@ -3912,9 +3924,9 @@ class EdgeGestureOverlayView(
             val item = entries[index]
             val row = index / m
             val visualCol = visualColumn(index, m, appCount)
-            val left = panelRect.left + gridPadding + visualCol * cellWidth
-            val top = panelRect.top + dp(28f) + gridPadding + row * cellHeight
-            val cell = RectF(left, top, left + cellWidth, top + cellHeight)
+            val left = panelRect.left + quickLauncherGridPadding + visualCol * quickLauncherCellWidth
+            val top = panelRect.top + quickLauncherHeaderHeight + quickLauncherGridPadding + row * quickLauncherCellHeight
+            val cell = RectF(left, top, left + quickLauncherCellWidth, top + quickLauncherCellHeight)
             val (offsetX, offsetY) = if (recordCells) {
                 quickLauncherDragCellOffset(index, appCount, panelRect)
             } else {
@@ -3936,6 +3948,10 @@ class EdgeGestureOverlayView(
                 longPressArmed = recordCells &&
                     index == panelGridSession.highlightedIndex &&
                     quickLauncherLongPressArmed,
+                iconSize = quickLauncherGridIconSize,
+                iconTopInset = quickLauncherGridIconTopInset,
+                iconLabelGap = quickLauncherGridIconLabelGap,
+                labelMaxWidth = quickLauncherCellWidth - gridCellInset * 2,
             )
             if (offsetX != 0f || offsetY != 0f) {
                 canvas.restore()
@@ -4529,6 +4545,10 @@ class EdgeGestureOverlayView(
         label: String,
         iconProvider: () -> Bitmap?,
         longPressArmed: Boolean = false,
+        iconSize: Float = gridIconSize,
+        iconTopInset: Float = gridIconTopInset,
+        iconLabelGap: Float = gridIconLabelGap,
+        labelMaxWidth: Float = cellWidth - gridCellInset * 2,
     ) {
         if (index == panelGridSession.highlightedIndex) {
             tmpRect.set(cell.left + dp(3f), cell.top + dp(2f), cell.right - dp(3f), cell.bottom - dp(2f))
@@ -4536,18 +4556,24 @@ class EdgeGestureOverlayView(
             canvas.drawRoundRect(tmpRect, dp(10f), dp(10f), paint)
         }
         val icon = iconProvider()
-        val iconTop = cell.top + gridIconTopInset
-        val displayLabel = ellipsize(label, cellWidth - gridCellInset * 2)
-        val labelBaseline = iconTop + gridIconSize + gridIconLabelGap - appLabelPaint.fontMetrics.ascent
+        val iconTop = cell.top + iconTopInset
+        val displayLabel = ellipsize(label, labelMaxWidth)
+        val labelBaseline = iconTop + iconSize + iconLabelGap - appLabelPaint.fontMetrics.ascent
         val iconCenterX = cell.centerX()
         if (icon != null) {
-            canvas.drawBitmap(icon, iconCenterX - gridIconSize / 2f, iconTop, null)
+            tmpRect.set(
+                iconCenterX - iconSize / 2f,
+                iconTop,
+                iconCenterX + iconSize / 2f,
+                iconTop + iconSize,
+            )
+            canvas.drawBitmap(icon, null, tmpRect, iconBitmapPaint)
         } else {
             tmpRect.set(
-                iconCenterX - gridIconSize / 2f,
+                iconCenterX - iconSize / 2f,
                 iconTop,
-                iconCenterX + gridIconSize / 2f,
-                iconTop + gridIconSize,
+                iconCenterX + iconSize / 2f,
+                iconTop + iconSize,
             )
             canvas.drawRoundRect(tmpRect, dp(10f), dp(10f), cellHighlightPaint)
             val initial = displayLabel.firstOrNull()?.uppercaseChar()?.toString() ?: "•"
@@ -4558,7 +4584,7 @@ class EdgeGestureOverlayView(
             canvas.drawText(
                 initial,
                 iconCenterX,
-                iconTop + gridIconSize / 2f - (initialPaint.descent() + initialPaint.ascent()) / 2f,
+                iconTop + iconSize / 2f - (initialPaint.descent() + initialPaint.ascent()) / 2f,
                 initialPaint,
             )
         }
@@ -4669,11 +4695,40 @@ class EdgeGestureOverlayView(
         val layout = quickLauncherGridLayoutInfo()
         quickLauncherPagination()
         val base = if (gestureSession.quickLauncherContinuousPickActive()) {
-            anchoredUtilityPanelRect(layout.panelWidth, layout.rows)
+            anchoredQuickLauncherPanelRect(layout.panelWidth, layout.rows)
         } else {
-            utilityPanelRect(layout.panelWidth, layout.rows)
+            quickLauncherUtilityPanelRect(layout.panelWidth, layout.rows)
         }
         return offsetQuickLauncherPanelForToolbar(base)
+    }
+
+    private fun quickLauncherUtilityPanelRect(panelWidth: Float, rows: Int): RectF {
+        val gh = quickLauncherPanelContentHeight(rows)
+        val gw = panelWidth
+        val rail = zoneLayout.indexRailRect()
+        var top = rail.centerY() - gh / 2f
+        top = top.coerceSafe(dp(16f), height - gh - dp(16f))
+        val gap = dp(8f)
+        val left = when (side) {
+            PanelSide.LEFT -> rail.right + gap
+            PanelSide.RIGHT -> rail.left - gap - gw
+        }
+        return RectF(left, top, left + gw, top + gh)
+    }
+
+    private fun anchoredQuickLauncherPanelRect(panelWidth: Float, rows: Int): RectF {
+        val gh = quickLauncherPanelContentHeight(rows)
+        val gw = panelWidth
+        val trigger = zoneLayout.triggerZoneRect()
+        val anchorY = quickLauncherAnchorLocalY().coerceIn(trigger.top, trigger.bottom)
+        var top = anchorY - gh / 2f
+        top = top.coerceSafe(dp(16f), height - gh - dp(16f))
+        val gap = dp(8f)
+        val left = when (side) {
+            PanelSide.LEFT -> trigger.right + gap
+            PanelSide.RIGHT -> trigger.left - gap - gw
+        }
+        return RectF(left, top, left + gw, top + gh)
     }
 
     private fun offsetQuickLauncherPanelForToolbar(panelRect: RectF): RectF {
@@ -4764,10 +4819,9 @@ class EdgeGestureOverlayView(
     private fun startPanelEnterAnimation() {
         cancelPanelEnterAnimation()
         panelEnterProgress = 0f
-        val duration = if (gestureSession.panelMode() == OverlayPanelMode.SHELL_COMMANDS) {
-            SHELL_PANEL_ENTER_DURATION_MS
-        } else {
-            PANEL_ENTER_DURATION_MS
+        val duration = when (gestureSession.panelMode()) {
+            OverlayPanelMode.SHELL_COMMANDS -> SHELL_PANEL_ENTER_DURATION_MS
+            else -> PANEL_ENTER_DURATION_MS
         }
         panelEnterAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             this.duration = duration
@@ -4804,10 +4858,9 @@ class EdgeGestureOverlayView(
             return
         }
         panelEnterAnimator = ValueAnimator.ofFloat(panelEnterProgress, 0f).apply {
-            duration = if (gestureSession.panelMode() == OverlayPanelMode.SHELL_COMMANDS) {
-                SHELL_PANEL_ENTER_DURATION_MS
-            } else {
-                PANEL_ENTER_DURATION_MS
+            duration = when (gestureSession.panelMode()) {
+                OverlayPanelMode.SHELL_COMMANDS -> SHELL_PANEL_ENTER_DURATION_MS
+                else -> PANEL_ENTER_DURATION_MS
             }
             interpolator = AccelerateInterpolator()
             addUpdateListener { animator ->

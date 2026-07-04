@@ -325,7 +325,8 @@ class GestureSession(
 
             }
 
-            OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.TASK_SWITCHER, OverlayPanelMode.SHELL_COMMANDS -> Unit
+            OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.TASK_SWITCHER,
+            OverlayPanelMode.SHELL_COMMANDS -> Unit
 
             OverlayPanelMode.NONE -> {
 
@@ -747,6 +748,10 @@ class GestureSession(
             }
 
             GestureAction.ToggleMute,
+            GestureAction.ToggleDnd,
+            GestureAction.ScreenRecord,
+            GestureAction.ToggleWifi,
+            GestureAction.ToggleMobileData,
             GestureAction.MediaPlayPause,
             GestureAction.MediaPrevious,
             GestureAction.MediaNext,
@@ -759,6 +764,7 @@ class GestureSession(
             GestureAction.KeepScreenOn,
             GestureAction.ScrollToTop,
             GestureAction.ScrollToBottom,
+            GestureAction.QuickToolsOverlay,
             -> {
                 callbacks.hapticConfirmLaunch()
                 endSession()

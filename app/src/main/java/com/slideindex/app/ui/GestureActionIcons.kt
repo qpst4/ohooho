@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CropFree
+import androidx.compose.material.icons.filled.DoNotDisturb
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -23,17 +24,21 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Screenshot
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
+import com.slideindex.app.overlay.OhoPanelIcons
 
 fun gestureActionImageVector(action: GestureAction): ImageVector = when (action) {
     is GestureAction.LaunchApp -> Icons.Default.Apps
@@ -50,6 +55,7 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.QUICK_LAUNCHER -> Icons.Default.Apps
     GestureActionType.TASK_SWITCHER -> Icons.Default.ViewCarousel
     GestureActionType.SHELL_COMMAND_PANEL -> Icons.Default.Code
+    GestureActionType.QUICK_TOOLS_OVERLAY -> Icons.Default.Tune
     GestureActionType.BACK -> Icons.AutoMirrored.Filled.ArrowBack
     GestureActionType.HOME -> Icons.Default.Home
     GestureActionType.RECENTS -> Icons.Default.Layers
@@ -73,6 +79,10 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.KEEP_SCREEN_ON -> Icons.Default.WbSunny
     GestureActionType.SCROLL_TO_TOP -> Icons.Default.KeyboardArrowUp
     GestureActionType.SCROLL_TO_BOTTOM -> Icons.Default.KeyboardArrowDown
+    GestureActionType.TOGGLE_DND -> Icons.Default.DoNotDisturb
+    GestureActionType.SCREEN_RECORD -> OhoPanelIcons.ScreenRecord
+    GestureActionType.TOGGLE_WIFI -> Icons.Default.Wifi
+    GestureActionType.TOGGLE_MOBILE_DATA -> Icons.Default.SignalCellularAlt
     GestureActionType.LAUNCH_APP -> Icons.Default.Apps
     GestureActionType.LAUNCH_SHORTCUT -> Icons.AutoMirrored.Filled.Shortcut
 }

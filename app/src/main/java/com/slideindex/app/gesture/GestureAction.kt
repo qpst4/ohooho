@@ -31,6 +31,11 @@ enum class GestureActionType(val id: Int) {
     SCROLL_TO_TOP(27),
     SCROLL_TO_BOTTOM(28),
     SHELL_COMMAND_PANEL(29),
+    QUICK_TOOLS_OVERLAY(31),
+    TOGGLE_DND(32),
+    SCREEN_RECORD(33),
+    TOGGLE_WIFI(34),
+    TOGGLE_MOBILE_DATA(35),
     ;
 
     companion object {
@@ -237,6 +242,32 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    /** Samsung OHO+ style quick-tools popup, rendered top-level via [com.slideindex.app.overlay.OhoQuickToolsOverlayWindow]. */
+    data object QuickToolsOverlay : GestureAction() {
+        override val type = GestureActionType.QUICK_TOOLS_OVERLAY
+        override val payload = ""
+    }
+
+    data object ToggleDnd : GestureAction() {
+        override val type = GestureActionType.TOGGLE_DND
+        override val payload = ""
+    }
+
+    data object ScreenRecord : GestureAction() {
+        override val type = GestureActionType.SCREEN_RECORD
+        override val payload = ""
+    }
+
+    data object ToggleWifi : GestureAction() {
+        override val type = GestureActionType.TOGGLE_WIFI
+        override val payload = ""
+    }
+
+    data object ToggleMobileData : GestureAction() {
+        override val type = GestureActionType.TOGGLE_MOBILE_DATA
+        override val payload = ""
+    }
+
     data object None : GestureAction() {
         override val type = GestureActionType.NONE
         override val payload = ""
@@ -284,6 +315,11 @@ sealed class GestureAction {
                 GestureActionType.SCROLL_TO_TOP -> ScrollToTop
                 GestureActionType.SCROLL_TO_BOTTOM -> ScrollToBottom
                 GestureActionType.SHELL_COMMAND_PANEL -> ShellCommandPanel
+                GestureActionType.QUICK_TOOLS_OVERLAY -> QuickToolsOverlay
+                GestureActionType.TOGGLE_DND -> ToggleDnd
+                GestureActionType.SCREEN_RECORD -> ScreenRecord
+                GestureActionType.TOGGLE_WIFI -> ToggleWifi
+                GestureActionType.TOGGLE_MOBILE_DATA -> ToggleMobileData
                 GestureActionType.NONE -> None
             }
         }
