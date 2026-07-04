@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">边栏</string>
     <string name="main_settings_subtitle">布局、手势与外观</string>
+    <string name="permissions_pending_title">待完成授权</string>
     <string name="service_notification_title">边栏运行中</string>
     <string name="service_notification_text">从屏幕边缘滑动打开应用索引</string>
     <string name="permission_overlay_title">悬浮窗权限</string>
@@ -74,6 +75,7 @@
     <string name="settings_section_free_window">小窗配置</string>
     <string name="hidden_apps_entry_count">已隐藏 %1$d 个应用</string>
     <string name="search_hint">搜索应用…</string>
+    <string name="search_clear">清除搜索</string>
     <string name="no_apps">未找到应用</string>
     <string name="loading">加载中…</string>
     <string name="ready_hint">权限就绪后，边缘手势服务将自动运行</string>
@@ -159,7 +161,7 @@
     <string name="shortcut_gestures_pick_left">选择左边缘短滑要打开的应用</string>
     <string name="shortcut_gestures_pick_right">选择右边缘短滑要打开的应用</string>
     <string name="shortcut_gestures_assign">设为快捷启动</string>
-    <string name="accessibility_service_name">边栏辅助功能</string>
+    <string name="accessibility_service_name">边栏</string>
     <string name="accessibility_service_desc">用于执行返回、主屏幕、多任务等系统手势；未授权 Shizuku 时也可用于边缘单击穿透。</string>
     <string name="permission_accessibility_title">无障碍服务</string>
     <string name="permission_accessibility_desc">用于返回、主屏幕、多任务；未授权 Shizuku 时单击穿透也需要此权限。</string>

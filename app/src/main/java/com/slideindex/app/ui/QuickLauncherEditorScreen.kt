@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
@@ -22,16 +23,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Shortcut
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -69,7 +73,7 @@ private sealed class EditorMode {
 
 private enum class QuickLauncherEditorAddTab { ACTIONS, APPS, SHORTCUTS }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun QuickLauncherEditorScreen(
     settings: AppSettings,
@@ -157,11 +161,13 @@ fun QuickLauncherEditorScreen(
         if (added) removeItem(item) else addItem(item)
     }
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            MediumFlexibleTopAppBar(
                 title = {
-                    Text(
+                    SettingsAppBarTitle(
                         when (mode) {
                             EditorMode.AddPicker -> stringResource(R.string.quick_launcher_add)
                             else -> stringResource(R.string.quick_launcher_editor_title)
@@ -181,6 +187,7 @@ fun QuickLauncherEditorScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
@@ -220,6 +227,7 @@ fun QuickLauncherEditorScreen(
             }
             EditorMode.AddPicker -> QuickLauncherEditorAddPicker(
                 padding = padding,
+                nestedScrollConnection = scrollBehavior.nestedScrollConnection,
                 apps = allApps,
                 searchQuery = searchQuery,
                 onSearchChange = { searchQuery = it },
@@ -249,7 +257,8 @@ fun QuickLauncherEditorScreen(
 
 @Composable
 private fun QuickLauncherEditorAddPicker(
-    padding: androidx.compose.foundation.layout.PaddingValues,
+    padding: PaddingValues,
+    nestedScrollConnection: NestedScrollConnection,
     apps: List<AppInfo>,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
@@ -267,7 +276,11 @@ private fun QuickLauncherEditorAddPicker(
             .fillMaxSize()
             .padding(padding),
     ) {
-        TabRow(selectedTabIndex = selectedTab) {
+        val listModifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .nestedScroll(nestedScrollConnection)
+        PrimaryTabRow(selectedTabIndex = selectedTab) {
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
@@ -288,6 +301,7 @@ private fun QuickLauncherEditorAddPicker(
             QuickLauncherEditorAddTab.ACTIONS -> QuickLauncherEditorActionsTab(
                 configuredActionKeys = configuredActionKeys,
                 onToggle = onToggleAction,
+                listModifier = listModifier,
             )
             QuickLauncherEditorAddTab.APPS -> QuickLauncherEditorAppsTab(
                 searchQuery = searchQuery,
@@ -295,6 +309,7 @@ private fun QuickLauncherEditorAddPicker(
                 apps = apps,
                 configuredAppPackages = configuredAppPackages,
                 onToggle = onToggleApp,
+                listModifier = listModifier,
             )
             QuickLauncherEditorAddTab.SHORTCUTS -> QuickLauncherEditorShortcutsTab(
                 apps = apps,
@@ -303,6 +318,7 @@ private fun QuickLauncherEditorAddPicker(
                 configuredShortcutKeys = configuredShortcutKeys,
                 onToggle = onToggleShortcut,
                 onCreatedShortcut = onCreatedShortcut,
+                listModifier = listModifier,
             )
         }
     }
@@ -312,6 +328,7 @@ private fun QuickLauncherEditorAddPicker(
 private fun QuickLauncherEditorActionsTab(
     configuredActionKeys: Set<String>,
     onToggle: (GestureAction, String, Boolean) -> Unit,
+    listModifier: Modifier,
 ) {
     val context = LocalContext.current
     val actionOptions = remember {
@@ -352,9 +369,7 @@ private fun QuickLauncherEditorActionsTab(
         actionOptions.sortedBy { gestureActionSortKey(context, it) }
     }
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(PickerListContentPadding),
+        modifier = listModifier.padding(PickerListContentPadding),
         verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
     ) {
         items(sortedActions.size, key = { sortedActions[it].type.id }) { index ->
@@ -379,6 +394,7 @@ private fun QuickLauncherEditorActionsTab(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QuickLauncherEditorAppsTab(
     searchQuery: String,
@@ -386,6 +402,7 @@ private fun QuickLauncherEditorAppsTab(
     apps: List<AppInfo>,
     configuredAppPackages: Set<String>,
     onToggle: (AppInfo, Boolean) -> Unit,
+    listModifier: Modifier,
 ) {
     val query = searchQuery.trim().lowercase()
     val filtered = remember(apps, query) {
@@ -396,18 +413,15 @@ private fun QuickLauncherEditorAppsTab(
                 PinyinHelper.sortKey(app.label).contains(query)
         }.sortedBy { PinyinHelper.sortKey(it.label) }
     }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = PickerListHorizontalPadding),
-    ) {
-        SearchBar(
+    Column(modifier = listModifier) {
+        PickerSearchListHeader(
             query = searchQuery,
             onQueryChange = onSearchChange,
-            modifier = Modifier.fillMaxWidth(),
         )
-        Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
             contentPadding = PaddingValues(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
@@ -426,6 +440,7 @@ private fun QuickLauncherEditorAppsTab(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QuickLauncherEditorShortcutsTab(
     apps: List<AppInfo>,
@@ -434,6 +449,7 @@ private fun QuickLauncherEditorShortcutsTab(
     configuredShortcutKeys: Set<String>,
     onToggle: (AppInfo, TaskSwitcherMenuItem, Boolean) -> Unit,
     onCreatedShortcut: (AppShortcutLoader.CreatedShortcut) -> Unit,
+    listModifier: Modifier,
 ) {
     val context = LocalContext.current
     var catalog by remember { mutableStateOf<AppShortcutLoader.ShortcutCatalog?>(null) }
@@ -508,106 +524,107 @@ private fun QuickLauncherEditorShortcutsTab(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = PickerListHorizontalPadding),
-    ) {
-        SearchBar(query = searchQuery, onQueryChange = onSearchChange, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(8.dp))
-        when {
-            loading -> {
-                ShortcutScanProgressContent(
-                    progress = scanProgress,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            filteredCreateHosts.isEmpty() && filteredGroups.isEmpty() -> {
-                Text(
-                    text = stringResource(R.string.shortcut_kind_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
-                )
-            }
-            else -> {
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
-                ) {
-                    if (filteredCreateHosts.isNotEmpty()) {
-                        item(key = "header-create") {
-                            Md3PickerSectionHeader(stringResource(R.string.create_shortcut))
-                        }
-                        items(filteredCreateHosts.size, key = { filteredCreateHosts[it].qualifiedName }) { index ->
-                            val host = filteredCreateHosts[index]
-                            val app = apps.firstOrNull { it.packageName == host.packageName }
+    Column(modifier = listModifier) {
+        PickerSearchListHeader(
+            query = searchQuery,
+            onQueryChange = onSearchChange,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
+        ) {
+            if (loading) {
+                item(key = "loading") {
+                    ShortcutScanProgressContent(
+                        progress = scanProgress,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            } else if (filteredCreateHosts.isEmpty() && filteredGroups.isEmpty()) {
+                item(key = "empty") {
+                    Text(
+                        text = stringResource(R.string.shortcut_kind_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            } else {
+                if (filteredCreateHosts.isNotEmpty()) {
+                    item(key = "header-create") {
+                        Md3PickerSectionHeader(stringResource(R.string.create_shortcut))
+                    }
+                    items(filteredCreateHosts.size, key = { filteredCreateHosts[it].qualifiedName }) { index ->
+                        val host = filteredCreateHosts[index]
+                        val app = apps.firstOrNull { it.packageName == host.packageName }
+                        Md3PickerListRow(
+                            segmentIndex = index,
+                            segmentCount = filteredCreateHosts.size,
+                            title = host.label,
+                            subtitle = stringResource(R.string.create_shortcut_tap_hint),
+                            selected = false,
+                            onClick = {
+                                pendingCreateHost = host
+                                runCatching { createLauncher.launch(host.createIntent()) }
+                                    .onFailure { pendingCreateHost = null }
+                            },
+                            leadingContent = {
+                                if (app != null) {
+                                    Md3PickerAppLeading(app)
+                                } else {
+                                    Md3PickerIconLeading(
+                                        icon = Icons.AutoMirrored.Filled.Shortcut,
+                                        selected = false,
+                                    )
+                                }
+                            },
+                            trailingMode = PickerTrailingMode.Icon,
+                            trailingIcon = Icons.AutoMirrored.Filled.Shortcut,
+                            trailingIconDescription = stringResource(R.string.create_shortcut),
+                        )
+                    }
+                    item(key = "gap-create") { Spacer(modifier = Modifier.height(PickerListGroupSpacing)) }
+                }
+                if (filteredGroups.isNotEmpty()) {
+                    item(key = "header-launch") {
+                        Md3PickerSectionHeader(stringResource(R.string.launch_shortcut))
+                    }
+                    filteredGroups.forEach { group ->
+                        item(key = "header-${group.app.packageName}") {
                             Md3PickerListRow(
-                                segmentIndex = index,
-                                segmentCount = filteredCreateHosts.size,
-                                title = host.label,
-                                subtitle = stringResource(R.string.create_shortcut_tap_hint),
+                                segmentIndex = 0,
+                                segmentCount = 1,
+                                title = group.app.label,
+                                subtitle = group.app.packageName,
                                 selected = false,
-                                onClick = {
-                                    pendingCreateHost = host
-                                    runCatching { createLauncher.launch(host.createIntent()) }
-                                        .onFailure { pendingCreateHost = null }
-                                },
-                                leadingContent = {
-                                    if (app != null) {
-                                        Md3PickerAppLeading(app)
-                                    } else {
-                                        Md3PickerIconLeading(
-                                            icon = Icons.AutoMirrored.Filled.Shortcut,
-                                            selected = false,
-                                        )
-                                    }
-                                },
-                                trailingMode = PickerTrailingMode.Icon,
-                                trailingIcon = Icons.AutoMirrored.Filled.Shortcut,
-                                trailingIconDescription = stringResource(R.string.create_shortcut),
+                                onClick = null,
+                                enabled = false,
+                                leadingContent = { Md3PickerAppLeading(group.app) },
                             )
                         }
-                        item(key = "gap-create") { Spacer(modifier = Modifier.height(PickerListGroupSpacing)) }
-                    }
-                    if (filteredGroups.isNotEmpty()) {
-                        item(key = "header-launch") {
-                            Md3PickerSectionHeader(stringResource(R.string.launch_shortcut))
+                        items(
+                            count = group.shortcuts.size,
+                            key = { idx ->
+                                val shortcut = group.shortcuts[idx]
+                                "${group.app.packageName}:${shortcut.shortcutId ?: shortcut.label}"
+                            },
+                        ) { index ->
+                            val shortcut = group.shortcuts[index]
+                            val item = shortcut.toQuickLauncherItem(group.app.packageName)
+                            val added = QuickLauncherItemCodec.shortcutItemKey(item) in configuredShortcutKeys
+                            ShortcutCatalogRow(
+                                shortcut = shortcut,
+                                segmentIndex = index,
+                                segmentCount = group.shortcuts.size,
+                                added = added,
+                                onToggle = { onToggle(group.app, shortcut, added) },
+                            )
                         }
-                        filteredGroups.forEach { group ->
-                            item(key = "header-${group.app.packageName}") {
-                                Md3PickerListRow(
-                                    segmentIndex = 0,
-                                    segmentCount = 1,
-                                    title = group.app.label,
-                                    subtitle = group.app.packageName,
-                                    selected = false,
-                                    onClick = null,
-                                    enabled = false,
-                                    leadingContent = { Md3PickerAppLeading(group.app) },
-                                )
-                            }
-                            items(
-                                count = group.shortcuts.size,
-                                key = { idx ->
-                                    val shortcut = group.shortcuts[idx]
-                                    "${group.app.packageName}:${shortcut.shortcutId ?: shortcut.label}"
-                                },
-                            ) { index ->
-                                val shortcut = group.shortcuts[index]
-                                val item = shortcut.toQuickLauncherItem(group.app.packageName)
-                                val added = QuickLauncherItemCodec.shortcutItemKey(item) in configuredShortcutKeys
-                                ShortcutCatalogRow(
-                                    shortcut = shortcut,
-                                    segmentIndex = index,
-                                    segmentCount = group.shortcuts.size,
-                                    added = added,
-                                    onToggle = { onToggle(group.app, shortcut, added) },
-                                )
-                            }
-                            item(key = "gap-${group.app.packageName}") {
-                                Spacer(modifier = Modifier.height(PickerListGroupSpacing))
-                            }
+                        item(key = "gap-${group.app.packageName}") {
+                            Spacer(modifier = Modifier.height(PickerListGroupSpacing))
                         }
                     }
                 }

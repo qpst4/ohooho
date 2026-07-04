@@ -3,11 +3,10 @@ package com.slideindex.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,28 +20,27 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,10 +49,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
@@ -68,7 +65,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShellCommandPanelScreen(
     settings: AppSettings,
@@ -103,24 +100,20 @@ fun ShellCommandPanelScreen(
     }
     BackHandler(onBack = onBack)
 
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(R.string.shell_panel_title))
-                        Text(
-                            text = stringResource(R.string.shell_panel_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+            MediumFlexibleTopAppBar(
+                title = { SettingsAppBarTitle(stringResource(R.string.shell_panel_title)) },
+                subtitle = { Text(stringResource(R.string.shell_panel_subtitle)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
         floatingActionButton = {
@@ -180,7 +173,9 @@ fun ShellCommandPanelScreen(
             }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 contentPadding = PaddingValues(bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -231,10 +226,11 @@ fun ShellCommandPanelScreen(
         }
     }
 
-    if (showEditor) {
-        ShellCommandEditorDialog(
+    AnimatedFullScreenOverlay(visible = showEditor) {
+        ShellCommandEditorScreen(
             initial = editorTarget,
-            onDismiss = {
+            shizukuGranted = shizukuGranted,
+            onBack = {
                 showEditor = false
                 editorTarget = null
             },
@@ -264,12 +260,18 @@ fun ShellCommandPanelScreen(
         )
     }
 
-    resultDialog?.let { state ->
-        ShellResultDialog(
-            state = state,
-            onDismiss = { resultDialog = null },
-            onCopy = { copyToClipboard(context, state.output) },
-        )
+    AnimatedFullScreenOverlay(visible = resultDialog != null) {
+        resultDialog?.let { state ->
+            ShellResultScreen(
+                label = state.label,
+                command = state.command,
+                exitCode = state.exitCode,
+                output = state.output,
+                onBack = { resultDialog = null },
+                onCopy = { copyToClipboard(context, state.output) },
+            )
+        }
+    }
     }
 }
 
@@ -290,6 +292,7 @@ fun ShellCommandEntryCard(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShellStatusHeader(
     shizukuGranted: Boolean,
@@ -302,7 +305,7 @@ private fun ShellStatusHeader(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
     ) {
         Row(
             modifier = Modifier
@@ -323,8 +326,7 @@ private fun ShellStatusHeader(
                     } else {
                         stringResource(R.string.shell_panel_shizuku_inactive)
                     },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
                 )
             }
             if (!shizukuGranted) {
@@ -333,11 +335,10 @@ private fun ShellStatusHeader(
                 }
             } else {
                 if (restartingService) {
-                    CircularProgressIndicator(
+                    LoadingIndicator(
                         modifier = Modifier
                             .padding(end = 8.dp)
                             .size(18.dp),
-                        strokeWidth = 2.dp,
                     )
                 } else {
                     IconButton(onClick = onRestartService) {
@@ -353,6 +354,7 @@ private fun ShellStatusHeader(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShellCommandCard(
     item: ShellCommand,
@@ -366,9 +368,7 @@ private fun ShellCommandCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
-        shape = RoundedCornerShape(18.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        shape = MaterialTheme.shapes.large,
     ) {
         Row(
             modifier = Modifier
@@ -383,8 +383,7 @@ private fun ShellCommandCard(
             ) {
                 Text(
                     text = item.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmallEmphasized,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -399,11 +398,10 @@ private fun ShellCommandCard(
                 )
             }
             if (running) {
-                CircularProgressIndicator(
+                LoadingIndicator(
                     modifier = Modifier
                         .size(36.dp)
                         .padding(8.dp),
-                    strokeWidth = 2.dp,
                 )
             } else {
                 IconButton(onClick = onRun, enabled = enabled) {
@@ -426,69 +424,6 @@ private data class ShellResultDialogState(
     val exitCode: Int,
     val output: String,
 )
-
-@Composable
-private fun ShellResultDialog(
-    state: ShellResultDialogState,
-    onDismiss: () -> Unit,
-    onCopy: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        title = { Text(state.label) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                Text(
-                    text = state.command,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.shell_panel_exit_code, state.exitCode),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (state.exitCode == 0) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = state.output.ifBlank { stringResource(R.string.shell_panel_no_output) },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.combinedClickable(
-                        onClick = {},
-                        onLongClick = onCopy,
-                    ),
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.shell_panel_result_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onCopy) {
-                Text(stringResource(R.string.shell_panel_copy))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.shell_panel_close))
-            }
-        },
-    )
-}
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

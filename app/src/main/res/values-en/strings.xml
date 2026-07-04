@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">CeBian</string>
+    <string name="permissions_pending_title">Permissions pending</string>
+    <string name="search_clear">Clear search</string>
     <string name="service_notification_title">CeBian is running</string>
     <string name="service_notification_text">Swipe from the screen edge to open app index</string>
     <string name="permission_overlay_desc">Overlay permission is required to show CeBian panels at the screen edge</string>

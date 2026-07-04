@@ -11,20 +11,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SwipeRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.settings.AppSettings
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen(
     settings: AppSettings,
@@ -49,10 +52,65 @@ fun MainScreen(
     onThemeColorChange: (Int) -> Unit,
 ) {
     val permissionsReady = overlayGranted && notificationGranted
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val pendingPermissions = buildList {
+        if (!overlayGranted) {
+            add(
+                PendingPermissionItem(
+                    title = stringResource(R.string.permission_overlay_title),
+                    description = stringResource(R.string.permission_overlay_desc),
+                    grantLabel = stringResource(R.string.grant_permission),
+                    onGrant = onRequestOverlay,
+                ),
+            )
+        }
+        if (!notificationGranted) {
+            add(
+                PendingPermissionItem(
+                    title = stringResource(R.string.permission_notification_title),
+                    description = stringResource(R.string.permission_notification_desc),
+                    grantLabel = stringResource(R.string.grant_permission),
+                    onGrant = onRequestNotification,
+                ),
+            )
+        }
+        if (!shizukuGranted) {
+            add(
+                PendingPermissionItem(
+                    title = stringResource(R.string.permission_shizuku_title),
+                    description = stringResource(R.string.permission_shizuku_desc),
+                    grantLabel = stringResource(R.string.permission_shizuku_grant),
+                    onGrant = onRequestShizuku,
+                ),
+            )
+        }
+        if (!accessibilityGranted) {
+            add(
+                PendingPermissionItem(
+                    title = stringResource(R.string.permission_accessibility_title),
+                    description = stringResource(R.string.permission_accessibility_desc),
+                    grantLabel = stringResource(R.string.permission_accessibility_grant),
+                    onGrant = onRequestAccessibility,
+                ),
+            )
+        }
+    }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+            LargeFlexibleTopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineSmallEmphasized,
+                    )
+                },
+                subtitle = {
+                    Text(stringResource(R.string.main_settings_subtitle))
+                },
+                scrollBehavior = scrollBehavior,
+            )
         },
     ) { padding ->
         Column(
@@ -63,36 +121,7 @@ fun MainScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (!overlayGranted) {
-                PermissionCard(
-                    title = stringResource(R.string.permission_overlay_title),
-                    description = stringResource(R.string.permission_overlay_desc),
-                    onGrant = onRequestOverlay,
-                )
-            }
-            if (!notificationGranted) {
-                PermissionCard(
-                    title = stringResource(R.string.permission_notification_title),
-                    description = stringResource(R.string.permission_notification_desc),
-                    onGrant = onRequestNotification,
-                )
-            }
-            if (!shizukuGranted) {
-                PermissionCard(
-                    title = stringResource(R.string.permission_shizuku_title),
-                    description = stringResource(R.string.permission_shizuku_desc),
-                    onGrant = onRequestShizuku,
-                    grantLabel = stringResource(R.string.permission_shizuku_grant),
-                )
-            }
-            if (!accessibilityGranted) {
-                PermissionCard(
-                    title = stringResource(R.string.permission_accessibility_title),
-                    description = stringResource(R.string.permission_accessibility_desc),
-                    onGrant = onRequestAccessibility,
-                    grantLabel = stringResource(R.string.permission_accessibility_grant),
-                )
-            }
+            PendingPermissionsCard(items = pendingPermissions)
 
             if (permissionsReady) {
                 Text(

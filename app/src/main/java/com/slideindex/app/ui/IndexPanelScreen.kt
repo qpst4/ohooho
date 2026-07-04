@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,7 +46,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun IndexPanelScreen(
     side: PanelSide,
@@ -92,7 +93,7 @@ fun IndexPanelScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(stringResource(R.string.loading))
+                        LoadingContent(message = stringResource(R.string.loading))
                     }
                 }
                 searchQuery.isNotBlank() && flatApps.isEmpty() -> {
@@ -133,8 +134,14 @@ fun IndexPanelScreen(
                                 modifier = Modifier.fillMaxSize(),
                             ) {
                                 if (searchQuery.isNotBlank()) {
-                                    items(flatApps, key = { it.packageName }) { app ->
-                                        AppRow(app = app, onClick = { onAppClick(app) })
+                                    items(flatApps.size, key = { flatApps[it].packageName }) { index ->
+                                        val app = flatApps[index]
+                                        AppRow(
+                                            app = app,
+                                            segmentIndex = index,
+                                            segmentCount = flatApps.size,
+                                            onClick = { onAppClick(app) },
+                                        )
                                     }
                                 } else {
                                     items(items, key = { item ->
@@ -147,6 +154,8 @@ fun IndexPanelScreen(
                                             is AppListItem.Header -> SectionHeader(item.letter)
                                             is AppListItem.App -> AppRow(
                                                 app = item.info,
+                                                segmentIndex = 0,
+                                                segmentCount = 1,
                                                 onClick = { onAppClick(item.info) },
                                             )
                                         }
@@ -210,34 +219,18 @@ private fun SectionHeader(letter: Char) {
 @Composable
 private fun AppRow(
     app: AppInfo,
+    segmentIndex: Int,
+    segmentCount: Int,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val bitmap = remember(app.packageName) {
-            app.icon.toSafeImageBitmap(96)
-        }
-        Image(
-            bitmap = bitmap,
-            contentDescription = app.label,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(10.dp)),
-            contentScale = ContentScale.Crop,
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = app.label,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-        )
-    }
+    Md3PickerListRow(
+        segmentIndex = segmentIndex,
+        segmentCount = segmentCount,
+        title = app.label,
+        selected = false,
+        onClick = onClick,
+        leadingContent = { Md3PickerAppLeading(app) },
+    )
 }
 
 @Composable

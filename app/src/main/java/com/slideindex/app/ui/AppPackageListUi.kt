@@ -1,32 +1,11 @@
 package com.slideindex.app.ui
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.data.AppInfo
-import com.slideindex.app.util.toSafeImageBitmap
 
 sealed class AppPackageEntry {
     abstract val packageName: String
@@ -41,6 +20,8 @@ sealed class AppPackageEntry {
 @Composable
 fun AppPackageListRow(
     entry: AppPackageEntry,
+    segmentIndex: Int,
+    segmentCount: Int,
     actionIcon: ImageVector,
     actionDescription: String?,
     missingIcon: ImageVector,
@@ -50,92 +31,27 @@ fun AppPackageListRow(
     title: String? = null,
     subtitle: String? = null,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .then(
-                if (showAction) {
-                    Modifier.clickable(onClick = onAction)
-                } else {
-                    Modifier
-                },
-            )
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when (entry) {
-            is AppPackageEntry.Installed -> {
-                val bitmap = remember(entry.app.packageName) {
-                    entry.app.icon.toSafeImageBitmap(96)
-                }
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = entry.app.label,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop,
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title ?: entry.app.label,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                    )
-                    Text(
-                        text = subtitle ?: entry.app.packageName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-            }
-            is AppPackageEntry.Missing -> {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = missingIcon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title ?: entry.packageName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                    )
-                    if (subtitle != null) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    } else if (title == null) {
-                        Text(
-                            text = stringResource(R.string.app_package_uninstalled),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-        if (showAction) {
-            IconButton(onClick = onAction) {
-                Icon(
-                    imageVector = actionIcon,
-                    contentDescription = actionDescription,
-                )
-            }
-        }
+    val displayTitle = when (entry) {
+        is AppPackageEntry.Installed -> title ?: entry.app.label
+        is AppPackageEntry.Missing -> title ?: entry.packageName
     }
+    val displaySubtitle = when (entry) {
+        is AppPackageEntry.Installed -> subtitle ?: entry.app.packageName
+        is AppPackageEntry.Missing -> subtitle
+            ?: if (title == null) stringResource(R.string.app_package_uninstalled) else null
+    }
+    Md3PickerListRow(
+        segmentIndex = segmentIndex,
+        segmentCount = segmentCount,
+        title = displayTitle,
+        subtitle = displaySubtitle,
+        selected = false,
+        onClick = if (showAction) onAction else null,
+        modifier = modifier,
+        leadingContent = { Md3PickerAppEntryLeading(entry = entry, missingIcon = missingIcon) },
+        trailingMode = if (showAction) PickerTrailingMode.Icon else PickerTrailingMode.None,
+        trailingIcon = if (showAction) actionIcon else null,
+        trailingIconDescription = actionDescription,
+        onTrailingClick = if (showAction) onAction else null,
+    )
 }

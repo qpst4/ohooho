@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -93,7 +93,6 @@ fun TriggerAppearanceSettingsScreen(
                 onLayoutPreviewStop = onLayoutPreviewStop,
                 onValueChange = onEdgeWidthChange,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsRangeSliderRow(
                 title = stringResource(R.string.handle_length),
                 values = selectedHandle.topFraction..selectedHandle.bottomFraction,
@@ -108,7 +107,6 @@ fun TriggerAppearanceSettingsScreen(
                     onTriggerVerticalRangeChange(handleId, range.start, range.endInclusive)
                 },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsSliderRow(
                 title = stringResource(R.string.short_swipe_distance),
                 value = settings.shortSwipeDistanceDp,
@@ -139,7 +137,6 @@ fun TriggerAppearanceSettingsScreen(
                 onLayoutPreviewStop = onLayoutPreviewStop,
                 onValueChange = onLongSwipeDistanceChange,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingSwitchRow(
                 title = stringResource(R.string.align_handles),
                 subtitle = stringResource(R.string.align_handles_desc),
@@ -164,7 +161,7 @@ fun TriggerAppearanceSettingsScreen(
         }
 
         SettingsSectionTitle(stringResource(R.string.gesture_hint_style_title))
-        SettingsCard {
+        SettingsRadioGroup {
             SettingSwitchRow(
                 title = stringResource(R.string.gesture_hint_enabled),
                 subtitle = stringResource(R.string.gesture_hint_enabled_desc),
@@ -173,7 +170,6 @@ fun TriggerAppearanceSettingsScreen(
                 onCheckedChange = onGestureHintEnabledChange,
             )
             if (settings.gestureHintEnabled) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 GestureHintStyle.entries.forEach { style ->
                     GestureHintStyleRow(
                         style = style,
@@ -188,6 +184,7 @@ fun TriggerAppearanceSettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun GestureHintStyleRow(
     style: GestureHintStyle,
@@ -214,39 +211,49 @@ internal fun GestureHintStyleRow(
     } else {
         MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, borderColor, RoundedCornerShape(10.dp)),
-        ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                GestureHintRenderer.drawStyleIcon(
-                    canvas = drawContext.canvas.nativeCanvas,
-                    style = style,
-                    boxSizePx = size.minDimension,
-                    density = density.density,
-                    themeColor = themeColorArgb,
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            selected = selected,
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = pickerSegmentedColors(),
+            leadingContent = {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, borderColor, RoundedCornerShape(10.dp)),
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        GestureHintRenderer.drawStyleIcon(
+                            canvas = drawContext.canvas.nativeCanvas,
+                            style = style,
+                            boxSizePx = size.minDimension,
+                            density = density.density,
+                            themeColor = themeColorArgb,
+                        )
+                    }
+                }
+            },
+            trailingContent = {
+                androidx.compose.material3.RadioButton(
+                    selected = selected,
+                    onClick = null,
                 )
-            }
-        }
-        Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        RadioButton(selected = selected, onClick = onClick, enabled = enabled)
+            },
+            content = {
+                Text(text = title, style = MaterialTheme.typography.titleMedium)
+            },
+            supportingContent = {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+        )
     }
 }
 

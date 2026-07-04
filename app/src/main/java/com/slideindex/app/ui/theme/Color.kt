@@ -19,15 +19,17 @@ fun expressiveLightColorScheme(seed: Color) = lightColorScheme(
     secondary = PurpleGrey40,
     surface = SurfaceLight,
     onSurface = Color(0xFF1C1B1F),
+    // Stronger surface-container steps so SegmentedListItem / cards read clearly on
+    // surface in light mode (parity with dark theme elevation contrast).
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF7F2FA),
-    surfaceContainer = Color(0xFFF3EDF7),
-    surfaceContainerHigh = Color(0xFFECE6F0),
-    surfaceContainerHighest = Color(0xFFE6E0E9),
-    surfaceVariant = Color(0xFFE7E0EC),
+    surfaceContainerLow = Color(0xFFF2ECF6),
+    surfaceContainer = Color(0xFFE8E2EC),
+    surfaceContainerHigh = Color(0xFFDED8E2),
+    surfaceContainerHighest = Color(0xFFD4CED8),
+    surfaceVariant = Color(0xFFDDD6E2),
     onSurfaceVariant = Color(0xFF49454F),
     outline = Color(0xFF79747E),
-    outlineVariant = Color(0xFFCAC4D0),
+    outlineVariant = Color(0xFFB8B2BE),
 )
 
 fun expressiveDarkColorScheme(seed: Color) = darkColorScheme(

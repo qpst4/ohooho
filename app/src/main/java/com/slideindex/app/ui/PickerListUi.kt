@@ -8,20 +8,24 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -49,7 +53,17 @@ enum class PickerTrailingMode {
 }
 
 @Composable
-internal fun pickerSegmentedColors() = ListItemDefaults.segmentedColors()
+internal fun settingsSegmentedColors() = ListItemDefaults.segmentedColors(
+    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    // Settings switches use `checked` for state — keep the row neutral; the Switch shows on/off.
+    selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+)
+
+@Composable
+internal fun pickerSegmentedColors() = ListItemDefaults.segmentedColors(
+    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+)
 
 @Composable
 internal fun pickerSegmentedShapes(index: Int, count: Int) =
@@ -58,12 +72,33 @@ internal fun pickerSegmentedShapes(index: Int, count: Int) =
 @Composable
 internal fun pickerListSegmentedGap() = ListItemDefaults.SegmentedGap
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PickerSearchListHeader(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        SearchBar(
+            query = query,
+            onQueryChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PickerListHorizontalPadding, vertical = 8.dp),
+        )
+    }
+}
+
 @Composable
 fun Md3PickerSectionHeader(title: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMediumEmphasized,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
         )
@@ -192,9 +227,14 @@ fun Md3PickerIconLeading(
     selected: Boolean,
     contentDescription: String? = null,
 ) {
+    val containerShape = if (selected) {
+        MaterialShapes.Cookie9Sided.toShape()
+    } else {
+        MaterialTheme.shapes.small
+    }
     Surface(
         modifier = Modifier.size(40.dp),
-        shape = MaterialTheme.shapes.small,
+        shape = containerShape,
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {

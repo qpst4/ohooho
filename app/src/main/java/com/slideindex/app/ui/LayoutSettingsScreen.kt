@@ -6,9 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
@@ -55,7 +53,6 @@ fun LayoutSettingsScreen(
                 onLayoutPreviewStop = onLayoutPreviewStop,
                 onValueChange = onIndexHeightChange,
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsSliderRow(
                 title = stringResource(R.string.apps_per_row),
                 value = settings.appsPerRow.toFloat(),
@@ -65,7 +62,6 @@ fun LayoutSettingsScreen(
                 label = "${settings.appsPerRow} 列",
                 onValueChange = { onAppsPerRowChange(it.roundToInt()) },
             )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             SettingsSliderRow(
                 title = stringResource(R.string.panel_opacity),
                 value = settings.panelOpacity,
@@ -148,7 +144,6 @@ fun QuickLauncherLayoutSettings(
             ),
             onValueChange = { onColumnsChange(it.roundToInt()) },
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         SettingsSliderRow(
             title = stringResource(R.string.quick_launcher_grid_rows),
             value = settings.quickLauncherRowsPerPage.toFloat(),

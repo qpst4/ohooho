@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
 package com.slideindex.app
 
 import android.Manifest
@@ -9,10 +11,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.IntOffset
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
@@ -79,7 +91,24 @@ class MainActivity : ComponentActivity() {
             SlideIndexTheme(
                 seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
             ) {
-                when (destination) {
+                val motionScheme = MaterialTheme.motionScheme
+                AnimatedContent(
+                    targetState = destination,
+                    transitionSpec = {
+                        val spatialSpec = motionScheme.defaultSpatialSpec<IntOffset>()
+                        val effectsSpec = motionScheme.defaultEffectsSpec<Float>()
+                        val forward = targetState.ordinal >= initialState.ordinal
+                        val enter = slideInHorizontally(spatialSpec) { width ->
+                            if (forward) width / 4 else -width / 4
+                        } + fadeIn(effectsSpec)
+                        val exit = slideOutHorizontally(spatialSpec) { width ->
+                            if (forward) -width / 4 else width / 4
+                        } + fadeOut(effectsSpec)
+                        enter.togetherWith(exit)
+                    },
+                    label = "settings_destination",
+                ) { currentDestination ->
+                    when (currentDestination) {
                     SettingsDestination.Main -> MainScreen(
                         settings = settings,
                         overlayGranted = overlayGranted,
@@ -87,7 +116,7 @@ class MainActivity : ComponentActivity() {
                         shizukuGranted = shizukuGranted,
                         accessibilityGranted = accessibilityGranted,
                         onRequestOverlay = {
-                            startActivity(PermissionHelper.overlaySettingsIntent(this))
+                            startActivity(PermissionHelper.overlaySettingsIntent(this@MainActivity))
                         },
                         onRequestNotification = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -447,6 +476,7 @@ class MainActivity : ComponentActivity() {
                             TaskManagerUtil.requestPermission()
                         },
                     )
+                    }
                 }
             }
         }

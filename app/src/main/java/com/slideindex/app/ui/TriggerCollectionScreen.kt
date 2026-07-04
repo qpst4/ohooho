@@ -2,7 +2,6 @@ package com.slideindex.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,13 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.SwipeRight
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,6 +42,7 @@ import com.slideindex.app.gesture.sideTriggerPairs
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TriggerCollectionScreen(
     settings: AppSettings,
@@ -65,28 +66,33 @@ fun TriggerCollectionScreen(
         subtitle = stringResource(R.string.trigger_collection_desc),
         onBack = onBack,
     ) {
-        SettingsCard {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { sideExpanded = !sideExpanded }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.trigger_collection_side),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = if (sideExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            AnimatedVisibility(visible = sideExpanded) {
-                Column {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsCard {
+                RegisterSettingsSegment { segmentIndex, segmentCount ->
+                    SegmentedListItem(
+                        onClick = { sideExpanded = !sideExpanded },
+                        shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+                        colors = pickerSegmentedColors(),
+                        trailingContent = {
+                            Icon(
+                                imageVector = if (sideExpanded) {
+                                    Icons.Default.ExpandLess
+                                } else {
+                                    Icons.Default.ExpandMore
+                                },
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        content = {
+                            Text(
+                                text = stringResource(R.string.trigger_collection_side),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        },
+                    )
+                }
+                AnimatedVisibility(visible = sideExpanded) {
                     pairs.forEachIndexed { pairIndex, pair ->
                         val dotColor = pairColors.getOrElse(pairIndex) { pairColors.last() }
                         val pairLabel = if (pairs.size > 1) {
@@ -116,33 +122,33 @@ fun TriggerCollectionScreen(
                             enabled = serviceEnabled && (pair.right?.enabled != false),
                             onClick = { onOpenRightTrigger(pair.handleId) },
                         )
-                        if (pairIndex < pairs.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                            )
-                        } else if (pairs.size > 1) {
-                            TextButton(
-                                onClick = { onRemoveTriggerPair(pair.handleId) },
-                                enabled = serviceEnabled,
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                            ) {
-                                Text(stringResource(R.string.trigger_remove_pair))
-                            }
+                    }
+                }
+            }
+            AnimatedVisibility(visible = sideExpanded) {
+                Column {
+                    if (pairs.size > 1) {
+                        TextButton(
+                            onClick = { onRemoveTriggerPair(pairs.last().handleId) },
+                            enabled = serviceEnabled,
+                            modifier = Modifier.padding(horizontal = 4.dp),
+                        ) {
+                            Text(stringResource(R.string.trigger_remove_pair))
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     TextButton(
                         onClick = onAddTriggerPair,
                         enabled = serviceEnabled && pairs.size < TriggerHandle.MAX_HANDLES,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 4.dp),
                     ) {
                         Text(stringResource(R.string.trigger_handles_add))
                     }
                     if (pairs.size >= TriggerHandle.MAX_HANDLES) {
-                        SettingsHintText(stringResource(R.string.trigger_handles_max, TriggerHandle.MAX_HANDLES))
+                        SettingsHintText(
+                            stringResource(R.string.trigger_handles_max, TriggerHandle.MAX_HANDLES),
+                        )
                     }
                 }
             }
@@ -150,6 +156,7 @@ fun TriggerCollectionScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun TriggerSideRow(
     side: PanelSide,
@@ -160,52 +167,63 @@ private fun TriggerSideRow(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(dotColor),
-        )
-        Icon(
-            imageVector = Icons.Default.SwipeRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = if (side == PanelSide.RIGHT) {
-                Modifier.graphicsLayer { scaleX = -1f }
-            } else {
-                Modifier
-            },
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
-                if (pairLabel != null) {
-                    Text(
-                        text = pairLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = pickerSegmentedColors(),
+            leadingContent = {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(dotColor),
+                    )
+                    Icon(
+                        imageVector = Icons.Default.SwipeRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = if (side == PanelSide.RIGHT) {
+                            Modifier.graphicsLayer { scaleX = -1f }
+                        } else {
+                            Modifier
+                        },
                     )
                 }
-            }
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-            )
-        }
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            },
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            content = {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    if (pairLabel != null) {
+                        Text(
+                            text = pairLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            supportingContent = {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                )
+            },
         )
     }
 }

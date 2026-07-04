@@ -1,15 +1,16 @@
 package com.slideindex.app.ui
 
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -19,6 +20,7 @@ import com.slideindex.app.R
 import com.slideindex.app.util.ShortcutScanPhase
 import com.slideindex.app.util.ShortcutScanProgress
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ShortcutScanProgressContent(
     progress: ShortcutScanProgress?,
@@ -30,14 +32,14 @@ fun ShortcutScanProgressContent(
     ) {
         val fraction = progress?.fraction
         if (fraction != null) {
-            LinearProgressIndicator(
+            LinearWavyProgressIndicator(
                 progress = { fraction.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
             )
         } else {
-            CircularProgressIndicator(modifier = Modifier.padding(4.dp))
+            LoadingIndicator(modifier = Modifier.padding(4.dp))
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text(
