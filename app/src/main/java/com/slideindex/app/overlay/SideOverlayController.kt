@@ -159,6 +159,10 @@ class SideOverlayController(
             onShellPanelFocusChange = { focusable -> setPresentationFocusable(focusable) },
             onOverlayWindowSuspend = { suspendEdgeOverlay() },
             onOverlayWindowResume = { resumeEdgeOverlay() },
+            onOverlayPresentationSuspend = { suspendPresentationForShellPanelActivity() },
+            onOverlayPresentationResume = { resumePresentationIfNeeded() },
+            onShellPanelAuxiliaryPrepare = { suspendEdgeOverlay() },
+            onShellPanelAuxiliaryDismiss = { resumeEdgeOverlay() },
             overlayBrightness = OverlayBrightnessControl { fraction ->
                 applyOverlayWindowBrightness(fraction)
             },
@@ -238,6 +242,20 @@ class SideOverlayController(
         edgeOverlayDetached = true
     }
 
+    /** Detach presentation only so a shell-panel Activity stays visible while edge capture remains. */
+    fun suspendPresentationForShellPanelActivity() {
+        detachPresentationWindow()
+    }
+
+    fun resumePresentationIfNeeded() {
+        if (edgeOverlayDetached) return
+        val view = presentationView ?: return
+        if (previewMode || view.isSessionActive() || view.keepsOverlayExpanded()) {
+            ensurePresentationAttached()
+        }
+        syncPresentationTouchState()
+    }
+
     fun resumeEdgeOverlay() {
         if (!edgeOverlayDetached) return
         if (touchCaptureWindows.isEmpty()) return
@@ -309,8 +327,20 @@ class SideOverlayController(
         val root = presentationRoot() ?: return
         val params = presentationParams ?: return
         if (content.presentationShouldPassthroughTouches()) {
-            detachPresentationWindow()
+            if (content.needsPresentationDirectTouch()) {
+                if (!presentationAttached) {
+                    ensurePresentationAttached()
+                } else {
+                    applyFullScreenPresentationLayout(params)
+                    applyPresentationPassthroughFlags(params)
+                    runCatching { windowManager.updateViewLayout(root, params) }
+                        .onFailure { Log.e(TAG, "Failed to sync presentation passthrough", it) }
+                }
+            } else if (presentationAttached) {
+                detachPresentationWindow()
+            }
             syncCaptureWindows(content)
+            content.syncOverlayDialogZOrder()
             return
         }
         if (!presentationAttached) {

@@ -1,12 +1,11 @@
 package com.slideindex.app.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +40,81 @@ private data class ShellTestResultState(
     val exitCode: Int,
     val output: String,
 )
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun ShellCommandEditorActionsRow(
+    canSave: Boolean,
+    canTest: Boolean,
+    testing: Boolean,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    onTest: (() -> Unit)? = null,
+    saveAsConfirm: Boolean = false,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.shell_panel_delete),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            if (onTest != null) {
+                if (testing) {
+                    LoadingIndicator(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .size(20.dp),
+                    )
+                } else {
+                    TextButton(
+                        enabled = canTest,
+                        onClick = onTest,
+                    ) {
+                        Text(stringResource(R.string.shell_panel_test))
+                    }
+                }
+            }
+        }
+        TextButton(onClick = onCancel) {
+            Text(
+                if (saveAsConfirm) {
+                    stringResource(R.string.cancel)
+                } else {
+                    stringResource(R.string.shell_panel_cancel)
+                },
+            )
+        }
+        if (saveAsConfirm) {
+            Button(
+                onClick = onSave,
+                enabled = canSave,
+                modifier = Modifier.padding(start = 8.dp),
+            ) {
+                Text(stringResource(R.string.confirm))
+            }
+        } else {
+            TextButton(
+                enabled = canSave,
+                onClick = onSave,
+            ) {
+                Text(stringResource(R.string.shell_panel_save))
+            }
+        }
+    }
+}
 
 @Composable
 private fun ShellCommandEditorFields(
@@ -103,11 +177,9 @@ fun ShellCommandEditorScreen(
         stringResource(R.string.shell_panel_edit)
     }
 
-    SettingsFormScreen(
+    SettingsScreenScaffold(
         title = title,
         onBack = onBack,
-        onConfirm = { onSave(buildDraft()) },
-        confirmEnabled = canSave,
     ) {
         ShellCommandEditorFields(
             label = label,
@@ -153,44 +225,25 @@ fun ShellCommandEditorScreen(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (onDelete != null) {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.shell_panel_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-            if (onTest != null) {
-                if (testing) {
-                    LoadingIndicator(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .size(20.dp),
-                    )
-                } else {
-                    TextButton(
-                        enabled = canTest,
-                        onClick = {
-                            testing = true
-                            testResult = null
-                            onTest.invoke(buildDraft()) { exitCode, output ->
-                                testing = false
-                                testResult = ShellTestResultState(exitCode, output)
-                            }
-                        },
-                    ) {
-                        Text(stringResource(R.string.shell_panel_test))
+        ShellCommandEditorActionsRow(
+            canSave = canSave,
+            canTest = canTest,
+            testing = testing,
+            onCancel = onBack,
+            onSave = { onSave(buildDraft()) },
+            onDelete = onDelete,
+            onTest = onTest?.let { test ->
+                {
+                    testing = true
+                    testResult = null
+                    test.invoke(buildDraft()) { exitCode, output ->
+                        testing = false
+                        testResult = ShellTestResultState(exitCode, output)
                     }
                 }
-            }
-        }
+            },
+            saveAsConfirm = true,
+        )
     }
 }
 
@@ -256,6 +309,83 @@ fun ShellResultScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun ShellCommandResultOverlaySheet(
+    label: String,
+    command: String,
+    exitCode: Int,
+    output: String,
+    onDismissComplete: () -> Unit,
+    onCopy: () -> Unit,
+    onWindowReady: (() -> Unit)? = null,
+    registerBackHandler: ((() -> Unit) -> Unit)? = null,
+) {
+    OverlayAnimatedDialogContent(
+        onDismissComplete = onDismissComplete,
+        onWindowReady = onWindowReady,
+        registerBackHandler = registerBackHandler,
+    ) { requestDismiss ->
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .fillMaxWidth()
+                .heightIn(max = 520.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(text = label, style = MaterialTheme.typography.titleLargeEmphasized)
+                Text(
+                    text = command,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.shell_panel_exit_code, exitCode),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (exitCode == 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+                val scrollState = rememberScrollState()
+                Text(
+                    text = output.ifBlank { stringResource(R.string.shell_panel_no_output) },
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(scrollState),
+                )
+                Text(
+                    text = stringResource(R.string.shell_panel_result_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onCopy) {
+                        Text(stringResource(R.string.shell_panel_copy))
+                    }
+                    TextButton(onClick = requestDismiss) {
+                        Text(stringResource(R.string.shell_panel_close))
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ShellCommandEditorDialog(
     initial: ShellCommand?,
@@ -284,21 +414,18 @@ fun ShellCommandEditorOverlaySheet(
     onDelete: (() -> Unit)? = null,
     shizukuGranted: Boolean = true,
     onTest: ((ShellCommand, (Int, String) -> Unit) -> Unit)? = null,
+    onWindowReady: (() -> Unit)? = null,
     registerBackHandler: ((() -> Unit) -> Unit)? = null,
 ) {
     OverlayAnimatedDialogContent(
         onDismissComplete = onDismissComplete,
+        onWindowReady = onWindowReady,
         registerBackHandler = registerBackHandler,
     ) { requestDismiss ->
         Surface(
             modifier = Modifier
                 .padding(horizontal = 24.dp)
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                ),
+                .fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 6.dp,
@@ -404,52 +531,23 @@ private fun ShellCommandEditorOverlayBody(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (onDelete != null) {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.shell_panel_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-            if (onTest != null) {
-                if (testing) {
-                    LoadingIndicator(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .size(20.dp),
-                    )
-                } else {
-                    TextButton(
-                        enabled = canTest,
-                        onClick = {
-                            testing = true
-                            testResult = null
-                            onTest.invoke(buildDraft()) { exitCode, output ->
-                                testing = false
-                                testResult = ShellTestResultState(exitCode, output)
-                            }
-                        },
-                    ) {
-                        Text(stringResource(R.string.shell_panel_test))
+        ShellCommandEditorActionsRow(
+            canSave = canSave,
+            canTest = canTest,
+            testing = testing,
+            onCancel = onDismiss,
+            onSave = { onSave(buildDraft()) },
+            onDelete = onDelete,
+            onTest = onTest?.let { test ->
+                {
+                    testing = true
+                    testResult = null
+                    test.invoke(buildDraft()) { exitCode, output ->
+                        testing = false
+                        testResult = ShellTestResultState(exitCode, output)
                     }
                 }
-            }
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.shell_panel_cancel))
-            }
-            TextButton(
-                enabled = canSave,
-                onClick = { onSave(buildDraft()) },
-            ) {
-                Text(stringResource(R.string.shell_panel_save))
-            }
-        }
+            },
+        )
     }
 }

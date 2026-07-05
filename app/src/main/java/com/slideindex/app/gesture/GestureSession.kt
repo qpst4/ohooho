@@ -34,6 +34,10 @@ class GestureSession(
 
         fun onSessionStart(mode: OverlayPanelMode)
 
+        fun onOpenShellCommandPanel(continuousPick: Boolean)
+
+        fun onShellCommandPanelContinuousRelease()
+
         fun onShowAdjustPanel(
             mode: ContinuousAdjustController.Mode,
             fraction: Float,
@@ -173,6 +177,10 @@ class GestureSession(
     private var shellCommandContinuousPick = false
 
     fun shellCommandContinuousPickActive(): Boolean = shellCommandContinuousPick
+
+    fun clearShellContinuousPick() {
+        shellCommandContinuousPick = false
+    }
 
     fun adjustAnchorRawY(): Float = adjustLayoutAnchorRawY
 
@@ -349,6 +357,13 @@ class GestureSession(
             OverlayPanelMode.SHELL_COMMANDS -> Unit
 
             OverlayPanelMode.NONE -> {
+
+                if (shellCommandContinuousPick) {
+                    shellCommandContinuousPick = false
+                    callbacks.onShellCommandPanelContinuousRelease()
+                    endSession()
+                    return
+                }
 
                 if (adjustMode != null) {
                     val mode = adjustMode!!
@@ -597,9 +612,9 @@ class GestureSession(
             }
 
             GestureAction.ShellCommandPanel -> {
-                if (panelMode != OverlayPanelMode.SHELL_COMMANDS) {
+                if (!shellCommandContinuousPick) {
                     shellCommandContinuousPick = true
-                    openPanel(OverlayPanelMode.SHELL_COMMANDS)
+                    callbacks.onOpenShellCommandPanel(continuousPick = true)
                 }
             }
 
@@ -703,7 +718,7 @@ class GestureSession(
             is GestureAction.ShellCommandPanel -> {
                 shellCommandContinuousPick = false
                 callbacks.hapticConfirmLaunch()
-                openPanel(OverlayPanelMode.SHELL_COMMANDS)
+                callbacks.onOpenShellCommandPanel(continuousPick = false)
             }
 
             is GestureAction.TaskSwitcher -> {
@@ -821,7 +836,7 @@ class GestureSession(
             GestureAction.ShellCommandPanel -> {
                 shellCommandContinuousPick = false
                 callbacks.hapticConfirmLaunch()
-                openPanel(OverlayPanelMode.SHELL_COMMANDS)
+                callbacks.onOpenShellCommandPanel(continuousPick = false)
                 return false
             }
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> {

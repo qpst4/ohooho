@@ -190,7 +190,25 @@ class OverlayComposeDialogHost(
 
             windowManager.addView(view, params)
 
+            view.requestFocus()
+
         }.onFailure { error -> Log.e(TAG, "Failed to bring overlay dialog to front", error) }
+
+    }
+
+
+
+    fun requestFocus() {
+
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+
+            mainHandler.post { requestFocus() }
+
+            return
+
+        }
+
+        composeView?.requestFocus()
 
     }
 
@@ -313,7 +331,8 @@ class OverlayComposeDialogHost(
             OverlayWindowTypes.overlayWindowType(host),
 
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
 
             PixelFormat.TRANSLUCENT,
 

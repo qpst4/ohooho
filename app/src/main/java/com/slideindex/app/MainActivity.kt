@@ -33,6 +33,9 @@ import com.slideindex.app.gesture.TriggerHandle
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.service.QuickLauncherAddTrampoline
+import com.slideindex.app.service.ShellCommandEditorTrampoline
+import com.slideindex.app.service.ShellCommandPanelTrampoline
+import com.slideindex.app.service.ShellCommandResultTrampoline
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.AppKeepAliveSettingsScreen
 import com.slideindex.app.ui.ExcludedAppsScreen
@@ -661,7 +664,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
-        if (!QuickLauncherAddTrampoline.isActive()) {
+        if (!QuickLauncherAddTrampoline.isActive() &&
+            !ShellCommandPanelTrampoline.isActive() &&
+            !ShellCommandEditorTrampoline.isActive() &&
+            !ShellCommandResultTrampoline.isActive()
+        ) {
             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
         }
         super.onPause()

@@ -294,7 +294,7 @@ fun ShellCommandEntryCard(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShellStatusHeader(
+internal fun ShellStatusHeader(
     shizukuGranted: Boolean,
     restartingService: Boolean = false,
     onRequestShizuku: () -> Unit,
@@ -356,7 +356,7 @@ private fun ShellStatusHeader(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShellCommandCard(
+internal fun ShellCommandCard(
     item: ShellCommand,
     running: Boolean,
     enabled: Boolean,

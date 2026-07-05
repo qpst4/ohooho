@@ -50,13 +50,15 @@ import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.shell.ShellCommand
-import com.slideindex.app.ui.ShellCommandEditorOverlaySheet
 import com.slideindex.app.settings.effectiveLongPressDurationMs
 import com.slideindex.app.settings.resolvedLaunchPolicy
 import com.slideindex.app.overlay.animation.GestureAnimationOverlayRegistry
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.service.CreateShortcutTrampoline
 import com.slideindex.app.service.QuickLauncherAddTrampoline
+import com.slideindex.app.service.ShellCommandEditorTrampoline
+import com.slideindex.app.service.ShellCommandPanelTrampoline
+import com.slideindex.app.service.ShellCommandResultTrampoline
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.HapticHelper
@@ -94,6 +96,10 @@ class EdgeGestureOverlayView(
     private val onShellPanelFocusChange: (Boolean) -> Unit = {},
     private val onOverlayWindowSuspend: () -> Unit = {},
     private val onOverlayWindowResume: () -> Unit = {},
+    private val onOverlayPresentationSuspend: () -> Unit = {},
+    private val onOverlayPresentationResume: () -> Unit = {},
+    private val onShellPanelAuxiliaryPrepare: () -> Unit = {},
+    private val onShellPanelAuxiliaryDismiss: () -> Unit = {},
     overlayBrightness: OverlayBrightnessControl? = null,
 ) : View(context), IndexSessionHost, GestureSession.Callbacks {
 
@@ -141,17 +147,16 @@ class EdgeGestureOverlayView(
         actionExecutor = actionExecutor,
         callbacks = this,
     )
-    private val shellOverlayDialogHost = OverlayComposeDialogHost(
-        context = context,
-        themeSeedArgb = { settings.themeColorArgb },
-        dynamicColor = { settings.dynamicColorEnabled },
-    )
     private val shellPanelController = ShellCommandPanelController(
         object : ShellCommandPanelController.Host {
             override val context: Context get() = this@EdgeGestureOverlayView.context
             override fun settings(): AppSettings = settings
-            override fun isDialogShowing(): Boolean = shellOverlayDialogHost.isShowing
-            override fun dismissDialogs() = shellOverlayDialogHost.dismiss()
+            override fun isDialogShowing(): Boolean =
+                ShellCommandEditorTrampoline.isActive() || ShellCommandResultTrampoline.isActive()
+            override fun dismissDialogs() {
+                ShellCommandEditorTrampoline.closeIfActive()
+                ShellCommandResultTrampoline.closeIfActive()
+            }
             override fun requestEndSession() = endShellPanelSessionAnimated()
             override fun showEditorDialog(
                 existing: ShellCommand?,
@@ -161,26 +166,45 @@ class EdgeGestureOverlayView(
                 onDelete: (() -> Unit)?,
                 onTest: (ShellCommand, (Int, String) -> Unit) -> Unit,
             ) {
-                var animatedDismiss: (() -> Unit)? = null
-                shellOverlayDialogHost.show(onBackPressed = {
-                    animatedDismiss?.invoke()
-                    true
-                }) {
-                    ShellCommandEditorOverlaySheet(
-                        onDismissComplete = {
-                            shellOverlayDialogHost.dismiss()
-                            onDismissComplete()
-                            syncShellPanelInputFocus()
-                        },
-                        initial = existing,
-                        shizukuGranted = shizukuGranted,
-                        onSave = onSave,
-                        onDelete = onDelete,
-                        onTest = onTest,
-                        registerBackHandler = { animatedDismiss = it },
-                    )
-                }
-                syncShellPanelInputFocus()
+                ShellCommandEditorTrampoline.launch(
+                    context = context,
+                    existing = existing,
+                    shizukuGranted = shizukuGranted,
+                    onPrepare = { prepareShellPanelAuxiliaryUi() },
+                    onDismiss = {
+                        onShellPanelAuxiliaryDismiss()
+                        onDismissComplete()
+                        notifyPresentationTouchRequirementChanged()
+                        syncShellPanelInputFocus()
+                    },
+                    onSave = onSave,
+                    onDelete = onDelete,
+                )
+                invalidate()
+            }
+            override fun showResultDialog(
+                label: String,
+                command: String,
+                exitCode: Int,
+                output: String,
+                onDismissComplete: () -> Unit,
+            ) {
+                ShellCommandResultTrampoline.launch(
+                    context = context,
+                    result = ShellCommandResultTrampoline.Payload(
+                        label = label,
+                        command = command,
+                        exitCode = exitCode,
+                        output = output,
+                    ),
+                    onPrepare = { prepareShellPanelAuxiliaryUi() },
+                    onDismiss = {
+                        onShellPanelAuxiliaryDismiss()
+                        onDismissComplete()
+                        notifyPresentationTouchRequirementChanged()
+                        syncShellPanelInputFocus()
+                    },
+                )
                 invalidate()
             }
             override fun viewWidth(): Int = width
@@ -196,18 +220,8 @@ class EdgeGestureOverlayView(
             override fun post(action: () -> Unit) {
                 this@EdgeGestureOverlayView.post(action)
             }
-            override fun postDelayed(delayMs: Long, action: () -> Unit) {
-                this@EdgeGestureOverlayView.postDelayed(action, delayMs)
-            }
-            override fun postDelayedRunnable(delayMs: Long, runnable: Runnable) {
-                this@EdgeGestureOverlayView.postDelayed(runnable, delayMs)
-            }
-            override fun removeCallbacks(runnable: Runnable) {
-                this@EdgeGestureOverlayView.removeCallbacks(runnable)
-            }
             override fun hapticTick() = HapticHelper.appTick(this@EdgeGestureOverlayView, settings)
             override fun hapticConfirm() = HapticHelper.confirmLaunch(this@EdgeGestureOverlayView, settings)
-            override fun endSession() = gestureSession.endSession()
             override fun onPersist(commands: List<ShellCommand>) {
                 onShellCommandsPersist(commands)
             }
@@ -466,23 +480,31 @@ class EdgeGestureOverlayView(
         if (previewMode) return false
         if (adjustPanelState != null) return true
         if (gestureSession.panelMode() != OverlayPanelMode.NONE) return true
-        if (quickLauncherOverlayDialogHost.isShowing || shellOverlayDialogHost.isShowing) return true
+        if (quickLauncherOverlayDialogHost.isShowing ||
+            ShellCommandEditorTrampoline.isActive() ||
+            ShellCommandResultTrampoline.isActive()
+        ) return true
         return false
     }
 
     /** Keep the presentation layer touch-passthrough while a compose overlay dialog is on top. */
     fun presentationShouldPassthroughTouches(): Boolean =
-        quickLauncherOverlayDialogHost.isShowing || shellOverlayDialogHost.isShowing
+        QuickLauncherAddTrampoline.isActive() ||
+            ShellCommandEditorTrampoline.isActive() ||
+            ShellCommandResultTrampoline.isActive() ||
+            quickLauncherOverlayDialogHost.isShowing
 
     private fun composeOverlayDialogShowing(): Boolean =
-        quickLauncherOverlayDialogHost.isShowing || shellOverlayDialogHost.isShowing
+        QuickLauncherAddTrampoline.isActive() ||
+            ShellCommandEditorTrampoline.isActive() ||
+            ShellCommandResultTrampoline.isActive() ||
+            (ShellCommandPanelTrampoline.isActive() &&
+                !gestureSession.shellCommandContinuousPickActive()) ||
+            quickLauncherOverlayDialogHost.isShowing
 
     fun syncOverlayDialogZOrder() {
         if (quickLauncherOverlayDialogHost.isShowing) {
             quickLauncherOverlayDialogHost.bringToFront()
-        }
-        if (shellOverlayDialogHost.isShowing) {
-            shellOverlayDialogHost.bringToFront()
         }
     }
 
@@ -517,8 +539,12 @@ class EdgeGestureOverlayView(
                         forceRecoverInteractionState()
                     gestureSession.panelMode() != OverlayPanelMode.NONE && !gestureSession.isActive() ->
                         gestureSession.forceReset(notifySessionEnd = true)
-                    gestureSession.isActive() ->
+                    gestureSession.isActive() -> {
+                        if (ShellCommandPanelTrampoline.isActive()) {
+                            ShellCommandPanelTrampoline.closeIfContinuous()
+                        }
                         gestureSession.forceReset(notifySessionEnd = false)
+                    }
                 }
                 if (gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) {
                     edgeCaptureTouchActive = true
@@ -629,6 +655,10 @@ class EdgeGestureOverlayView(
     /** Clears stuck gesture/panel state without re-entering session callbacks. */
     fun forceRecoverInteractionState() {
         if (adjustPanelDismissing) return
+        if (ShellCommandPanelTrampoline.isActive()) {
+            ShellCommandPanelTrampoline.closeIfActive()
+        }
+        gestureSession.clearShellContinuousPick()
         gestureAnimationOverlay.hide()
         edgeCaptureTouchActive = false
         adjustIndicatorAnimator?.cancel()
@@ -1964,17 +1994,29 @@ class EdgeGestureOverlayView(
         quickLauncherFrozenAnchorLocalY ?: resolveQuickLauncherAnchorLocalY()
 
     private fun syncShellPanelInputFocus() {
-        val shellPanelActive = gestureSession.panelMode() == OverlayPanelMode.SHELL_COMMANDS &&
+        val shellAuxiliaryUiActive = ShellCommandEditorTrampoline.isActive() ||
+            ShellCommandResultTrampoline.isActive()
+        val shellOverlayPanelActive = gestureSession.panelMode() == OverlayPanelMode.SHELL_COMMANDS &&
             panelEnterProgress > 0.01f
-        val needsFocus = shellOverlayDialogHost.isShowing ||
-            (shellPanelActive && shellPanelController.hasActiveUi()) ||
-            (shellPanelActive && panelEnterProgress >= 1f)
-        onShellPanelFocusChange(needsFocus)
-        if (needsFocus) requestFocus()
+        val needsPresentationFocus = !shellAuxiliaryUiActive && shellOverlayPanelActive && (
+            shellPanelController.hasActiveUi() || panelEnterProgress >= 1f
+        )
+        onShellPanelFocusChange(needsPresentationFocus)
+        if (!shellAuxiliaryUiActive && needsPresentationFocus) {
+            requestFocus()
+        }
+    }
+
+    private fun prepareShellPanelAuxiliaryUi() {
+        gestureSession.clearShellContinuousPick()
+        edgeCaptureTouchActive = false
+        onShellPanelAuxiliaryPrepare()
     }
 
     private fun handleShellPanelBackPress(): Boolean {
-        if (shellOverlayDialogHost.isShowing) return false
+        if (ShellCommandEditorTrampoline.isActive() ||
+            ShellCommandResultTrampoline.isActive()
+        ) return false
         if (gestureSession.panelMode() != OverlayPanelMode.SHELL_COMMANDS) return false
         if (panelEnterProgress <= 0.01f && !shellPanelController.hasActiveUi()) return false
         val handled = shellPanelController.handleBackPress()
@@ -3403,6 +3445,37 @@ class EdgeGestureOverlayView(
         showAdjustPanel(mode, fraction, anchorRawY, deferWindowLayout)
     }
 
+    override fun onOpenShellCommandPanel(continuousPick: Boolean) {
+        if (continuousPick) {
+            if (gestureSession.panelMode() != OverlayPanelMode.SHELL_COMMANDS) {
+                gestureSession.openPanel(OverlayPanelMode.SHELL_COMMANDS)
+            }
+            invalidate()
+            return
+        }
+        if (ShellCommandPanelTrampoline.isActive()) return
+        ShellCommandPanelTrampoline.launch(
+            context = context,
+            continuousPick = false,
+            onPrepare = { onOverlayWindowSuspend() },
+            onDismiss = {
+                onOverlayWindowResume()
+                notifyPresentationTouchRequirementChanged()
+                syncShellPanelInputFocus()
+            },
+            onPersist = onShellCommandsPersist,
+        )
+        invalidate()
+    }
+
+    override fun onShellCommandPanelContinuousRelease() {
+        if (ShellCommandPanelTrampoline.isActive()) {
+            ShellCommandPanelTrampoline.closeIfActive()
+        }
+        gestureSession.clearShellContinuousPick()
+        notifyPresentationTouchRequirementChanged()
+    }
+
     override fun onSessionStart(mode: OverlayPanelMode) {
         syncZoneLayout()
         cancelPanelEnterAnimation()
@@ -3502,6 +3575,9 @@ class EdgeGestureOverlayView(
     }
 
     override fun onSessionEnd() {
+        if (ShellCommandPanelTrampoline.isActive()) {
+            ShellCommandPanelTrampoline.closeIfActive()
+        }
         cancelPanelEnterAnimation()
         gestureAnimationOverlay.hide()
         adjustPanelState?.let {
@@ -3543,7 +3619,8 @@ class EdgeGestureOverlayView(
         cancelQuickLauncherLongPress()
         shellPanelExiting = false
         shellPanelController.reset()
-        shellOverlayDialogHost.dismiss()
+        ShellCommandEditorTrampoline.closeIfActive()
+        ShellCommandResultTrampoline.closeIfActive()
         quickLauncherPanelController.reset()
         quickLauncherOverlayDialogHost.dismiss()
         invalidateQuickLauncherDerivedCaches()
