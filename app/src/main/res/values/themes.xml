@@ -7,7 +7,7 @@
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     </style>
 
-    <style name="Theme.SlideIndex.Transparent" parent="android:Theme.Translucent.NoTitleBar">
+    <style name="Theme.SlideIndex.Transparent" parent="Theme.SlideIndex">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowAnimationStyle">@null</item>

@@ -164,6 +164,8 @@ fun GestureActionPickerScreen(
                     trigger = trigger,
                     current = current,
                     onSelect = onSelect,
+                    searchQuery = searchQuery,
+                    onSearchChange = { searchQuery = it },
                     listModifier = listModifier,
                 )
                 ActionPickerTab.APPS -> ActionPickerAppsTab(
@@ -196,6 +198,8 @@ private fun ActionPickerActionsTab(
     trigger: GestureTriggerType,
     current: GestureAction,
     onSelect: (GestureAction) -> Unit,
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
     listModifier: Modifier,
 ) {
     val context = LocalContext.current
@@ -236,25 +240,53 @@ private fun ActionPickerActionsTab(
             if (trigger == GestureTriggerType.SHORT_SINGLE_TAP) add(GestureAction.ClickPassthrough)
         }
     }
-    LazyColumn(
-        modifier = listModifier.selectableGroup(),
-        contentPadding = PickerListContentPadding,
-        verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
-    ) {
-        items(actionOptions.size, key = { actionOptions[it].type.id }) { index ->
-            val action = actionOptions[index]
-            ActionPickerActionRow(
-                action = action,
-                segmentIndex = index,
-                segmentCount = actionOptions.size,
-                selected = action.type == current.type &&
-                    action.type != GestureActionType.LAUNCH_APP &&
-                    action.type != GestureActionType.LAUNCH_SHORTCUT,
-                onClick = {
-                    requestPermissionForAdjustAction(context, action)
-                    onSelect(action)
-                },
-            )
+    val filtered = remember(actionOptions, searchQuery, context) {
+        filterGestureActions(context, actionOptions, searchQuery)
+    }
+    Column(modifier = listModifier) {
+        PickerSearchListHeader(
+            query = searchQuery,
+            onQueryChange = onSearchChange,
+            hintResId = R.string.search_actions_hint,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .selectableGroup(),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
+        ) {
+            if (filtered.isEmpty()) {
+                item(key = "actions-empty") {
+                    Text(
+                        text = stringResource(R.string.search_no_actions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                }
+            } else {
+                items(filtered.size, key = { filtered[it].type.id }) { index ->
+                    val action = filtered[index]
+                    ActionPickerActionRow(
+                        action = action,
+                        segmentIndex = index,
+                        segmentCount = filtered.size,
+                        selected = action.type == current.type &&
+                            action.type != GestureActionType.LAUNCH_APP &&
+                            action.type != GestureActionType.LAUNCH_SHORTCUT,
+                        onClick = {
+                            requestPermissionForAdjustAction(context, action)
+                            onSelect(action)
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -321,7 +353,11 @@ private fun ActionPickerAppsTab(
                 .fillMaxWidth()
                 .weight(1f)
                 .selectableGroup(),
-            contentPadding = PaddingValues(bottom = 8.dp),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             items(filtered.size, key = { filtered[it].packageName }) { index ->
@@ -411,7 +447,11 @@ private fun ActionPickerShortcutsTab(
                 .fillMaxWidth()
                 .weight(1f)
                 .selectableGroup(),
-            contentPadding = PaddingValues(bottom = 8.dp),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             if (loading) {
@@ -556,65 +596,90 @@ private fun ActionPickerShortcutRow(
     )
 }
 
-internal fun gestureActionSortKey(context: Context, action: GestureAction): String {
-    val label = when (action) {
-        is GestureAction.LaunchApp -> {
-            if (action.packageName.isBlank()) {
-                context.getString(R.string.gesture_action_launch_app)
-            } else {
-                context.getString(R.string.gesture_action_launch_app_named, action.packageName)
-            }
-        }
-        is GestureAction.LaunchShortcut -> {
-            val shortcutLabel = action.label.ifBlank {
-                GestureShortcutPayload.decode(action.payloadKey)?.label.orEmpty()
-            }
-            if (shortcutLabel.isBlank()) {
-                context.getString(R.string.gesture_action_launch_shortcut)
-            } else {
-                context.getString(R.string.gesture_action_launch_shortcut_named, shortcutLabel)
-            }
-        }
-        else -> when (action.type) {
-            GestureActionType.NONE -> context.getString(R.string.gesture_action_none)
-            GestureActionType.OPEN_INDEX -> context.getString(R.string.gesture_action_open_index)
-            GestureActionType.QUICK_LAUNCHER -> context.getString(R.string.gesture_action_quick_launcher)
-            GestureActionType.TASK_SWITCHER -> context.getString(R.string.gesture_action_task_switcher)
-            GestureActionType.BACK -> context.getString(R.string.gesture_action_back)
-            GestureActionType.HOME -> context.getString(R.string.gesture_action_home)
-            GestureActionType.RECENTS -> context.getString(R.string.gesture_action_recents)
-            GestureActionType.CLOSE_CURRENT_APP -> context.getString(R.string.gesture_action_close_current_app)
-            GestureActionType.FREE_WINDOW_CURRENT_APP -> context.getString(R.string.gesture_action_free_window_current_app)
-            GestureActionType.CLICK_PASSTHROUGH -> context.getString(R.string.gesture_action_click_passthrough)
-            GestureActionType.FLASHLIGHT -> context.getString(R.string.gesture_action_flashlight)
-            GestureActionType.ADJUST_VOLUME -> context.getString(R.string.gesture_action_adjust_volume)
-            GestureActionType.ADJUST_BRIGHTNESS -> context.getString(R.string.gesture_action_adjust_brightness)
-            GestureActionType.LAUNCH_ASSISTANT -> context.getString(R.string.gesture_action_launch_assistant)
-            GestureActionType.TOGGLE_MUTE -> context.getString(R.string.gesture_action_toggle_mute)
-            GestureActionType.MEDIA_PLAY_PAUSE -> context.getString(R.string.gesture_action_media_play_pause)
-            GestureActionType.MEDIA_PREVIOUS -> context.getString(R.string.gesture_action_media_previous)
-            GestureActionType.MEDIA_NEXT -> context.getString(R.string.gesture_action_media_next)
-            GestureActionType.PREVIOUS_APP -> context.getString(R.string.gesture_action_previous_app)
-            GestureActionType.OPEN_NOTIFICATIONS -> context.getString(R.string.gesture_action_open_notifications)
-            GestureActionType.OPEN_QUICK_SETTINGS -> context.getString(R.string.gesture_action_open_quick_settings)
-            GestureActionType.LOCK_SCREEN -> context.getString(R.string.gesture_action_lock_screen)
-            GestureActionType.SCREENSHOT -> context.getString(R.string.gesture_action_screenshot)
-            GestureActionType.POWER_MENU -> context.getString(R.string.gesture_action_power_menu)
-            GestureActionType.KEEP_SCREEN_ON -> context.getString(R.string.gesture_action_keep_screen_on)
-            GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top)
-            GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom)
-            GestureActionType.SHELL_COMMAND_PANEL -> context.getString(R.string.gesture_action_shell_command_panel)
-            GestureActionType.QUICK_TOOLS_OVERLAY -> context.getString(R.string.gesture_action_quick_tools_overlay)
-            GestureActionType.TOGGLE_DND -> context.getString(R.string.gesture_action_toggle_dnd)
-            GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
-            GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
-            GestureActionType.TOGGLE_MOBILE_DATA -> context.getString(R.string.gesture_action_toggle_mobile_data)
-            GestureActionType.LAUNCH_APP -> context.getString(R.string.gesture_action_launch_app)
-            GestureActionType.LAUNCH_SHORTCUT -> context.getString(R.string.gesture_action_launch_shortcut)
+internal fun filterGestureActions(
+    context: Context,
+    actions: List<GestureAction>,
+    query: String,
+): List<GestureAction> {
+    val sorted = actions.sortedBy { gestureActionSortKey(context, it) }
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return sorted
+    return sorted.filter { action ->
+        val label = gestureActionLabelText(context, action)
+        label.lowercase().contains(q) ||
+            PinyinHelper.sortKey(label).contains(q) ||
+            gestureActionDescriptionText(context, action)?.lowercase()?.contains(q) == true
+    }
+}
+
+private fun gestureActionDescriptionText(context: Context, action: GestureAction): String? =
+    when (action.type) {
+        GestureActionType.ADJUST_VOLUME -> context.getString(R.string.gesture_action_adjust_volume_desc)
+        GestureActionType.ADJUST_BRIGHTNESS -> context.getString(R.string.gesture_action_adjust_brightness_desc)
+        GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top_desc)
+        GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom_desc)
+        else -> null
+    }
+
+internal fun gestureActionLabelText(context: Context, action: GestureAction): String = when (action) {
+    is GestureAction.LaunchApp -> {
+        if (action.packageName.isBlank()) {
+            context.getString(R.string.gesture_action_launch_app)
+        } else {
+            context.getString(R.string.gesture_action_launch_app_named, action.packageName)
         }
     }
-    return PinyinHelper.sortKey(label)
+    is GestureAction.LaunchShortcut -> {
+        val shortcutLabel = action.label.ifBlank {
+            GestureShortcutPayload.decode(action.payloadKey)?.label.orEmpty()
+        }
+        if (shortcutLabel.isBlank()) {
+            context.getString(R.string.gesture_action_launch_shortcut)
+        } else {
+            context.getString(R.string.gesture_action_launch_shortcut_named, shortcutLabel)
+        }
+    }
+    else -> when (action.type) {
+        GestureActionType.NONE -> context.getString(R.string.gesture_action_none)
+        GestureActionType.OPEN_INDEX -> context.getString(R.string.gesture_action_open_index)
+        GestureActionType.QUICK_LAUNCHER -> context.getString(R.string.gesture_action_quick_launcher)
+        GestureActionType.TASK_SWITCHER -> context.getString(R.string.gesture_action_task_switcher)
+        GestureActionType.BACK -> context.getString(R.string.gesture_action_back)
+        GestureActionType.HOME -> context.getString(R.string.gesture_action_home)
+        GestureActionType.RECENTS -> context.getString(R.string.gesture_action_recents)
+        GestureActionType.CLOSE_CURRENT_APP -> context.getString(R.string.gesture_action_close_current_app)
+        GestureActionType.FREE_WINDOW_CURRENT_APP -> context.getString(R.string.gesture_action_free_window_current_app)
+        GestureActionType.CLICK_PASSTHROUGH -> context.getString(R.string.gesture_action_click_passthrough)
+        GestureActionType.FLASHLIGHT -> context.getString(R.string.gesture_action_flashlight)
+        GestureActionType.ADJUST_VOLUME -> context.getString(R.string.gesture_action_adjust_volume)
+        GestureActionType.ADJUST_BRIGHTNESS -> context.getString(R.string.gesture_action_adjust_brightness)
+        GestureActionType.LAUNCH_ASSISTANT -> context.getString(R.string.gesture_action_launch_assistant)
+        GestureActionType.TOGGLE_MUTE -> context.getString(R.string.gesture_action_toggle_mute)
+        GestureActionType.MEDIA_PLAY_PAUSE -> context.getString(R.string.gesture_action_media_play_pause)
+        GestureActionType.MEDIA_PREVIOUS -> context.getString(R.string.gesture_action_media_previous)
+        GestureActionType.MEDIA_NEXT -> context.getString(R.string.gesture_action_media_next)
+        GestureActionType.PREVIOUS_APP -> context.getString(R.string.gesture_action_previous_app)
+        GestureActionType.OPEN_NOTIFICATIONS -> context.getString(R.string.gesture_action_open_notifications)
+        GestureActionType.OPEN_QUICK_SETTINGS -> context.getString(R.string.gesture_action_open_quick_settings)
+        GestureActionType.LOCK_SCREEN -> context.getString(R.string.gesture_action_lock_screen)
+        GestureActionType.SCREENSHOT -> context.getString(R.string.gesture_action_screenshot)
+        GestureActionType.POWER_MENU -> context.getString(R.string.gesture_action_power_menu)
+        GestureActionType.KEEP_SCREEN_ON -> context.getString(R.string.gesture_action_keep_screen_on)
+        GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top)
+        GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom)
+        GestureActionType.SHELL_COMMAND_PANEL -> context.getString(R.string.gesture_action_shell_command_panel)
+        GestureActionType.QUICK_TOOLS_OVERLAY -> context.getString(R.string.gesture_action_quick_tools_overlay)
+        GestureActionType.TOGGLE_DND -> context.getString(R.string.gesture_action_toggle_dnd)
+        GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
+        GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
+        GestureActionType.TOGGLE_MOBILE_DATA -> context.getString(R.string.gesture_action_toggle_mobile_data)
+        GestureActionType.LAUNCH_APP -> context.getString(R.string.gesture_action_launch_app)
+        GestureActionType.LAUNCH_SHORTCUT -> context.getString(R.string.gesture_action_launch_shortcut)
+    }
 }
+
+internal fun gestureActionSortKey(context: Context, action: GestureAction): String =
+    PinyinHelper.sortKey(gestureActionLabelText(context, action))
 
 @Composable
 fun gestureActionLabel(action: GestureAction): String = when (action) {
@@ -719,7 +784,7 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             stringResource(R.string.gesture_action_requires_android_n)
         }
         GestureActionType.QUICK_TOOLS_OVERLAY -> {
-            if (PermissionHelper.canDrawOverlays(context)) return null
+            if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
             stringResource(R.string.gesture_action_quick_tools_overlay_permission)
         }
         else -> null
@@ -731,8 +796,8 @@ internal fun requestPermissionForAdjustAction(context: Context, action: GestureA
             PermissionHelper.requestNotificationPolicyAccess(context)
         GestureAction.AdjustBrightness -> PermissionHelper.requestWriteSettingsAccess(context)
         GestureAction.QuickToolsOverlay -> {
-            if (!PermissionHelper.canDrawOverlays(context)) {
-                context.startActivity(PermissionHelper.overlaySettingsIntent(context))
+            if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+                context.startActivity(PermissionHelper.accessibilitySettingsIntent())
             }
         }
         GestureAction.ScreenRecord -> {

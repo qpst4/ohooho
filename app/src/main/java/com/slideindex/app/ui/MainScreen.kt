@@ -31,14 +31,16 @@ import kotlin.math.roundToInt
 @Composable
 fun MainScreen(
     settings: AppSettings,
-    overlayGranted: Boolean,
     notificationGranted: Boolean,
     shizukuGranted: Boolean,
     accessibilityGranted: Boolean,
-    onRequestOverlay: () -> Unit,
+    batteryOptimizationExempt: Boolean,
     onRequestNotification: () -> Unit,
     onRequestShizuku: () -> Unit,
     onRequestAccessibility: () -> Unit,
+    onRequestBatteryOptimization: () -> Unit,
+    onGestureEnabledChange: (Boolean) -> Unit,
+    onHideFromRecentsChange: (Boolean) -> Unit,
     onHapticEnabledChange: (Boolean) -> Unit,
     onHapticStrengthChange: (Int) -> Unit,
     onOpenLayoutSettings: () -> Unit,
@@ -51,16 +53,17 @@ fun MainScreen(
     onOpenShellCommands: () -> Unit,
     onThemeColorChange: (Int) -> Unit,
 ) {
-    val permissionsReady = overlayGranted && notificationGranted
+    val gestureActive = settings.serviceEnabled && accessibilityGranted && notificationGranted
+    val gestureSwitchChecked = gestureActive
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val pendingPermissions = buildList {
-        if (!overlayGranted) {
+        if (!accessibilityGranted) {
             add(
                 PendingPermissionItem(
-                    title = stringResource(R.string.permission_overlay_title),
-                    description = stringResource(R.string.permission_overlay_desc),
-                    grantLabel = stringResource(R.string.grant_permission),
-                    onGrant = onRequestOverlay,
+                    title = stringResource(R.string.permission_accessibility_title),
+                    description = stringResource(R.string.permission_accessibility_desc),
+                    grantLabel = stringResource(R.string.permission_accessibility_grant),
+                    onGrant = onRequestAccessibility,
                 ),
             )
         }
@@ -81,16 +84,6 @@ fun MainScreen(
                     description = stringResource(R.string.permission_shizuku_desc),
                     grantLabel = stringResource(R.string.permission_shizuku_grant),
                     onGrant = onRequestShizuku,
-                ),
-            )
-        }
-        if (!accessibilityGranted) {
-            add(
-                PendingPermissionItem(
-                    title = stringResource(R.string.permission_accessibility_title),
-                    description = stringResource(R.string.permission_accessibility_desc),
-                    grantLabel = stringResource(R.string.permission_accessibility_grant),
-                    onGrant = onRequestAccessibility,
                 ),
             )
         }
@@ -123,7 +116,42 @@ fun MainScreen(
         ) {
             PendingPermissionsCard(items = pendingPermissions)
 
-            if (permissionsReady) {
+            SettingsSectionTitle(stringResource(R.string.settings_section_service))
+            SettingsCard {
+                SettingSwitchRow(
+                    title = stringResource(R.string.gesture_switch),
+                    subtitle = stringResource(R.string.gesture_switch_hint),
+                    checked = gestureSwitchChecked,
+                    enabled = true,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            when {
+                                !accessibilityGranted -> onRequestAccessibility()
+                                !notificationGranted -> onRequestNotification()
+                                else -> onGestureEnabledChange(true)
+                            }
+                        } else {
+                            onGestureEnabledChange(false)
+                        }
+                    },
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.battery_optimization_title),
+                    subtitle = stringResource(R.string.battery_optimization_desc),
+                    checked = batteryOptimizationExempt,
+                    enabled = true,
+                    onCheckedChange = { onRequestBatteryOptimization() },
+                )
+                SettingSwitchRow(
+                    title = stringResource(R.string.hide_from_recents_title),
+                    subtitle = stringResource(R.string.hide_from_recents_desc),
+                    checked = settings.hideFromRecents,
+                    enabled = true,
+                    onCheckedChange = onHideFromRecentsChange,
+                )
+            }
+
+            if (gestureActive) {
                 Text(
                     text = stringResource(R.string.ready_hint),
                     style = MaterialTheme.typography.bodyMedium,
@@ -141,7 +169,7 @@ fun MainScreen(
                     onClick = onOpenTriggerCollection,
                 )
                 GestureAngleEntryCard(
-                    enabled = permissionsReady,
+                    enabled = gestureActive,
                     onClick = onOpenGestureAngle,
                 )
             }
@@ -150,12 +178,12 @@ fun MainScreen(
             SettingsCard {
                 LayoutSettingsEntryCard(
                     settings = settings,
-                    enabled = permissionsReady,
+                    enabled = gestureActive,
                     onClick = onOpenLayoutSettings,
                 )
                 QuickLauncherEntryCard(
                     settings = settings,
-                    enabled = permissionsReady,
+                    enabled = gestureActive,
                     onClick = onOpenQuickLauncher,
                 )
                 ShellCommandEntryCard(
@@ -198,7 +226,7 @@ fun MainScreen(
                 }
                 ThemeColorPicker(
                     selected = settings.themeColorArgb,
-                    enabled = permissionsReady,
+                    enabled = gestureActive,
                     onColorSelected = onThemeColorChange,
                 )
             }

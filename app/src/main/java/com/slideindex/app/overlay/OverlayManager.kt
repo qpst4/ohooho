@@ -73,6 +73,7 @@ class OverlayManager(
                 clickPassthroughHandler = ::performClickPassthrough,
                 onShellCommandsPersist = onShellCommandsPersist,
                 onQuickLauncherItemsPersist = onQuickLauncherItemsPersist,
+                onComposeOverlayDialogStateChanged = ::onComposeOverlayDialogStateChanged,
             )
         }
         leftController?.updateSettings(settings, screenWidth)
@@ -87,6 +88,7 @@ class OverlayManager(
                 clickPassthroughHandler = ::performClickPassthrough,
                 onShellCommandsPersist = onShellCommandsPersist,
                 onQuickLauncherItemsPersist = onQuickLauncherItemsPersist,
+                onComposeOverlayDialogStateChanged = ::onComposeOverlayDialogStateChanged,
             )
         }
         rightController?.updateSettings(settings, screenWidth)
@@ -123,6 +125,15 @@ class OverlayManager(
     fun reloadApps() {
         leftController?.reloadApps()
         rightController?.reloadApps()
+    }
+
+    private fun onComposeOverlayDialogStateChanged() {
+        val dialogOpen =
+            leftController?.overlayPresentation?.presentationShouldPassthroughTouches() == true ||
+                rightController?.overlayPresentation?.presentationShouldPassthroughTouches() == true
+        if (!dialogOpen) return
+        leftController?.suspendCapturesForComposeDialog()
+        rightController?.suspendCapturesForComposeDialog()
     }
 
     fun destroy() {

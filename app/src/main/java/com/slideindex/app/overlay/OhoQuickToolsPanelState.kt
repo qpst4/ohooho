@@ -45,6 +45,7 @@ enum class OhoTile {
 /** UI-originated interactions the panel doesn't resolve itself; handled by [OhoQuickToolsOverlayWindow]. */
 sealed interface OhoPanelEvent {
     data class Tile(val tile: OhoTile) : OhoPanelEvent
+    data class TileLongPress(val tile: OhoTile) : OhoPanelEvent
     data object ToggleAutoBrightness : OhoPanelEvent
     data object OpenMediaApp : OhoPanelEvent
     data object MediaPrevious : OhoPanelEvent
@@ -95,6 +96,9 @@ class OhoQuickToolsPanelState(context: Context) {
     private var mobileDataObserver: ContentObserver? = null
     private var mediaPollRunnable: Runnable? = null
     private var slowSyncThread: Thread? = null
+    private val torchListener: (Boolean) -> Unit = { enabled ->
+        mainHandler.post { activeStates[OhoTile.FLASHLIGHT] = enabled }
+    }
 
     fun isActive(tile: OhoTile): Boolean = when (tile) {
         OhoTile.SCREEN_RECORD -> ScreenRecordHelper.isRecording
@@ -106,13 +110,12 @@ class OhoQuickToolsPanelState(context: Context) {
     fun refresh() {
         refreshBrightnessFromSystem()
         refreshVolumeFromSystem()
-        refreshMediaFromSystem()
-        activeStates[OhoTile.AUTO_ROTATE] = QuickToolsHelper.readAutoRotateEnabled(appContext)
         refreshRingerModeFromSystem()
-        activeStates[OhoTile.FLASHLIGHT] = FlashlightHelper.isOn()
+        activeStates[OhoTile.AUTO_ROTATE] = QuickToolsHelper.readAutoRotateEnabled(appContext)
+        refreshFlashlightFromSystem()
         activeStates[OhoTile.DO_NOT_DISTURB] = VolumeControlHelper.isDndEnabled(appContext)
         activeStates[OhoTile.SCREEN_RECORD] = ScreenRecordHelper.isRecording
-        refreshMobileDataFromSystem()
+        refreshMediaFromSystem()
         refreshSlowStates()
     }
 
@@ -120,6 +123,8 @@ class OhoQuickToolsPanelState(context: Context) {
         mediaListenerEnabled = MediaSessionHelper.isNotificationListenerEnabled(appContext)
         MediaSessionTracker.addListener(mediaTrackerListener)
         MediaSessionTracker.refreshIfPossible(appContext)
+        FlashlightHelper.startObserving(appContext)
+        FlashlightHelper.addListener(torchListener)
         registerVolumeReceiver()
         registerDefaultDataSubReceiver()
         registerBrightnessObserver()
@@ -129,6 +134,8 @@ class OhoQuickToolsPanelState(context: Context) {
 
     fun stopLiveSync() {
         MediaSessionTracker.removeListener(mediaTrackerListener)
+        FlashlightHelper.removeListener(torchListener)
+        FlashlightHelper.stopObserving()
         unregisterVolumeReceiver()
         unregisterDefaultDataSubReceiver()
         unregisterBrightnessObserver()
@@ -144,11 +151,13 @@ class OhoQuickToolsPanelState(context: Context) {
             val wifi = QuickToolsHelper.readWifiEnabled(appContext) == true
             val mobileData = QuickToolsHelper.readMobileDataEnabled(appContext) == true
             val bluetooth = QuickToolsHelper.readBluetoothEnabled(appContext) == true
+            val mobileSwitch = QuickToolsHelper.readMobileDataSwitchState(appContext)
             if (Thread.currentThread().isInterrupted) return@Thread
             mainHandler.post {
                 activeStates[OhoTile.WIFI] = wifi
                 activeStates[OhoTile.MOBILE_DATA] = mobileData
                 activeStates[OhoTile.BLUETOOTH] = bluetooth
+                mobileSwitch?.let { activeStates[OhoTile.MOBILE_DATA] = it }
             }
         }.also { it.start() }
     }
@@ -183,6 +192,10 @@ class OhoQuickToolsPanelState(context: Context) {
 
     fun refreshRingerModeFromSystem() {
         ringerMode = VolumeControlHelper.readRingerMode(appContext)
+    }
+
+    fun refreshFlashlightFromSystem() {
+        activeStates[OhoTile.FLASHLIGHT] = FlashlightHelper.isOn()
     }
 
     fun refreshMediaFromSystem() {
@@ -247,6 +260,9 @@ class OhoQuickToolsPanelState(context: Context) {
         return false
     }
 
+    /** @return true if the panel should dismiss after opening settings. */
+    fun onTileLongPress(tile: OhoTile): Boolean = QuickToolsTileSettings.open(appContext, tile)
+
     /** @return true if the panel should dismiss after handling this tap. */
     fun onTileTap(tile: OhoTile): Boolean {
         when (tile) {
@@ -275,10 +291,7 @@ class OhoQuickToolsPanelState(context: Context) {
                 com.slideindex.app.service.SlideIndexAccessibilityService.perform(
                     com.slideindex.app.gesture.GestureAction.LockScreen,
                 )
-            OhoTile.FLASHLIGHT -> {
-                FlashlightHelper.toggle(appContext)
-                activeStates[OhoTile.FLASHLIGHT] = FlashlightHelper.isOn()
-            }
+            OhoTile.FLASHLIGHT -> FlashlightHelper.toggle(appContext)
             OhoTile.DO_NOT_DISTURB ->
                 VolumeControlHelper.toggleDnd(appContext)?.let {
                     activeStates[OhoTile.DO_NOT_DISTURB] = VolumeControlHelper.isDndFilter(it)

@@ -3,7 +3,6 @@ package com.slideindex.app.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +18,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,63 +39,47 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import com.slideindex.app.R
 import com.slideindex.app.data.AppInfo
+import com.slideindex.app.launcher.QuickLauncherGridLogic
+import com.slideindex.app.launcher.QuickLauncherGridLogic.moveIndex
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.QuickLauncherIconResolver
-import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 private const val PAGE_EDGE_RESISTANCE = 0.35f
 private const val PAGE_COMMIT_FRACTION = 0.22f
-
-private fun <T> List<T>.moveIndex(from: Int, to: Int): List<T> {
-    if (from == to || from !in indices || to !in indices) return this
-    val mutable = toMutableList()
-    val item = mutable.removeAt(from)
-    mutable.add(to, item)
-    return mutable
-}
-
-private fun quickLauncherDisplayMapping(
-    itemCount: Int,
-    dragFrom: Int,
-    dragTo: Int,
-): List<Int?> {
-    if (itemCount <= 0) return emptyList()
-    if (dragFrom < 0) return List(itemCount) { it }
-    val indices = (0 until itemCount).toList()
-    val reordered = if (dragFrom == dragTo) indices else indices.moveIndex(dragFrom, dragTo)
-    return reordered.mapIndexed { cell, originalIndex ->
-        when {
-            dragFrom == dragTo && cell == dragFrom -> null
-            dragFrom != dragTo && cell == dragTo -> null
-            else -> originalIndex
-        }
-    }
-}
+private const val PAGE_EDGE_AUTO_PAGE_FRACTION = 0.18f
+private const val PAGE_AUTO_TURN_COOLDOWN_MS = 280L
 
 @Composable
 fun QuickLauncherGridEditor(
@@ -104,18 +91,13 @@ fun QuickLauncherGridEditor(
     onInteractionActiveChange: (Boolean) -> Unit = {},
 ) {
     var editMode by remember { mutableStateOf(false) }
-    var dragFromGlobal by remember { mutableIntStateOf(-1) }
-    var dragToGlobal by remember { mutableIntStateOf(-1) }
-    var dragOffsetX by remember { mutableFloatStateOf(0f) }
-    var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var currentPage by remember { mutableIntStateOf(0) }
     var pageSwipeOffsetPx by remember { mutableFloatStateOf(0f) }
     val columns = settings.quickLauncherColumnsPerPage.coerceIn(2, 5)
     val rows = settings.quickLauncherRowsPerPage.coerceIn(2, 6)
-    val pageSize = columns * rows
-    val pageCount = max(1, (items.size + pageSize - 1) / pageSize)
+    val pageSize = QuickLauncherGridLogic.pageSize(columns, rows)
+    val pageCount = QuickLauncherGridLogic.pageCount(items.size, pageSize)
     val density = LocalDensity.current
-    val gridGapPx = with(density) { 8.dp.toPx() }
     val context = LocalContext.current
     val iconBitmapCache = remember(items, appsByPackage) {
         items.mapIndexed { index, item ->
@@ -127,8 +109,8 @@ fun QuickLauncherGridEditor(
         currentPage = currentPage.coerceIn(0, pageCount - 1)
     }
 
-    LaunchedEffect(editMode, dragFromGlobal) {
-        onInteractionActiveChange(editMode || dragFromGlobal >= 0)
+    LaunchedEffect(editMode) {
+        onInteractionActiveChange(editMode)
     }
 
     val gridMinHeight = (rows * 96).dp
@@ -157,254 +139,157 @@ fun QuickLauncherGridEditor(
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = gridMinHeight)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clipToBounds(),
-                    ) {
-                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                            val pageWidthPx = with(density) { maxWidth.toPx().coerceAtLeast(1f) }
-                            val pageStartIndex = currentPage * pageSize
-                            val cellWidthPx = ((pageWidthPx - gridGapPx * (columns - 1)) / columns)
-                                .coerceAtLeast(1f)
-                            val cellHeightPx = cellWidthPx / 0.82f
-                            val stepX = cellWidthPx + gridGapPx
-                            val stepY = cellHeightPx + gridGapPx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = gridMinHeight)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clipToBounds(),
+                ) {
+                    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                        val pageWidthPx = with(density) { maxWidth.toPx().coerceAtLeast(1f) }
+                        val pageStartIndex = currentPage * pageSize
+                        val cellWidthPx = with(density) {
+                            ((maxWidth - 8.dp * (columns - 1)) / columns).toPx().coerceAtLeast(1f)
+                        }
+                        val cellHeightPx = cellWidthPx / 0.82f
+                        val stepX = cellWidthPx + with(density) { 8.dp.toPx() }
+                        val stepY = cellHeightPx + with(density) { 8.dp.toPx() }
 
-                            fun finishPageSwipe() {
-                                val threshold = pageWidthPx * PAGE_COMMIT_FRACTION
-                                val offset = pageSwipeOffsetPx
-                                val delta = when {
-                                    offset <= -threshold && currentPage < pageCount - 1 -> 1
-                                    offset >= threshold && currentPage > 0 -> -1
-                                    else -> 0
-                                }
-                                if (delta != 0) {
-                                    currentPage += delta
-                                }
-                                pageSwipeOffsetPx = 0f
+                        fun finishPageSwipe() {
+                            val threshold = pageWidthPx * PAGE_COMMIT_FRACTION
+                            val offset = pageSwipeOffsetPx
+                            val delta = when {
+                                offset <= -threshold && currentPage < pageCount - 1 -> 1
+                                offset >= threshold && currentPage > 0 -> -1
+                                else -> 0
                             }
+                            if (delta != 0) {
+                                currentPage += delta
+                            }
+                            pageSwipeOffsetPx = 0f
+                        }
 
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(currentPage, pageCount, editMode, pageWidthPx) {
+                                    if (editMode || pageCount <= 1) return@pointerInput
+                                    detectHorizontalDragGestures(
+                                        onDragEnd = { finishPageSwipe() },
+                                        onDragCancel = { pageSwipeOffsetPx = 0f },
+                                        onHorizontalDrag = { change, dragAmount ->
+                                            change.consume()
+                                            val nextOffset = pageSwipeOffsetPx + dragAmount
+                                            pageSwipeOffsetPx = when {
+                                                currentPage == 0 && nextOffset > 0f ->
+                                                    pageSwipeOffsetPx + dragAmount * PAGE_EDGE_RESISTANCE
+                                                currentPage >= pageCount - 1 && nextOffset < 0f ->
+                                                    pageSwipeOffsetPx + dragAmount * PAGE_EDGE_RESISTANCE
+                                                else -> nextOffset
+                                            }.coerceIn(-pageWidthPx, pageWidthPx)
+                                        },
+                                    )
+                                },
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .pointerInput(currentPage, pageCount, editMode, dragFromGlobal, pageWidthPx) {
-                                        if (editMode || dragFromGlobal >= 0 || pageCount <= 1) return@pointerInput
-                                        detectHorizontalDragGestures(
-                                            onDragEnd = { finishPageSwipe() },
-                                            onDragCancel = { pageSwipeOffsetPx = 0f },
-                                            onHorizontalDrag = { change, dragAmount ->
-                                                change.consume()
-                                                val nextOffset = pageSwipeOffsetPx + dragAmount
-                                                pageSwipeOffsetPx = when {
-                                                    currentPage == 0 && nextOffset > 0f ->
-                                                        pageSwipeOffsetPx + dragAmount * PAGE_EDGE_RESISTANCE
-                                                    currentPage >= pageCount - 1 && nextOffset < 0f ->
-                                                        pageSwipeOffsetPx + dragAmount * PAGE_EDGE_RESISTANCE
-                                                    else -> nextOffset
-                                                }.coerceIn(-pageWidthPx, pageWidthPx)
-                                            },
-                                        )
-                                    },
+                                    .graphicsLayer { translationX = pageSwipeOffsetPx },
                             ) {
+                                QuickLauncherReorderablePageGrid(
+                                    pageStart = pageStartIndex,
+                                    columns = columns,
+                                    rows = rows,
+                                    pageSize = pageSize,
+                                    currentPage = currentPage,
+                                    pageCount = pageCount,
+                                    pageWidthPx = pageWidthPx,
+                                    items = items,
+                                    appsByPackage = appsByPackage,
+                                    iconBitmapCache = iconBitmapCache,
+                                    editMode = editMode,
+                                    onMoveItem = { fromGlobal, insertIndex ->
+                                        onItemsChange(items.moveIndex(fromGlobal, insertIndex))
+                                    },
+                                    onCrossPageTurn = { delta, draggingItemKey ->
+                                        val itemKeys = quickLauncherStableItemKeys(items)
+                                        val fromGlobal = itemKeys.indexOf(draggingItemKey)
+                                        if (fromGlobal < 0) return@QuickLauncherReorderablePageGrid
+                                        val newPage = (currentPage + delta).coerceIn(0, pageCount - 1)
+                                        if (newPage == currentPage) return@QuickLauncherReorderablePageGrid
+                                        val insertIndex = when (delta) {
+                                            1 -> (newPage * pageSize).coerceIn(0, items.size)
+                                            -1 -> (currentPage * pageSize - 1).coerceIn(0, items.size)
+                                            else -> return@QuickLauncherReorderablePageGrid
+                                        }
+                                        if (fromGlobal != insertIndex) {
+                                            onItemsChange(items.moveIndex(fromGlobal, insertIndex))
+                                        }
+                                        currentPage = newPage
+                                    },
+                                )
+                            }
+
+                            if (pageSwipeOffsetPx < 0f && currentPage < pageCount - 1) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .graphicsLayer { translationX = pageSwipeOffsetPx },
+                                        .graphicsLayer {
+                                            translationX = pageWidthPx + pageSwipeOffsetPx
+                                        },
                                 ) {
-                                    QuickLauncherPageGrid(
-                                        pageStart = pageStartIndex,
+                                    QuickLauncherReadOnlyPageGrid(
+                                        pageStart = (currentPage + 1) * pageSize,
                                         columns = columns,
                                         rows = rows,
                                         pageSize = pageSize,
                                         items = items,
                                         appsByPackage = appsByPackage,
                                         iconBitmapCache = iconBitmapCache,
-                                        editMode = editMode,
-                                        dragFromGlobal = dragFromGlobal,
-                                        dragToGlobal = dragToGlobal,
                                     )
                                 }
+                            }
 
-                                if (pageSwipeOffsetPx < 0f && currentPage < pageCount - 1) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer {
-                                                translationX = pageWidthPx + pageSwipeOffsetPx
-                                            },
-                                    ) {
-                                        QuickLauncherPageGrid(
-                                            pageStart = (currentPage + 1) * pageSize,
-                                            columns = columns,
-                                            rows = rows,
-                                            pageSize = pageSize,
-                                            items = items,
-                                            appsByPackage = appsByPackage,
-                                            iconBitmapCache = iconBitmapCache,
-                                            editMode = false,
-                                            dragFromGlobal = -1,
-                                            dragToGlobal = -1,
-                                        )
-                                    }
-                                }
-
-                                if (pageSwipeOffsetPx > 0f && currentPage > 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer {
-                                                translationX = pageSwipeOffsetPx - pageWidthPx
-                                            },
-                                    ) {
-                                        QuickLauncherPageGrid(
-                                            pageStart = (currentPage - 1) * pageSize,
-                                            columns = columns,
-                                            rows = rows,
-                                            pageSize = pageSize,
-                                            items = items,
-                                            appsByPackage = appsByPackage,
-                                            iconBitmapCache = iconBitmapCache,
-                                            editMode = false,
-                                            dragFromGlobal = -1,
-                                            dragToGlobal = -1,
-                                        )
-                                    }
-                                }
-
-                                if (editMode) {
-                                    Box(
-                                        modifier = Modifier
-                                            .matchParentSize()
-                                            .zIndex(1f)
-                                            .pointerInput(
-                                                pageStartIndex,
-                                                pageSize,
-                                                columns,
-                                                rows,
-                                                items.size,
-                                                cellWidthPx,
-                                                cellHeightPx,
-                                                gridGapPx,
-                                            ) {
-                                                detectDragGesturesAfterLongPress(
-                                                    onDragStart = { start ->
-                                                        val localIndex = quickLauncherLocalIndexAt(
-                                                            offset = start,
-                                                            columns = columns,
-                                                            rows = rows,
-                                                            pageSize = pageSize,
-                                                            stepX = stepX,
-                                                            stepY = stepY,
-                                                        )
-                                                        val globalIndex = pageStartIndex + localIndex
-                                                        if (globalIndex in items.indices) {
-                                                            dragFromGlobal = globalIndex
-                                                            dragToGlobal = globalIndex
-                                                            dragOffsetX = 0f
-                                                            dragOffsetY = 0f
-                                                        }
-                                                    },
-                                                    onDrag = { change, dragAmount ->
-                                                        if (dragFromGlobal < 0) {
-                                                            return@detectDragGesturesAfterLongPress
-                                                        }
-                                                        change.consume()
-                                                        dragOffsetX += dragAmount.x
-                                                        dragOffsetY += dragAmount.y
-                                                        val localIndex = dragFromGlobal - pageStartIndex
-                                                        val targetLocal = quickLauncherDragTargetLocalIndex(
-                                                            localIndex = localIndex,
-                                                            dragOffsetX = dragOffsetX,
-                                                            dragOffsetY = dragOffsetY,
-                                                            columns = columns,
-                                                            rows = rows,
-                                                            pageSize = pageSize,
-                                                            cellWidthPx = cellWidthPx,
-                                                            cellHeightPx = cellHeightPx,
-                                                            gridGapPx = gridGapPx,
-                                                        )
-                                                        val targetGlobal = pageStartIndex + targetLocal
-                                                        if (targetGlobal in pageStartIndex..minOf(
-                                                                pageStartIndex + pageSize - 1,
-                                                                items.lastIndex,
-                                                            )
-                                                        ) {
-                                                            dragToGlobal = targetGlobal
-                                                        }
-                                                    },
-                                                    onDragEnd = {
-                                                        if (dragFromGlobal >= 0 &&
-                                                            dragToGlobal >= 0 &&
-                                                            dragFromGlobal != dragToGlobal
-                                                        ) {
-                                                            onItemsChange(
-                                                                items.moveIndex(dragFromGlobal, dragToGlobal),
-                                                            )
-                                                        }
-                                                        dragFromGlobal = -1
-                                                        dragToGlobal = -1
-                                                        dragOffsetX = 0f
-                                                        dragOffsetY = 0f
-                                                    },
-                                                    onDragCancel = {
-                                                        dragFromGlobal = -1
-                                                        dragToGlobal = -1
-                                                        dragOffsetX = 0f
-                                                        dragOffsetY = 0f
-                                                    },
-                                                )
-                                            },
-                                    )
-                                    QuickLauncherDeleteButtonLayer(
+                            if (pageSwipeOffsetPx > 0f && currentPage > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            translationX = pageSwipeOffsetPx - pageWidthPx
+                                        },
+                                ) {
+                                    QuickLauncherReadOnlyPageGrid(
+                                        pageStart = (currentPage - 1) * pageSize,
                                         columns = columns,
                                         rows = rows,
                                         pageSize = pageSize,
-                                        pageStartIndex = pageStartIndex,
                                         items = items,
-                                        dragFromGlobal = dragFromGlobal,
-                                        dragToGlobal = dragToGlobal,
-                                        stepX = stepX,
-                                        stepY = stepY,
-                                        cellWidthPx = cellWidthPx,
-                                        density = density,
-                                        onRemoveAt = { globalIndex ->
-                                            onItemsChange(items.filterIndexed { i, _ -> i != globalIndex })
-                                        },
+                                        appsByPackage = appsByPackage,
+                                        iconBitmapCache = iconBitmapCache,
                                     )
                                 }
+                            }
 
-                                if (editMode &&
-                                    dragFromGlobal in pageStartIndex until (pageStartIndex + pageSize)
-                                ) {
-                                    val localFrom = dragFromGlobal - pageStartIndex
-                                    val col = localFrom % columns
-                                    val row = localFrom / columns
-                                    val draggedItem = items.getOrNull(dragFromGlobal)
-                                    if (draggedItem != null) {
-                                        QuickLauncherGridCell(
-                                            modifier = Modifier
-                                                .zIndex(2f)
-                                                .offset {
-                                                    IntOffset(
-                                                        (col * stepX + dragOffsetX).roundToInt(),
-                                                        (row * stepY + dragOffsetY).roundToInt(),
-                                                    )
-                                                }
-                                                .width(with(density) { cellWidthPx.toDp() }),
-                                            item = draggedItem,
-                                            appsByPackage = appsByPackage,
-                                            iconBitmap = iconBitmapCache[dragFromGlobal],
-                                            showEditBadge = false,
-                                        )
-                                    }
-                                }
+                            if (editMode) {
+                                QuickLauncherDeleteButtonLayer(
+                                    columns = columns,
+                                    pageSize = pageSize,
+                                    pageStartIndex = pageStartIndex,
+                                    items = items,
+                                    stepX = stepX,
+                                    stepY = stepY,
+                                    cellWidthPx = cellWidthPx,
+                                    density = density,
+                                    onRemoveAt = { globalIndex ->
+                                        onItemsChange(items.filterIndexed { i, _ -> i != globalIndex })
+                                    },
+                                )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 QuickLauncherEditorToolbar(
                     editMode = editMode,
                     onAdd = onAdd,
@@ -416,8 +301,164 @@ fun QuickLauncherGridEditor(
 }
 
 @Composable
-private fun QuickLauncherPageGrid(
-    modifier: Modifier = Modifier,
+private fun QuickLauncherReorderablePageGrid(
+    pageStart: Int,
+    columns: Int,
+    rows: Int,
+    pageSize: Int,
+    currentPage: Int,
+    pageCount: Int,
+    pageWidthPx: Float,
+    items: List<QuickLauncherItem>,
+    appsByPackage: Map<String, AppInfo>,
+    iconBitmapCache: Map<Int, android.graphics.Bitmap?>,
+    editMode: Boolean,
+    onMoveItem: (fromGlobal: Int, insertIndex: Int) -> Unit,
+    onCrossPageTurn: (delta: Int, draggingItemKey: Any) -> Unit,
+) {
+    val lazyGridState = rememberLazyGridState()
+    val haptic = LocalHapticFeedback.current
+    val itemKeys = remember(items) { quickLauncherStableItemKeys(items) }
+    val reorderableState = rememberReorderableLazyGridState(lazyGridState) { from, to ->
+        if (!editMode || from.index == to.index) return@rememberReorderableLazyGridState
+        val globalFrom = pageStart + from.index
+        val globalToSlot = pageStart + to.index
+        val insertIndex = QuickLauncherGridLogic.dragInsertIndex(globalToSlot, items.size)
+        if (globalFrom in items.indices && globalFrom != insertIndex) {
+            onMoveItem(globalFrom, insertIndex)
+        }
+    }
+    var activeDragKey by remember { mutableStateOf<Any?>(null) }
+    var dragPointerX by remember { mutableFloatStateOf(Float.NaN) }
+    val currentDragKey = rememberUpdatedState(activeDragKey)
+
+    LaunchedEffect(
+        editMode,
+        pageWidthPx,
+        pageCount,
+        currentPage,
+        activeDragKey,
+        dragPointerX,
+    ) {
+        if (!editMode || pageCount <= 1 || pageWidthPx <= 0f) return@LaunchedEffect
+        var edgeSeeded = false
+        var lastEdgeZone = 0
+        var turnLocked = false
+
+        snapshotFlow {
+            activeDragKey to dragPointerX
+        }.collect { (draggingKey, pointerX) ->
+            if (draggingKey == null || pointerX.isNaN()) {
+                edgeSeeded = false
+                lastEdgeZone = 0
+                return@collect
+            }
+            if (turnLocked) return@collect
+
+            val edge = pageWidthPx * PAGE_EDGE_AUTO_PAGE_FRACTION
+            val zone = when {
+                pointerX >= pageWidthPx - edge && currentPage < pageCount - 1 -> 1
+                pointerX <= edge && currentPage > 0 -> -1
+                else -> 0
+            }
+            if (!edgeSeeded) {
+                edgeSeeded = true
+                lastEdgeZone = zone
+                return@collect
+            }
+            if (zone == 0 || zone == lastEdgeZone) return@collect
+
+            lastEdgeZone = zone
+            turnLocked = true
+            onCrossPageTurn(zone, draggingKey)
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            delay(PAGE_AUTO_TURN_COOLDOWN_MS)
+            turnLocked = false
+            edgeSeeded = false
+            lastEdgeZone = 0
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(editMode, pageCount) {
+                if (!editMode || pageCount <= 1) return@pointerInput
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (currentDragKey.value != null) {
+                            val x = event.changes.firstOrNull { it.pressed }?.position?.x
+                            if (x != null) {
+                                dragPointerX = x
+                            }
+                            if (event.changes.none { it.pressed }) {
+                                activeDragKey = null
+                                dragPointerX = Float.NaN
+                            }
+                        }
+                    }
+                }
+            },
+    ) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        state = lazyGridState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = (rows * 88).dp, max = (rows * 96).dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = false,
+    ) {
+        items(
+            count = pageSize,
+            key = { localIndex ->
+                val globalIndex = pageStart + localIndex
+                if (globalIndex < items.size) itemKeys[globalIndex] else "empty-$localIndex"
+            },
+        ) { localIndex ->
+            val globalIndex = pageStart + localIndex
+            if (globalIndex < items.size) {
+                val item = items[globalIndex]
+                ReorderableItem(
+                    state = reorderableState,
+                    key = itemKeys[globalIndex],
+                    enabled = editMode,
+                ) { isDragging ->
+                    val itemKey = itemKeys[globalIndex]
+                    QuickLauncherGridCell(
+                        modifier = if (editMode) {
+                            Modifier.longPressDraggableHandle(
+                                onDragStarted = {
+                                    activeDragKey = itemKey
+                                    haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                },
+                                onDragStopped = {
+                                    activeDragKey = null
+                                    dragPointerX = Float.NaN
+                                    haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                },
+                            )
+                        } else {
+                            Modifier
+                        },
+                        item = item,
+                        appsByPackage = appsByPackage,
+                        iconBitmap = iconBitmapCache[globalIndex],
+                        showEditBadge = editMode && !isDragging,
+                    )
+                }
+            } else {
+                QuickLauncherEmptyGridCell()
+            }
+        }
+    }
+    }
+}
+
+@Composable
+private fun QuickLauncherReadOnlyPageGrid(
     pageStart: Int,
     columns: Int,
     rows: Int,
@@ -425,43 +466,31 @@ private fun QuickLauncherPageGrid(
     items: List<QuickLauncherItem>,
     appsByPackage: Map<String, AppInfo>,
     iconBitmapCache: Map<Int, android.graphics.Bitmap?>,
-    editMode: Boolean,
-    dragFromGlobal: Int,
-    dragToGlobal: Int,
 ) {
-    val displayMapping = remember(items.size, dragFromGlobal, dragToGlobal) {
-        quickLauncherDisplayMapping(items.size, dragFromGlobal, dragToGlobal)
-    }
-    Column(
-        modifier = modifier
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = (rows * 88).dp, max = (rows * 96).dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
+        userScrollEnabled = false,
     ) {
-        for (row in 0 until rows) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for (col in 0 until columns) {
-                    val cellIndex = row * columns + col
-                    if (cellIndex >= pageSize) continue
-                    val cellGlobal = pageStart + cellIndex
-                    Box(modifier = Modifier.weight(1f)) {
-                        val originalIndex = displayMapping.getOrNull(cellGlobal)
-                        val item = originalIndex?.let { items.getOrNull(it) }
-                        if (item == null) {
-                            QuickLauncherEmptyGridCell()
-                        } else {
-                            QuickLauncherGridCell(
-                                item = item,
-                                appsByPackage = appsByPackage,
-                                iconBitmap = iconBitmapCache[originalIndex],
-                                showEditBadge = editMode,
-                            )
-                        }
-                    }
-                }
+        items(
+            count = pageSize,
+            key = { localIndex -> "preview-${pageStart + localIndex}" },
+        ) { localIndex ->
+            val globalIndex = pageStart + localIndex
+            val item = items.getOrNull(globalIndex)
+            if (item == null) {
+                QuickLauncherEmptyGridCell()
+            } else {
+                QuickLauncherGridCell(
+                    item = item,
+                    appsByPackage = appsByPackage,
+                    iconBitmap = iconBitmapCache[globalIndex],
+                    showEditBadge = false,
+                )
             }
         }
     }
@@ -470,29 +499,23 @@ private fun QuickLauncherPageGrid(
 @Composable
 private fun QuickLauncherDeleteButtonLayer(
     columns: Int,
-    rows: Int,
     pageSize: Int,
     pageStartIndex: Int,
     items: List<QuickLauncherItem>,
-    dragFromGlobal: Int,
-    dragToGlobal: Int,
     stepX: Float,
     stepY: Float,
     cellWidthPx: Float,
     density: Density,
     onRemoveAt: (Int) -> Unit,
 ) {
-    val displayMapping = remember(items.size, dragFromGlobal, dragToGlobal) {
-        quickLauncherDisplayMapping(items.size, dragFromGlobal, dragToGlobal)
-    }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .zIndex(3f),
     ) {
         for (localIndex in 0 until pageSize) {
-            val cellGlobal = pageStartIndex + localIndex
-            val originalIndex = displayMapping.getOrNull(cellGlobal) ?: continue
+            val globalIndex = pageStartIndex + localIndex
+            if (globalIndex !in items.indices) continue
             val col = localIndex % columns
             val row = localIndex / columns
             Box(
@@ -513,7 +536,7 @@ private fun QuickLauncherDeleteButtonLayer(
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFE53935))
-                        .clickable { onRemoveAt(originalIndex) },
+                        .clickable { onRemoveAt(globalIndex) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -714,6 +737,16 @@ private fun QuickLauncherGridCell(
     }
 }
 
+private fun quickLauncherStableItemKeys(items: List<QuickLauncherItem>): List<String> {
+    val counts = mutableMapOf<String, Int>()
+    return items.map { item ->
+        val base = "${item.type.id}:${item.payload}"
+        val occurrence = counts.getOrDefault(base, 0)
+        counts[base] = occurrence + 1
+        "$base#$occurrence"
+    }
+}
+
 private fun quickLauncherGridLabel(item: QuickLauncherItem, appsByPackage: Map<String, AppInfo>): String =
     when (item.type) {
         QuickLauncherItemType.APP ->
@@ -725,37 +758,3 @@ private fun quickLauncherGridLabel(item: QuickLauncherItem, appsByPackage: Map<S
         QuickLauncherItemType.WIDGET ->
             item.label.ifBlank { "小组件" }
     }
-
-private fun quickLauncherLocalIndexAt(
-    offset: Offset,
-    columns: Int,
-    rows: Int,
-    pageSize: Int,
-    stepX: Float,
-    stepY: Float,
-): Int {
-    if (stepX <= 0f || stepY <= 0f) return 0
-    val col = (offset.x / stepX).toInt().coerceIn(0, columns - 1)
-    val row = (offset.y / stepY).toInt().coerceIn(0, rows - 1)
-    return (row * columns + col).coerceIn(0, pageSize - 1)
-}
-
-private fun quickLauncherDragTargetLocalIndex(
-    localIndex: Int,
-    dragOffsetX: Float,
-    dragOffsetY: Float,
-    columns: Int,
-    rows: Int,
-    pageSize: Int,
-    cellWidthPx: Float,
-    cellHeightPx: Float,
-    gridGapPx: Float,
-): Int {
-    val col = localIndex % columns
-    val row = localIndex / columns
-    val stepX = cellWidthPx + gridGapPx
-    val stepY = cellHeightPx + gridGapPx
-    val targetCol = (col + (dragOffsetX / stepX).roundToInt()).coerceIn(0, columns - 1)
-    val targetRow = (row + (dragOffsetY / stepY).roundToInt()).coerceIn(0, rows - 1)
-    return (targetRow * columns + targetCol).coerceIn(0, pageSize - 1)
-}

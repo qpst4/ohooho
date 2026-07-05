@@ -7,6 +7,12 @@ import com.slideindex.app.settings.edgeTriggerWidthDp
 import com.slideindex.app.settings.interceptWindowWidthDp
 import com.slideindex.app.util.coerceSafe
 
+data class CollapsedWindowBounds(
+    val widthPx: Int,
+    val heightPx: Int,
+    val yPx: Int,
+)
+
 class GestureZoneLayout(
     private val side: PanelSide,
     private var settings: AppSettings = AppSettings(),
@@ -15,6 +21,10 @@ class GestureZoneLayout(
     private var density: Float = 1f,
     private var sessionActive: Boolean = false,
     private var previewMode: Boolean = false,
+    private var layoutHeight: Int = 0,
+    private var windowOffsetY: Float = 0f,
+    private var screenWidthPx: Int = 0,
+    private var screenHeightPx: Int = 0,
 ) {
     fun update(
         settings: AppSettings,
@@ -23,6 +33,10 @@ class GestureZoneLayout(
         density: Float,
         sessionActive: Boolean,
         previewMode: Boolean,
+        layoutHeight: Int = viewHeight,
+        windowOffsetY: Float = 0f,
+        screenWidthPx: Int = 0,
+        screenHeightPx: Int = 0,
     ) {
         this.settings = settings
         this.viewWidth = viewWidth
@@ -30,6 +44,10 @@ class GestureZoneLayout(
         this.density = density
         this.sessionActive = sessionActive
         this.previewMode = previewMode
+        this.layoutHeight = layoutHeight
+        this.windowOffsetY = windowOffsetY
+        if (screenWidthPx > 0) this.screenWidthPx = screenWidthPx
+        if (screenHeightPx > 0) this.screenHeightPx = screenHeightPx
     }
 
     fun triggerZoneRects(): List<Pair<String, RectF>> =
@@ -53,18 +71,19 @@ class GestureZoneLayout(
     }
 
     fun findTriggerHandleAt(localX: Float, localY: Float): String? {
-        triggerZoneRects().forEach { (handleId, rect) ->
-            if (rect.contains(localX, localY)) return handleId
-        }
-        return null
+        // Later handles (e.g. a second trigger pair) win when zones overlap.
+        return triggerZoneRects().asReversed().firstOrNull { (_, rect) ->
+            rect.contains(localX, localY)
+        }?.first
     }
 
     fun indexRailRect(): RectF {
-        if (viewWidth <= 0 || viewHeight <= 0) return RectF()
+        val refHeight = referenceHeight()
+        if (viewWidth <= 0 || refHeight <= 0) return RectF()
         val w = railVisualWidth().coerceAtMost(edgeWidthPx().toFloat())
-        val indexH = viewHeight * settings.indexHeightFraction
-        var top = (viewHeight - indexH) / 2f
-        top = top.coerceSafe(dp(8f), viewHeight - indexH - dp(8f))
+        val indexH = refHeight * settings.indexHeightFraction
+        var top = (refHeight - indexH) / 2f - windowOffsetY
+        top = top.coerceSafe(dp(8f) - windowOffsetY, refHeight - indexH - dp(8f) - windowOffsetY)
         return when (side) {
             PanelSide.LEFT -> RectF(0f, top, w, top + indexH)
             PanelSide.RIGHT -> RectF(viewWidth - w, top, viewWidth.toFloat(), top + indexH)
@@ -90,10 +109,65 @@ class GestureZoneLayout(
     fun containsInterceptZone(localX: Float, localY: Float): Boolean =
         interceptZoneRect().contains(localX, localY)
 
+    fun containsInterceptZoneAtScreen(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
+        if (!settings.interceptSystemBackGesture) {
+            return containsTriggerAtScreen(rawX, rawY, localX, localY)
+        }
+        if (screenWidthPx > 0 && screenHeightPx > 0) {
+            val interceptWidth = settings.interceptWindowWidthDp(side) * density
+            val trigger = settings.triggerHandles(side)
+            if (trigger.isEmpty()) return false
+            var top = screenHeightPx.toFloat()
+            var bottom = 0f
+            trigger.forEach { handle ->
+                top = minOf(top, screenHeightPx * handle.topFraction)
+                bottom = maxOf(bottom, screenHeightPx * (handle.topFraction + handle.heightFraction))
+            }
+            val rect = when (side) {
+                PanelSide.LEFT -> RectF(0f, top, interceptWidth, bottom)
+                PanelSide.RIGHT -> RectF(
+                    screenWidthPx - interceptWidth,
+                    top,
+                    screenWidthPx.toFloat(),
+                    bottom,
+                )
+            }
+            return rect.contains(rawX, rawY)
+        }
+        return containsInterceptZone(localX, localY)
+    }
+
     fun railVisualWidth(): Float = dp(22f)
 
     fun containsTrigger(localX: Float, localY: Float): Boolean =
         findTriggerHandleAt(localX, localY) != null
+
+    /** Hit-test in screen coordinates so trigger detection stays correct while the overlay window moves/resizes. */
+    fun containsTriggerAtScreen(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
+        if (screenWidthPx > 0 && screenHeightPx > 0) {
+            return findTriggerHandleAtScreen(rawX, rawY) != null
+        }
+        return containsTrigger(localX, localY)
+    }
+
+    fun findTriggerHandleAtScreen(rawX: Float, rawY: Float): String? {
+        if (screenWidthPx <= 0 || screenHeightPx <= 0) return null
+        val w = edgeWidthPx().toFloat()
+        return settings.triggerHandles(side).asReversed().firstOrNull { handle ->
+            val top = screenHeightPx * handle.topFraction
+            val bottom = top + screenHeightPx * handle.heightFraction
+            val rect = when (side) {
+                PanelSide.LEFT -> RectF(0f, top, w, bottom)
+                PanelSide.RIGHT -> RectF(
+                    screenWidthPx - w,
+                    top,
+                    screenWidthPx.toFloat(),
+                    bottom,
+                )
+            }
+            rect.contains(rawX, rawY)
+        }?.id
+    }
 
     fun isInRailZone(localX: Float): Boolean {
         val rail = indexRailRect()
@@ -105,8 +179,10 @@ class GestureZoneLayout(
 
     private fun rectForHandle(handle: TriggerHandle): RectF {
         if (viewWidth <= 0 || viewHeight <= 0) return RectF()
-        val top = viewHeight * handle.topFraction
-        val zoneHeight = viewHeight * handle.heightFraction
+        val refHeight = referenceHeight()
+        val topOnScreen = refHeight * handle.topFraction
+        val zoneHeight = refHeight * handle.heightFraction
+        val top = topOnScreen - windowOffsetY
         val w = edgeWidthPx().toFloat()
         return when (side) {
             PanelSide.LEFT -> RectF(0f, top, w, top + zoneHeight)
@@ -114,5 +190,70 @@ class GestureZoneLayout(
         }
     }
 
+    private fun referenceHeight(): Int =
+        layoutHeight.coerceAtLeast(viewHeight).coerceAtLeast(1)
+
     private fun dp(value: Float): Float = value * density
+
+    companion object {
+        private fun captureWidthPx(settings: AppSettings, side: PanelSide, density: Float): Int =
+            (settings.interceptWindowWidthDp(side) * density)
+                .toInt()
+                .coerceAtLeast((16f * density).toInt().coerceAtLeast(1))
+
+        /** One capture window per enabled trigger handle so gaps along the edge stay interactive. */
+        fun computeCaptureWindowBounds(
+            settings: AppSettings,
+            side: PanelSide,
+            screenHeightPx: Int,
+            density: Float,
+        ): List<CollapsedWindowBounds> {
+            val widthPx = captureWidthPx(settings, side, density)
+            if (screenHeightPx <= 0) {
+                return listOf(CollapsedWindowBounds(widthPx = widthPx, heightPx = 1, yPx = 0))
+            }
+            val handles = settings.triggerHandles(side)
+            if (handles.isEmpty()) {
+                return listOf(CollapsedWindowBounds(widthPx = widthPx, heightPx = 1, yPx = 0))
+            }
+            val padPx = (4f * density).toInt().coerceAtLeast(1)
+            return handles.map { handle ->
+                val topPx = (screenHeightPx * handle.topFraction).toInt().coerceIn(0, screenHeightPx - 1)
+                val bottomPx = (screenHeightPx * handle.bottomFraction).toInt()
+                    .coerceIn(topPx + 1, screenHeightPx)
+                val top = (topPx - padPx).coerceAtLeast(0)
+                val bottom = (bottomPx + padPx).coerceAtMost(screenHeightPx)
+                CollapsedWindowBounds(
+                    widthPx = widthPx,
+                    heightPx = (bottom - top).coerceAtLeast(1),
+                    yPx = top,
+                )
+            }
+        }
+
+        fun computeCollapsedWindowBounds(
+            settings: AppSettings,
+            side: PanelSide,
+            screenHeightPx: Int,
+            density: Float,
+        ): CollapsedWindowBounds {
+            val bounds = computeCaptureWindowBounds(settings, side, screenHeightPx, density)
+            if (bounds.size == 1) return bounds.first()
+            val widthPx = captureWidthPx(settings, side, density)
+            if (screenHeightPx <= 0) {
+                return CollapsedWindowBounds(widthPx = widthPx, heightPx = 1, yPx = 0)
+            }
+            var top = screenHeightPx
+            var bottom = 0
+            bounds.forEach { bound ->
+                top = minOf(top, bound.yPx)
+                bottom = maxOf(bottom, bound.yPx + bound.heightPx)
+            }
+            return CollapsedWindowBounds(
+                widthPx = widthPx,
+                heightPx = (bottom - top).coerceAtLeast(1),
+                yPx = top.coerceAtLeast(0),
+            )
+        }
+    }
 }

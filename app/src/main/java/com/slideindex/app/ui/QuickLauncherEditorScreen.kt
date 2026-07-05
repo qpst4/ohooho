@@ -299,6 +299,8 @@ private fun QuickLauncherEditorAddPicker(
         }
         when (QuickLauncherEditorAddTab.entries[selectedTab]) {
             QuickLauncherEditorAddTab.ACTIONS -> QuickLauncherEditorActionsTab(
+                searchQuery = searchQuery,
+                onSearchChange = onSearchChange,
                 configuredActionKeys = configuredActionKeys,
                 onToggle = onToggleAction,
                 listModifier = listModifier,
@@ -326,6 +328,8 @@ private fun QuickLauncherEditorAddPicker(
 
 @Composable
 private fun QuickLauncherEditorActionsTab(
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
     configuredActionKeys: Set<String>,
     onToggle: (GestureAction, String, Boolean) -> Unit,
     listModifier: Modifier,
@@ -365,31 +369,56 @@ private fun QuickLauncherEditorActionsTab(
             GestureAction.LaunchAssistant,
         )
     }
-    val sortedActions = remember(actionOptions, context) {
-        actionOptions.sortedBy { gestureActionSortKey(context, it) }
+    val filtered = remember(actionOptions, searchQuery, context) {
+        filterGestureActions(context, actionOptions, searchQuery)
     }
-    LazyColumn(
-        modifier = listModifier.padding(PickerListContentPadding),
-        verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
-    ) {
-        items(sortedActions.size, key = { sortedActions[it].type.id }) { index ->
-            val action = sortedActions[index]
-            val label = gestureActionLabel(action)
-            val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
-            QuickLauncherActionRow(
-                action = action,
-                segmentIndex = index,
-                segmentCount = sortedActions.size,
-                label = label,
-                subtitle = gestureActionDescription(action),
-                added = added,
-                onToggle = {
-                    if (!added) {
-                        requestPermissionForAdjustAction(context, action)
-                    }
-                    onToggle(action, label, added)
-                },
-            )
+    Column(modifier = listModifier) {
+        PickerSearchListHeader(
+            query = searchQuery,
+            onQueryChange = onSearchChange,
+            hintResId = R.string.search_actions_hint,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
+        ) {
+            if (filtered.isEmpty()) {
+                item(key = "actions-empty") {
+                    Text(
+                        text = stringResource(R.string.search_no_actions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                }
+            } else {
+                items(filtered.size, key = { filtered[it].type.id }) { index ->
+                    val action = filtered[index]
+                    val label = gestureActionLabel(action)
+                    val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
+                    QuickLauncherActionRow(
+                        action = action,
+                        segmentIndex = index,
+                        segmentCount = filtered.size,
+                        label = label,
+                        subtitle = gestureActionDescription(action),
+                        added = added,
+                        onToggle = {
+                            if (!added) {
+                                requestPermissionForAdjustAction(context, action)
+                            }
+                            onToggle(action, label, added)
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -422,7 +451,11 @@ private fun QuickLauncherEditorAppsTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            contentPadding = PaddingValues(bottom = 8.dp),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             items(filtered.size, key = { filtered[it].packageName }) { index ->
@@ -533,7 +566,11 @@ private fun QuickLauncherEditorShortcutsTab(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            contentPadding = PaddingValues(bottom = 8.dp),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             if (loading) {

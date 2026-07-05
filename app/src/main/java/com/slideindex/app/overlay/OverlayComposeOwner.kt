@@ -51,7 +51,7 @@ object OverlayCompose {
     fun createComposeView(context: Context, owner: OverlayComposeOwner): ComposeView {
         return ComposeView(themedContext(context)).apply {
             bindOwners(this, owner)
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         }
     }
 }

@@ -10,6 +10,7 @@ datastore = "1.2.1"
 savedstate = "1.5.0"
 tinypinyin = "2.5.1"
 shizuku = "13.1.5"
+reorderable = "3.1.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -34,3 +35,4 @@ datastore-preferences = { group = "androidx.datastore", name = "datastore-prefer
 tinypinyin = { group = "com.belerweb", name = "pinyin4j", version.ref = "tinypinyin" }
 shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
 shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }

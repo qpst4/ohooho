@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
@@ -19,6 +18,7 @@ import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,12 +67,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.slideindex.app.R
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.gesture.GestureAction
@@ -91,7 +93,14 @@ import com.slideindex.app.util.toSafeImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class QuickLauncherAddTab { ACTIONS, APPS, SHORTCUTS }
+private fun Modifier.pickerTabPageVisible(visible: Boolean): Modifier =
+    if (visible) {
+        Modifier.zIndex(1f)
+    } else {
+        Modifier
+            .zIndex(0f)
+            .graphicsLayer { alpha = 0f }
+    }
 
 private const val QUICK_LAUNCHER_SHEET_ENTER_MS = 240
 private const val QUICK_LAUNCHER_SHEET_EXIT_MS = 200
@@ -135,17 +144,6 @@ fun QuickLauncherAddOverlaySheet(
     Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn(tween(QUICK_LAUNCHER_SHEET_ENTER_MS)),
-            exit = fadeOut(tween(QUICK_LAUNCHER_SHEET_EXIT_MS)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.32f)),
-            )
-        }
-        AnimatedVisibility(
-            visible = visible,
             enter = fadeIn(tween(QUICK_LAUNCHER_SHEET_ENTER_MS)) +
                 slideInHorizontally(
                     initialOffsetX = { fullWidth ->
@@ -162,79 +160,89 @@ fun QuickLauncherAddOverlaySheet(
                 ),
             modifier = Modifier.fillMaxSize(),
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = when (panelSide) {
-                    PanelSide.LEFT -> Alignment.CenterStart
-                    PanelSide.RIGHT -> Alignment.CenterEnd
-                },
-            ) {
-                Surface(
+            Box(modifier = Modifier.fillMaxSize()) {
+                Box(
                     modifier = Modifier
-                        .padding(start = 10.dp, end = 10.dp, top = 24.dp, bottom = 56.dp)
-                        .widthIn(min = 280.dp, max = 400.dp)
-                        .fillMaxHeight(0.78f)
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.32f))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = {},
+                            onClick = requestDismiss,
                         ),
-                    shape = RoundedCornerShape(20.dp),
-                    tonalElevation = 6.dp,
-                    shadowElevation = 12.dp,
-                    color = MaterialTheme.colorScheme.surface,
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = when (panelSide) {
+                        PanelSide.LEFT -> Alignment.CenterStart
+                        PanelSide.RIGHT -> Alignment.CenterEnd
+                    },
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 8.dp, end = 4.dp, top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            IconButton(onClick = requestDismiss) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.quick_launcher_add),
-                                    style = MaterialTheme.typography.titleMedium,
+                    Surface(
+                        modifier = Modifier
+                            .padding(start = 10.dp, end = 10.dp, top = 24.dp, bottom = 56.dp)
+                            .widthIn(min = 280.dp, max = 400.dp)
+                            .fillMaxHeight(0.78f),
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 6.dp,
+                        shadowElevation = 12.dp,
+                        color = MaterialTheme.colorScheme.surface,
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 8.dp, end = 4.dp, top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                IconButton(onClick = requestDismiss) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.quick_launcher_add),
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.quick_launcher_add_overlay_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                AssistChip(
+                                    onClick = {},
+                                    enabled = false,
+                                    label = {
+                                        Text(stringResource(R.string.quick_launcher_add_overlay_badge))
+                                    },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        disabledLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    ),
+                                    modifier = Modifier.padding(end = 4.dp),
                                 )
-                                Text(
-                                    text = stringResource(R.string.quick_launcher_add_overlay_hint),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                TextButton(onClick = requestDismiss) {
+                                    Text(stringResource(R.string.quick_launcher_add_overlay_done))
+                                }
                             }
-                            AssistChip(
-                                onClick = {},
-                                enabled = false,
-                                label = {
-                                    Text(stringResource(R.string.quick_launcher_add_overlay_badge))
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    disabledLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                ),
-                                modifier = Modifier.padding(end = 4.dp),
+                            HorizontalDivider()
+                            QuickLauncherAddOverlaySheetContent(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                apps = apps,
+                                configuredAppPackages = configuredAppPackages,
+                                configuredShortcutKeys = configuredShortcutKeys,
+                                configuredActionKeys = configuredActionKeys,
+                                onDismiss = requestDismiss,
+                                onAdd = onAdd,
+                                onRemove = onRemove,
+                                launchCreateShortcut = launchCreateShortcut,
+                                showTopBar = false,
                             )
-                            TextButton(onClick = requestDismiss) {
-                                Text(stringResource(R.string.quick_launcher_add_overlay_done))
-                            }
                         }
-                        HorizontalDivider()
-                        QuickLauncherAddOverlaySheetContent(
-                            apps = apps,
-                            configuredAppPackages = configuredAppPackages,
-                            configuredShortcutKeys = configuredShortcutKeys,
-                            configuredActionKeys = configuredActionKeys,
-                            onDismiss = requestDismiss,
-                            onAdd = onAdd,
-                            onRemove = onRemove,
-                            launchCreateShortcut = launchCreateShortcut,
-                            showTopBar = false,
-                        )
                     }
                 }
             }
@@ -257,44 +265,12 @@ private fun QuickLauncherAddOverlaySheetContent(
         (CreatedShortcut?) -> Unit,
     ) -> Unit,
     showTopBar: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
-    var catalog by remember { mutableStateOf<AppShortcutLoader.ShortcutCatalog?>(null) }
-    var shortcutsLoading by remember { mutableStateOf(true) }
-    var scanProgress by remember { mutableStateOf<ShortcutScanProgress?>(null) }
-    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var addedAppPackages by remember(configuredAppPackages) { mutableStateOf(configuredAppPackages) }
     var addedShortcutKeys by remember(configuredShortcutKeys) { mutableStateOf(configuredShortcutKeys) }
     var addedActionKeys by remember(configuredActionKeys) { mutableStateOf(configuredActionKeys) }
-
-    LaunchedEffect(apps) {
-        if (apps.isEmpty()) {
-            shortcutsLoading = false
-            scanProgress = null
-            return@LaunchedEffect
-        }
-        shortcutsLoading = true
-        scanProgress = ShortcutScanProgress(ShortcutScanPhase.DUMPSYS, 0, 0)
-        try {
-            catalog = withContext(Dispatchers.IO) {
-                AppShortcutLoader.loadShortcutCatalog(
-                    context = context,
-                    apps = apps,
-                    includeShell = true,
-                    onProgress = { progress ->
-                        mainHandler.post { scanProgress = progress }
-                    },
-                )
-            }
-        } catch (_: Exception) {
-            catalog = AppShortcutLoader.ShortcutCatalog(createHosts = emptyList())
-        } finally {
-            shortcutsLoading = false
-            scanProgress = null
-        }
-    }
 
     fun addItem(item: QuickLauncherItem) {
         onAdd(item)
@@ -339,7 +315,7 @@ private fun QuickLauncherAddOverlaySheetContent(
     if (showTopBar) {
         val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
         Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
             topBar = {
                 MediumFlexibleTopAppBar(
                     title = {
@@ -357,14 +333,9 @@ private fun QuickLauncherAddOverlaySheetContent(
             QuickLauncherAddOverlaySheetBody(
                 padding = padding,
                 nestedScrollConnection = scrollBehavior.nestedScrollConnection,
-                selectedTab = selectedTab,
-                onSelectedTabChange = { selectedTab = it },
                 searchQuery = searchQuery,
                 onSearchChange = { searchQuery = it },
                 apps = apps,
-                catalog = catalog,
-                shortcutsLoading = shortcutsLoading,
-                scanProgress = scanProgress,
                 addedAppPackages = addedAppPackages,
                 addedShortcutKeys = addedShortcutKeys,
                 addedActionKeys = addedActionKeys,
@@ -374,16 +345,12 @@ private fun QuickLauncherAddOverlaySheetContent(
         }
     } else {
         QuickLauncherAddOverlaySheetBody(
+            modifier = modifier.fillMaxSize(),
             padding = PaddingValues(0.dp),
             nestedScrollConnection = null,
-            selectedTab = selectedTab,
-            onSelectedTabChange = { selectedTab = it },
             searchQuery = searchQuery,
             onSearchChange = { searchQuery = it },
             apps = apps,
-            catalog = catalog,
-            shortcutsLoading = shortcutsLoading,
-            scanProgress = scanProgress,
             addedAppPackages = addedAppPackages,
             addedShortcutKeys = addedShortcutKeys,
             addedActionKeys = addedActionKeys,
@@ -396,16 +363,12 @@ private fun QuickLauncherAddOverlaySheetContent(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun QuickLauncherAddOverlaySheetBody(
+    modifier: Modifier = Modifier,
     padding: PaddingValues,
     nestedScrollConnection: NestedScrollConnection?,
-    selectedTab: Int,
-    onSelectedTabChange: (Int) -> Unit,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     apps: List<AppInfo>,
-    catalog: AppShortcutLoader.ShortcutCatalog?,
-    shortcutsLoading: Boolean,
-    scanProgress: ShortcutScanProgress?,
     addedAppPackages: Set<String>,
     addedShortcutKeys: Set<String>,
     addedActionKeys: Set<String>,
@@ -415,11 +378,34 @@ private fun QuickLauncherAddOverlaySheetBody(
         (CreatedShortcut?) -> Unit,
     ) -> Unit,
 ) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var visitedTabs by remember { mutableStateOf(setOf(0)) }
+    fun selectTab(index: Int) {
+        selectedTab = index
+        visitedTabs = visitedTabs + index
+    }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(padding),
     ) {
+        PrimaryTabRow(selectedTabIndex = selectedTab) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectTab(0) },
+                text = { Text(stringResource(R.string.action_picker_tab_actions)) },
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectTab(1) },
+                text = { Text(stringResource(R.string.action_picker_tab_apps)) },
+            )
+            Tab(
+                selected = selectedTab == 2,
+                onClick = { selectTab(2) },
+                text = { Text(stringResource(R.string.action_picker_tab_shortcuts)) },
+            )
+        }
         val listModifier = Modifier
             .fillMaxWidth()
             .weight(1f)
@@ -430,51 +416,57 @@ private fun QuickLauncherAddOverlaySheetBody(
                     Modifier
                 },
             )
-        PrimaryTabRow(selectedTabIndex = selectedTab) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { onSelectedTabChange(0) },
-                text = { Text(stringResource(R.string.action_picker_tab_actions)) },
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { onSelectedTabChange(1) },
-                text = { Text(stringResource(R.string.action_picker_tab_apps)) },
-            )
-            Tab(
-                selected = selectedTab == 2,
-                onClick = { onSelectedTabChange(2) },
-                text = { Text(stringResource(R.string.action_picker_tab_shortcuts)) },
-            )
-        }
-        when (QuickLauncherAddTab.entries[selectedTab]) {
-            QuickLauncherAddTab.ACTIONS -> QuickLauncherAddActionsTab(
-                configuredActionKeys = addedActionKeys,
-                onToggle = onToggle,
-                listModifier = listModifier,
-            )
-            QuickLauncherAddTab.APPS -> QuickLauncherAddAppsTab(
-                searchQuery = searchQuery,
-                onSearchChange = onSearchChange,
-                apps = apps,
-                configuredAppPackages = addedAppPackages,
-                onToggle = { app, added ->
-                    onToggle(QuickLauncherItem.app(app.packageName, app.label), added)
-                },
-                listModifier = listModifier,
-            )
-            QuickLauncherAddTab.SHORTCUTS -> QuickLauncherAddShortcutsTab(
-                apps = apps,
-                catalog = catalog,
-                loading = shortcutsLoading,
-                scanProgress = scanProgress,
-                searchQuery = searchQuery,
-                onSearchChange = onSearchChange,
-                configuredShortcutKeys = addedShortcutKeys,
-                onToggle = onToggle,
-                launchCreateShortcut = launchCreateShortcut,
-                listModifier = listModifier,
-            )
+        Box(modifier = listModifier) {
+            if (0 in visitedTabs) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pickerTabPageVisible(selectedTab == 0),
+                ) {
+                    QuickLauncherAddActionsTab(
+                        searchQuery = searchQuery,
+                        onSearchChange = onSearchChange,
+                        configuredActionKeys = addedActionKeys,
+                        onToggle = onToggle,
+                        listModifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            if (1 in visitedTabs) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pickerTabPageVisible(selectedTab == 1),
+                ) {
+                    QuickLauncherAddAppsTab(
+                        searchQuery = searchQuery,
+                        onSearchChange = onSearchChange,
+                        apps = apps,
+                        configuredAppPackages = addedAppPackages,
+                        onToggle = { app, added ->
+                            onToggle(QuickLauncherItem.app(app.packageName, app.label), added)
+                        },
+                        listModifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            if (2 in visitedTabs) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pickerTabPageVisible(selectedTab == 2),
+                ) {
+                    QuickLauncherAddShortcutsTab(
+                        apps = apps,
+                        searchQuery = searchQuery,
+                        onSearchChange = onSearchChange,
+                        configuredShortcutKeys = addedShortcutKeys,
+                        onToggle = onToggle,
+                        launchCreateShortcut = launchCreateShortcut,
+                        listModifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
     }
 }
@@ -553,6 +545,8 @@ internal fun QuickLauncherActionRow(
 
 @Composable
 private fun QuickLauncherAddActionsTab(
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
     configuredActionKeys: Set<String>,
     onToggle: (QuickLauncherItem, Boolean) -> Unit,
     listModifier: Modifier,
@@ -592,32 +586,57 @@ private fun QuickLauncherAddActionsTab(
             GestureAction.LaunchAssistant,
         )
     }
-    val sortedActions = remember(actionOptions, context) {
-        actionOptions.sortedBy { gestureActionSortKey(context, it) }
+    val filtered = remember(actionOptions, searchQuery, context) {
+        filterGestureActions(context, actionOptions, searchQuery)
     }
-    LazyColumn(
-        modifier = listModifier.padding(horizontal = PickerListHorizontalPadding, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
-    ) {
-        items(sortedActions.size, key = { sortedActions[it].type.id }) { index ->
-            val action = sortedActions[index]
-            val label = gestureActionLabel(action)
-            val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
-            QuickLauncherActionRow(
-                action = action,
-                segmentIndex = index,
-                segmentCount = sortedActions.size,
-                label = label,
-                subtitle = gestureActionDescription(action),
-                added = added,
-                onToggle = {
-                    val item = QuickLauncherItem.action(action, label)
-                    if (!added) {
-                        requestPermissionForAdjustAction(context, action)
-                    }
-                    onToggle(item, added)
-                },
-            )
+    Column(modifier = listModifier) {
+        PickerSearchListHeader(
+            query = searchQuery,
+            onQueryChange = onSearchChange,
+            hintResId = R.string.search_actions_hint,
+        )
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
+        ) {
+            if (filtered.isEmpty()) {
+                item(key = "actions-empty") {
+                    Text(
+                        text = stringResource(R.string.search_no_actions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 24.dp),
+                    )
+                }
+            } else {
+                items(filtered.size, key = { filtered[it].type.id }) { index ->
+                    val action = filtered[index]
+                    val label = gestureActionLabel(action)
+                    val added = QuickLauncherItemCodec.actionKey(action) in configuredActionKeys
+                    QuickLauncherActionRow(
+                        action = action,
+                        segmentIndex = index,
+                        segmentCount = filtered.size,
+                        label = label,
+                        subtitle = gestureActionDescription(action),
+                        added = added,
+                        onToggle = {
+                            val item = QuickLauncherItem.action(action, label)
+                            if (!added) {
+                                requestPermissionForAdjustAction(context, action)
+                            }
+                            onToggle(item, added)
+                        },
+                    )
+                }
+            }
         }
     }
 }
@@ -647,9 +666,13 @@ private fun QuickLauncherAddAppsTab(
         )
         LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentPadding = PaddingValues(bottom = 8.dp),
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             items(filtered.size, key = { filtered[it].packageName }) { index ->
@@ -670,9 +693,6 @@ private fun QuickLauncherAddAppsTab(
 @Composable
 private fun QuickLauncherAddShortcutsTab(
     apps: List<AppInfo>,
-    catalog: AppShortcutLoader.ShortcutCatalog?,
-    loading: Boolean,
-    scanProgress: ShortcutScanProgress?,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     configuredShortcutKeys: Set<String>,
@@ -683,6 +703,39 @@ private fun QuickLauncherAddShortcutsTab(
     ) -> Unit,
     listModifier: Modifier,
 ) {
+    val context = LocalContext.current
+    var catalog by remember { mutableStateOf<AppShortcutLoader.ShortcutCatalog?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var scanProgress by remember { mutableStateOf<ShortcutScanProgress?>(null) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    LaunchedEffect(apps) {
+        if (apps.isEmpty()) {
+            loading = false
+            scanProgress = null
+            return@LaunchedEffect
+        }
+        loading = true
+        scanProgress = ShortcutScanProgress(ShortcutScanPhase.DUMPSYS, 0, 0)
+        try {
+            catalog = withContext(Dispatchers.IO) {
+                AppShortcutLoader.loadShortcutCatalog(
+                    context = context,
+                    apps = apps,
+                    includeShell = true,
+                    onProgress = { progress ->
+                        mainHandler.post { scanProgress = progress }
+                    },
+                )
+            }
+        } catch (_: Exception) {
+            catalog = AppShortcutLoader.ShortcutCatalog(createHosts = emptyList())
+        } finally {
+            loading = false
+            scanProgress = null
+        }
+    }
+
     val query = searchQuery.trim().lowercase()
     val appsByPackage = remember(apps) { apps.associateBy { it.packageName } }
     val createHosts = catalog?.createHosts.orEmpty()
@@ -718,9 +771,13 @@ private fun QuickLauncherAddShortcutsTab(
         )
         LazyColumn(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            contentPadding = PaddingValues(bottom = 8.dp),
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = PickerListHorizontalPadding,
+                end = PickerListHorizontalPadding,
+                bottom = 8.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
         ) {
             if (loading) {

@@ -160,6 +160,10 @@ class GestureSession(
 
     fun quickLauncherContinuousPickActive(): Boolean = quickLauncherContinuousPick
 
+    fun clearQuickLauncherContinuousPick() {
+        quickLauncherContinuousPick = false
+    }
+
     private var shellCommandContinuousPick = false
 
     fun shellCommandContinuousPickActive(): Boolean = shellCommandContinuousPick
@@ -174,9 +178,11 @@ class GestureSession(
 
         if (active) return false
 
-        if (!zoneLayout.containsTrigger(localX, localY)) return false
+        if (!zoneLayout.containsTriggerAtScreen(rawX, rawY, localX, localY)) return false
 
-        activeHandleId = zoneLayout.findTriggerHandleAt(localX, localY) ?: TriggerHandle.DEFAULT_ID
+        activeHandleId = zoneLayout.findTriggerHandleAtScreen(rawX, rawY)
+            ?: zoneLayout.findTriggerHandleAt(localX, localY)
+            ?: TriggerHandle.DEFAULT_ID
 
         active = true
 
@@ -774,8 +780,8 @@ class GestureSession(
             GestureAction.QuickToolsOverlay,
             -> {
                 callbacks.hapticConfirmLaunch()
-                endSession()
                 actionExecutor.execute(action, settings, anchorRawY = rawY)
+                endSession()
             }
 
             GestureAction.None -> endSession()

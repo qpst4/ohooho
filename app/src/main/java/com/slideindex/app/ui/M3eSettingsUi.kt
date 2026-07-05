@@ -33,8 +33,8 @@ fun SettingsCard(content: @Composable () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(pickerListSegmentedGap()),
     ) {
         val count = entries.size
-        entries.forEachIndexed { index, entry ->
-            key(index) {
+        key(count) {
+            entries.forEachIndexed { index, entry ->
                 entry(index, count)
             }
         }

@@ -36,6 +36,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.data.AppInfo
+import com.slideindex.app.R
 import com.slideindex.app.util.toSafeImageBitmap
 
 internal val PickerListHorizontalPadding = 16.dp
@@ -78,19 +79,16 @@ internal fun PickerSearchListHeader(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    @androidx.annotation.StringRes hintResId: Int = R.string.search_hint,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.background,
-    ) {
-        SearchBar(
-            query = query,
-            onQueryChange = onQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = PickerListHorizontalPadding, vertical = 8.dp),
-        )
-    }
+    SearchBar(
+        query = query,
+        onQueryChange = onQueryChange,
+        hintResId = hintResId,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PickerListHorizontalPadding, vertical = 8.dp),
+    )
 }
 
 @Composable

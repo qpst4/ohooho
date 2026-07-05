@@ -4,37 +4,37 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import com.slideindex.app.R
 
 /**
- * M3 search input safe for use inside [LazyColumn] items (no expandable SearchBar shell).
+ * M3 outlined search field — safe inside [LazyColumn] items (no expandable SearchBar shell).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    @StringRes hintResId: Int = R.string.search_hint,
 ) {
-    SearchBarDefaults.InputField(
-        query = query,
-        onQueryChange = onQueryChange,
-        onSearch = { },
-        expanded = false,
-        onExpandedChange = { },
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth(),
         placeholder = {
             Text(
-                text = stringResource(R.string.search_hint),
+                text = stringResource(hintResId),
                 style = MaterialTheme.typography.bodyLarge,
             )
         },
@@ -54,5 +54,13 @@ fun SearchBar(
                 }
             }
         },
+        singleLine = true,
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
     )
 }

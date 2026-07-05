@@ -8,15 +8,37 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
-import android.view.MotionEvent
 import android.view.WindowManager
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.util.HapticHelper
 import com.slideindex.app.util.PermissionHelper
@@ -27,17 +49,8 @@ import com.slideindex.app.util.SystemGestureActions
  * the edge-gesture overlay session. Managed as a singleton so a repeated trigger (e.g. tapping a
  * bound gesture twice) never stacks duplicate windows.
  *
- * Architecture (see class-level requirements this satisfies):
- *  - Window type: [WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY] on API 26+, falling back
- *    to the legacy `TYPE_SYSTEM_ALERT` below that.
- *  - Permission: no-ops (never crashes) when `SYSTEM_ALERT_WINDOW` hasn't been granted; callers
- *    that want to *guide* the user to the settings screen should use [PermissionHelper] directly
- *    (already wired into the gesture-action picker UI).
- *  - Dismissal: outside taps ([MotionEvent.ACTION_OUTSIDE], enabled by combining
- *    [WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL] with
- *    [WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH]), the in-panel close tile, the system
- *    back key, and the screen turning off (proxy for the power key, which apps cannot intercept
- *    directly) all animate out before the window is removed.
+ * The window is full-screen so outside taps are consumed here (panel dismisses first) instead of
+ * leaking through to the edge-gesture overlay below.
  */
 object OhoQuickToolsOverlayWindow {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -47,6 +60,10 @@ object OhoQuickToolsOverlayWindow {
     private var owner: OverlayComposeOwner? = null
     private var panelState: OhoQuickToolsPanelState? = null
     private var visibleState: MutableState<Boolean>? = null
+    private var blockingTouchesState: MutableState<Boolean>? = null
+    private var panelSideState: MutableState<PanelSide?>? = null
+    private var anchorRawYState: MutableState<Float?>? = null
+    private var settingsState: MutableState<AppSettings>? = null
     private var screenOffReceiver: BroadcastReceiver? = null
     private var appContext: Context? = null
 
@@ -62,46 +79,49 @@ object OhoQuickToolsOverlayWindow {
             mainHandler.post { show(context, settings, side, anchorRawY) }
             return
         }
-        if (isShowing) return
-        if (!PermissionHelper.canDrawOverlays(context)) return
+        if (isShowing) {
+            if (visibleState?.value == true) return
+            cleanup()
+        }
+        if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+            Log.w(TAG, "show: accessibility service not enabled")
+            return
+        }
 
-        val app = context.applicationContext
-        val wm = app.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
-        val state = OhoQuickToolsPanelState(app).also { it.refresh() }
+        val hostContext = SlideIndexAccessibilityService.overlayHostContext()
+            ?: run {
+                Log.w(TAG, "show: accessibility service not connected")
+                return
+            }
+        val overlayContext = OverlayCompose.themedContext(hostContext)
+        val wm = hostContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+        val app = hostContext.applicationContext
+        val state = OhoQuickToolsPanelState(app)
         val dialogOwner = OverlayComposeOwner()
         val visible = mutableStateOf(false)
-        val view = OverlayCompose.createComposeView(app, dialogOwner).apply {
-            isFocusable = true
-            isFocusableInTouchMode = true
-            setOnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    dismiss()
-                    true
-                } else {
-                    false
-                }
-            }
-            setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
-                    dismiss()
-                    true
-                } else {
-                    false
-                }
-            }
+        val blockingTouches = mutableStateOf(true)
+        val panelSide = mutableStateOf(side)
+        val anchorY = mutableStateOf(anchorRawY)
+        val settingsHolder = mutableStateOf(settings)
+        val view = OverlayCompose.createComposeView(overlayContext, dialogOwner).apply {
             setContent {
-                SlideIndexTheme(seedColor = Color(settings.themeColorArgb)) {
-                    OhoQuickToolsPanel(
-                        state = state,
-                        visible = visible.value,
-                        onEvent = { event -> handleEvent(settings, event) },
-                    )
-                }
+                QuickToolsOverlayRoot(
+                    settings = settingsHolder.value,
+                    state = state,
+                    visible = visible.value,
+                    blockingTouches = blockingTouches.value,
+                    side = panelSide.value,
+                    anchorRawY = anchorY.value,
+                    onDismissOutside = { dismiss() },
+                    onEvent = { event -> handleEvent(settingsHolder.value, event) },
+                )
             }
         }
 
-        val params = buildLayoutParams(app, side, anchorRawY)
-        val added = runCatching { wm.addView(view, params) }.isSuccess
+        val params = buildLayoutParams(hostContext)
+        val added = runCatching { wm.addView(view, params) }
+            .onFailure { Log.e(TAG, "addView failed", it) }
+            .isSuccess
         if (!added) {
             dialogOwner.destroy()
             return
@@ -112,15 +132,19 @@ object OhoQuickToolsOverlayWindow {
         owner = dialogOwner
         panelState = state
         visibleState = visible
-        appContext = app
-        state.startLiveSync()
-        registerScreenOffReceiver(app)
+        blockingTouchesState = blockingTouches
+        panelSideState = panelSide
+        anchorRawYState = anchorY
+        settingsState = settingsHolder
+        appContext = hostContext
+        registerScreenOffReceiver(hostContext)
 
-        view.requestFocus()
+        // Attach the window first, then refresh state and animate in so the trigger gesture
+        // doesn't block on I/O or first Compose composition.
         view.post {
-            applyFingerAnchor(app, wm, view, params, side, anchorRawY)
+            state.startLiveSync()
+            state.refresh()
             visible.value = true
-            view.post { applyFingerAnchor(app, wm, view, params, side, anchorRawY) }
         }
     }
 
@@ -135,9 +159,10 @@ object OhoQuickToolsOverlayWindow {
             return
         }
         visible.value = false
+        blockingTouchesState?.value = false
         panelState?.commitBrightness()
         panelState?.stopLiveSync()
-        mainHandler.postDelayed({ cleanup() }, EXIT_ANIM_MS)
+        mainHandler.postDelayed({ cleanup() }, OverlayPanelEnterAnimation.DURATION_MS.toLong())
     }
 
     private fun handleEvent(settings: AppSettings, event: OhoPanelEvent) {
@@ -146,6 +171,9 @@ object OhoQuickToolsOverlayWindow {
         when (event) {
             is OhoPanelEvent.Tile -> {
                 if (panelState?.onTileTap(event.tile) == true) dismiss()
+            }
+            is OhoPanelEvent.TileLongPress -> {
+                if (panelState?.onTileLongPress(event.tile) == true) dismiss()
             }
             OhoPanelEvent.ToggleAutoBrightness -> panelState?.toggleAutoBrightness()
             OhoPanelEvent.OpenMediaApp -> {
@@ -169,70 +197,24 @@ object OhoQuickToolsOverlayWindow {
         }
     }
 
-    private fun buildLayoutParams(
-        context: Context,
-        side: PanelSide?,
-        anchorRawY: Float?,
-    ): WindowManager.LayoutParams {
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            @Suppress("DEPRECATION")
-            WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
-        }
-        val flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+    private fun buildLayoutParams(context: Context): WindowManager.LayoutParams {
+        val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-        val edgeMarginPx = (EDGE_MARGIN_DP * context.resources.displayMetrics.density).toInt()
         return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            OverlayWindowTypes.overlayWindowType(context),
             flags,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            when (side) {
-                PanelSide.LEFT -> {
-                    gravity = Gravity.START or Gravity.TOP
-                    x = edgeMarginPx
-                    y = initialAnchorY(context, anchorRawY, 0)
-                }
-                PanelSide.RIGHT -> {
-                    gravity = Gravity.END or Gravity.TOP
-                    x = edgeMarginPx
-                    y = initialAnchorY(context, anchorRawY, 0)
-                }
-                null -> gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.START
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
-    }
-
-    private fun applyFingerAnchor(
-        context: Context,
-        wm: WindowManager,
-        view: android.view.View,
-        params: WindowManager.LayoutParams,
-        side: PanelSide?,
-        anchorRawY: Float?,
-    ) {
-        if (side == null || anchorRawY == null) return
-        val panelHeight = view.height.takeIf { it > 0 } ?: view.measuredHeight
-        if (panelHeight <= 0) return
-        val nextY = initialAnchorY(context, anchorRawY, panelHeight)
-        if (params.y == nextY) return
-        params.y = nextY
-        runCatching { wm.updateViewLayout(view, params) }
-    }
-
-    private fun initialAnchorY(context: Context, anchorRawY: Float?, panelHeight: Int): Int {
-        val dm = context.resources.displayMetrics
-        val margin = (EDGE_MARGIN_DP * dm.density).toInt()
-        val screenH = dm.heightPixels
-        val anchor = anchorRawY ?: (screenH / 2f)
-        val centered = (anchor - panelHeight / 2f).toInt()
-        val maxY = (screenH - panelHeight - margin).coerceAtLeast(margin)
-        return centered.coerceIn(margin, maxY)
     }
 
     private fun registerScreenOffReceiver(context: Context) {
@@ -261,10 +243,116 @@ object OhoQuickToolsOverlayWindow {
         windowManager = null
         panelState = null
         visibleState = null
+        blockingTouchesState = null
+        panelSideState = null
+        anchorRawYState = null
+        settingsState = null
         screenOffReceiver = null
         appContext = null
     }
 
-    private const val EXIT_ANIM_MS = 220L
+    private fun initialAnchorY(dm: DisplayMetrics, anchorRawY: Float?, panelHeight: Int): Int {
+        val margin = (EDGE_MARGIN_DP * dm.density).toInt()
+        val screenH = dm.heightPixels
+        val anchor = anchorRawY ?: (screenH / 2f)
+        val centered = (anchor - panelHeight / 2f).toInt()
+        val maxY = (screenH - panelHeight - margin).coerceAtLeast(margin)
+        return centered.coerceIn(margin, maxY)
+    }
+
     private const val EDGE_MARGIN_DP = 30f
+    private const val ESTIMATED_PANEL_HEIGHT_DP = 420f
+    private const val TAG = "OhoQuickToolsOverlay"
+
+    @Composable
+    private fun QuickToolsOverlayRoot(
+        settings: AppSettings,
+        state: OhoQuickToolsPanelState,
+        visible: Boolean,
+        blockingTouches: Boolean,
+        side: PanelSide?,
+        anchorRawY: Float?,
+        onDismissOutside: () -> Unit,
+        onEvent: (OhoPanelEvent) -> Unit,
+    ) {
+        SlideIndexTheme(seedColor = Color(settings.themeColorArgb)) {
+            val context = LocalContext.current
+            val dm = context.resources.displayMetrics
+            var panelHeightPx by remember { mutableIntStateOf(0) }
+            val estimatedPanelHeightPx = remember(dm) {
+                (ESTIMATED_PANEL_HEIGHT_DP * dm.density).toInt()
+            }
+            val topOffsetPx = remember(side, anchorRawY, panelHeightPx, dm.heightPixels) {
+                if (side == null || anchorRawY == null) {
+                    0
+                } else {
+                    val height = panelHeightPx.takeIf { it > 0 } ?: estimatedPanelHeightPx
+                    initialAnchorY(dm, anchorRawY, height)
+                }
+            }
+
+            Box(Modifier.fillMaxSize()) {
+                if (blockingTouches) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(blockingTouches) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown()
+                                    down.consume()
+                                    do {
+                                        val event = awaitPointerEvent()
+                                        event.changes.forEach { it.consume() }
+                                    } while (event.changes.any { it.pressed })
+                                }
+                            }
+                            .then(
+                                if (visible) {
+                                    Modifier.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = onDismissOutside,
+                                    )
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                    )
+                }
+
+                val horizontalPadding = EDGE_MARGIN_DP.dp
+                val align = when (side) {
+                    PanelSide.LEFT -> Alignment.TopStart
+                    PanelSide.RIGHT -> Alignment.TopEnd
+                    null -> Alignment.Center
+                }
+                Box(
+                    Modifier
+                        .align(align)
+                        .then(
+                            when (side) {
+                                PanelSide.LEFT -> Modifier.padding(start = horizontalPadding)
+                                PanelSide.RIGHT -> Modifier.padding(end = horizontalPadding)
+                                null -> Modifier
+                            },
+                        )
+                        .then(
+                            if (side != null && anchorRawY != null) {
+                                Modifier.offset { IntOffset(0, topOffsetPx) }
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .onSizeChanged { panelHeightPx = it.height },
+                ) {
+                    OhoQuickToolsPanel(
+                        state = state,
+                        visible = visible,
+                        side = side,
+                        onEvent = onEvent,
+                    )
+                }
+            }
+        }
+    }
 }

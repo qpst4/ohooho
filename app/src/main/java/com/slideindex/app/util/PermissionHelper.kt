@@ -40,8 +40,23 @@ object PermissionHelper {
     fun batteryOptimizationIntent(context: Context): Intent =
         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
             data = "package:${context.packageName}".toUri()
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+
+    fun batteryOptimizationSettingsIntent(): Intent =
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** Opens the system "ignore battery optimizations" prompt, with a settings fallback. */
+    fun requestBatteryOptimizationAccess(context: Context): Boolean {
+        if (isBatteryOptimizationExempt(context)) return true
+        val direct = batteryOptimizationIntent(context)
+        if (context.packageManager.resolveActivity(direct, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+            return runCatching { context.startActivity(direct) }.isSuccess
+        }
+        return runCatching {
+            context.startActivity(batteryOptimizationSettingsIntent())
+        }.isSuccess
+    }
 
     fun hasUsageAccess(context: Context): Boolean {
         val appOps = context.getSystemService(AppOpsManager::class.java) ?: return false
@@ -56,6 +71,10 @@ object PermissionHelper {
 
     fun usageAccessSettingsIntent(): Intent =
         Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /** True when edge overlays should use [android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY]. */
+    fun isAccessibilityServiceEnabledForOverlays(context: Context): Boolean =
+        isAccessibilityServiceEnabled(context)
 
     fun isAccessibilityServiceEnabled(context: Context): Boolean {
         if (Settings.Secure.getInt(

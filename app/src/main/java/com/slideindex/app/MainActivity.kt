@@ -3,6 +3,7 @@
 package com.slideindex.app
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -20,6 +21,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,11 +56,11 @@ import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
-    private var overlayGranted by mutableStateOf(false)
     private var notificationGranted by mutableStateOf(true)
     private var usageAccessGranted by mutableStateOf(false)
     private var shizukuGranted by mutableStateOf(false)
     private var accessibilityGranted by mutableStateOf(false)
+    private var batteryOptimizationExempt by mutableStateOf(false)
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         shizukuGranted = grantResult == PackageManager.PERMISSION_GRANTED
@@ -88,6 +90,9 @@ class MainActivity : ComponentActivity() {
             var destination by remember { mutableStateOf(SettingsDestination.Main) }
             var sideGestureHandleId by remember { mutableStateOf(TriggerHandle.DEFAULT_ID) }
             var appearanceParentSide by remember { mutableStateOf(PanelSide.LEFT) }
+            LaunchedEffect(settings.hideFromRecents) {
+                applyHideFromRecents(settings.hideFromRecents)
+            }
             SlideIndexTheme(
                 seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
             ) {
@@ -111,13 +116,10 @@ class MainActivity : ComponentActivity() {
                     when (currentDestination) {
                     SettingsDestination.Main -> MainScreen(
                         settings = settings,
-                        overlayGranted = overlayGranted,
                         notificationGranted = notificationGranted,
                         shizukuGranted = shizukuGranted,
                         accessibilityGranted = accessibilityGranted,
-                        onRequestOverlay = {
-                            startActivity(PermissionHelper.overlaySettingsIntent(this@MainActivity))
-                        },
+                        batteryOptimizationExempt = batteryOptimizationExempt,
                         onRequestNotification = {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -128,6 +130,27 @@ class MainActivity : ComponentActivity() {
                         },
                         onRequestAccessibility = {
                             startActivity(PermissionHelper.accessibilitySettingsIntent())
+                        },
+                        onRequestBatteryOptimization = {
+                            if (!PermissionHelper.requestBatteryOptimizationAccess(this@MainActivity)) {
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.battery_optimization_request_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        onGestureEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setServiceEnabled(enabled)
+                                refreshServiceState()
+                            }
+                        },
+                        onHideFromRecentsChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setHideFromRecents(enabled)
+                                applyHideFromRecents(enabled)
+                            }
                         },
                         onHapticEnabledChange = { enabled ->
                             lifecycleScope.launch {
@@ -179,7 +202,7 @@ class MainActivity : ComponentActivity() {
 
                     SettingsDestination.Layout -> LayoutSettingsScreen(
                         settings = settings,
-                        serviceEnabled = overlayGranted && notificationGranted,
+                        serviceEnabled = settings.serviceEnabled && accessibilityGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.Main
@@ -276,7 +299,7 @@ class MainActivity : ComponentActivity() {
 
                     SettingsDestination.TriggerCollection -> TriggerCollectionScreen(
                         settings = settings,
-                        serviceEnabled = overlayGranted && notificationGranted,
+                        serviceEnabled = settings.serviceEnabled && accessibilityGranted && notificationGranted,
                         onBack = { destination = SettingsDestination.Main },
                         onOpenLeftTrigger = { handleId ->
                             sideGestureHandleId = handleId
@@ -302,7 +325,7 @@ class MainActivity : ComponentActivity() {
                         side = PanelSide.LEFT,
                         handleId = sideGestureHandleId,
                         settings = settings,
-                        serviceEnabled = overlayGranted && notificationGranted,
+                        serviceEnabled = settings.serviceEnabled && accessibilityGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.TriggerCollection
@@ -333,7 +356,7 @@ class MainActivity : ComponentActivity() {
                         side = PanelSide.RIGHT,
                         handleId = sideGestureHandleId,
                         settings = settings,
-                        serviceEnabled = overlayGranted && notificationGranted,
+                        serviceEnabled = settings.serviceEnabled && accessibilityGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = SettingsDestination.TriggerCollection
@@ -364,7 +387,7 @@ class MainActivity : ComponentActivity() {
                         side = appearanceParentSide,
                         handleId = sideGestureHandleId,
                         settings = settings,
-                        serviceEnabled = overlayGranted && notificationGranted,
+                        serviceEnabled = settings.serviceEnabled && accessibilityGranted && notificationGranted,
                         onBack = {
                             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
                             destination = when (appearanceParentSide) {
@@ -486,6 +509,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshPermissionState()
         refreshServiceState()
+        val app = application as SlideIndexApp
+        lifecycleScope.launch {
+            applyHideFromRecents(app.settingsRepository.settings.first().hideFromRecents)
+        }
     }
 
     override fun onDestroy() {
@@ -502,7 +529,7 @@ class MainActivity : ComponentActivity() {
         action: String,
         content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,
     ) {
-        if (!overlayGranted) return
+        if (!accessibilityGranted) return
         val intent = Intent(this, OverlayService::class.java)
             .setAction(action)
             .putExtra(OverlayService.EXTRA_PREVIEW_CONTENT, content.name)
@@ -510,23 +537,29 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshPermissionState() {
-        overlayGranted = PermissionHelper.canDrawOverlays(this)
         notificationGranted = PermissionHelper.hasNotificationPermission(this)
         usageAccessGranted = PermissionHelper.hasUsageAccess(this)
         shizukuGranted = TaskManagerUtil.hasPermission()
         accessibilityGranted = PermissionHelper.isAccessibilityServiceEnabled(this)
+        batteryOptimizationExempt = PermissionHelper.isBatteryOptimizationExempt(this)
         if (shizukuGranted) {
             TaskManagerUtil.warmUp()
         }
     }
 
+    private fun applyHideFromRecents(hide: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return
+        getSystemService(ActivityManager::class.java)
+            ?.appTasks
+            ?.firstOrNull()
+            ?.setExcludeFromRecents(hide)
+    }
+
     private fun refreshServiceState() {
         lifecycleScope.launch {
             val app = application as SlideIndexApp
-            if (overlayGranted && notificationGranted) {
-                app.settingsRepository.setServiceEnabled(true)
-            }
-            val shouldRun = overlayGranted && notificationGranted
+            val settings = app.settingsRepository.settings.first()
+            val shouldRun = settings.serviceEnabled && accessibilityGranted && notificationGranted
             val serviceIntent = Intent(this@MainActivity, OverlayService::class.java)
             if (shouldRun) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

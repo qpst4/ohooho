@@ -2,6 +2,7 @@ package com.slideindex.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
 import android.graphics.Rect
@@ -14,17 +15,33 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.overlay.EdgeOverlayHost
+import com.slideindex.app.overlay.LayoutPreviewContent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 class SlideIndexAccessibilityService : AccessibilityService() {
 
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var edgeOverlayHost: EdgeOverlayHost? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var prevPackageName: String? = null
     private var currPackageName: String? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        event ?: return
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> handleWindowStateChanged(event)
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED -> handleWindowsChanged()
+        }
+    }
+
+    private fun handleWindowStateChanged(event: AccessibilityEvent) {
         val packageName = event.packageName?.toString()?.takeIf { it.isNotBlank() } ?: return
         if (packageName == applicationContext.packageName) return
+        edgeOverlayHost?.updateForegroundPackage(packageName)
         if (!hasLaunchIntent(packageName)) return
         if (currPackageName == packageName) return
         prevPackageName = currPackageName
@@ -32,6 +49,13 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         if (prevPackageName == null) {
             prevPackageName = currPackageName
         }
+    }
+
+    private fun handleWindowsChanged() {
+        val activePkg = rootInActiveWindow?.packageName?.toString()?.takeIf { it.isNotBlank() }
+            ?: return
+        if (activePkg == packageName) return
+        edgeOverlayHost?.updateForegroundPackage(activePkg)
     }
 
     override fun onInterrupt() = Unit
@@ -304,15 +328,37 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         private const val SCREENSHOT_DELAY_MS = 500L
         private const val SCROLL_GESTURE_DELAY_MS = 180L
         private const val SCROLL_BOTTOM_STROKE_COUNT = 10
+
+        fun reloadApps() {
+            instance?.edgeOverlayHost?.reloadApps()
+        }
+
+        fun setPreviewMode(
+            enabled: Boolean,
+            content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,
+        ) {
+            instance?.edgeOverlayHost?.setPreviewMode(enabled, content)
+        }
+
+        fun recoverOverlaysIfIdle() {
+            instance?.edgeOverlayHost?.recoverOverlaysIfIdle()
+        }
+
+        /** Context for [TYPE_ACCESSIBILITY_OVERLAY] windows; null when the service is not connected. */
+        fun overlayHostContext(): Context? = instance
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        Log.i(TAG, "onServiceConnected")
+        edgeOverlayHost = EdgeOverlayHost(this, serviceScope).also { it.start() }
+        Log.i(TAG, "onServiceConnected: edge overlays attached")
     }
 
     override fun onDestroy() {
+        edgeOverlayHost?.stop()
+        edgeOverlayHost = null
+        serviceScope.cancel()
         wakeLock?.release()
         wakeLock = null
         instance = null

@@ -20,6 +20,8 @@ import com.slideindex.app.data.AppInfo
 
 import com.slideindex.app.launcher.QuickLauncherDefaults
 
+import com.slideindex.app.launcher.QuickLauncherGridLogic
+
 import com.slideindex.app.launcher.QuickLauncherItem
 
 import com.slideindex.app.launcher.QuickLauncherItemCodec
@@ -74,6 +76,14 @@ class QuickLauncherPanelController(
 
         fun onPersist(items: List<QuickLauncherItem>)
 
+        fun quickLauncherPageSize(): Int
+
+        fun onEditDragMove(touchX: Float, localY: Float, panelRect: RectF)
+
+        fun onEditDragBegan()
+
+        fun resolveEditDragTargetGlobal(touchX: Float, localY: Float, panelRect: RectF): Int
+
     }
 
 
@@ -126,6 +136,10 @@ class QuickLauncherPanelController(
 
     private var dragTargetIndex = -1
 
+    private var dragFromGlobal = -1
+
+    private var dragToGlobal = -1
+
     private var dragStartX = 0f
 
     private var dragStartY = 0f
@@ -135,6 +149,8 @@ class QuickLauncherPanelController(
     private var dragCurrentY = 0f
 
     private var managementTouchActive = false
+
+    private var armedToolbarAction: ToolbarAction? = null
 
 
 
@@ -178,7 +194,13 @@ class QuickLauncherPanelController(
 
         dragTargetIndex = -1
 
+        dragFromGlobal = -1
+
+        dragToGlobal = -1
+
         managementTouchActive = false
+
+        armedToolbarAction = null
 
         deleteBadgeRects.clear()
 
@@ -478,6 +500,55 @@ class QuickLauncherPanelController(
 
 
 
+    fun resolveToolbarAction(localX: Float, localY: Float, panelRect: RectF): ToolbarAction? {
+        if (!shouldShowToolbar(host.settings())) return null
+        layoutToolbar(panelRect)
+        toolbarActionAt(localX, localY)?.let { return it }
+        if (!toolbarRect.contains(localX, localY)) return null
+        val splitY = (addButtonRect.bottom + editButtonRect.top) / 2f
+        return if (localY < splitY) ToolbarAction.ADD else ToolbarAction.EDIT
+    }
+
+    /**
+     * @param allowSlideRelease When true (continuous pick), commit if [localX]/[localY] hit a toolbar
+     *   button on release without requiring a stationary tap or prior DOWN on the toolbar.
+     */
+    fun commitToolbarAtRelease(
+        localX: Float,
+        localY: Float,
+        panelRect: RectF,
+        tapGesture: Boolean,
+        toolbarCommitAllowed: Boolean,
+        allowSlideRelease: Boolean = false,
+    ): Boolean {
+        if (!toolbarCommitAllowed || !shouldShowToolbar(host.settings())) return false
+        layoutToolbar(panelRect)
+        val action = when {
+            allowSlideRelease -> resolveToolbarAction(localX, localY, panelRect)
+            tapGesture -> armedToolbarAction
+            else -> null
+        } ?: return false
+        when (action) {
+            ToolbarAction.ADD -> {
+                openAddDialog()
+                host.hapticTick()
+            }
+            ToolbarAction.EDIT -> {
+                editMode = !editMode
+                if (!editMode) {
+                    persistLocalItems()
+                }
+                host.hapticTick()
+            }
+        }
+        armedToolbarAction = null
+        managementTouchActive = false
+        host.invalidate()
+        return true
+    }
+
+
+
     fun handleManagementTouch(
 
         event: MotionEvent,
@@ -489,6 +560,10 @@ class QuickLauncherPanelController(
         panelRect: RectF,
 
         cellBounds: List<Pair<Any, RectF>>,
+
+        tapGesture: Boolean = false,
+
+        toolbarCommitAllowed: Boolean = true,
 
     ): Boolean {
 
@@ -512,13 +587,19 @@ class QuickLauncherPanelController(
 
             MotionEvent.ACTION_DOWN -> {
 
+                val toolbarAction = resolveToolbarAction(localX, localY, panelRect)
+                armedToolbarAction = toolbarAction
                 managementTouchActive = toolbarRect.contains(localX, localY) ||
-
+                    toolbarAction != null ||
                     (editMode && deleteBadgeRects.any { it.contains(localX, localY) }) ||
-
                     (editMode && indexAt(localX, localY, quickCells) >= 0)
 
-                if (toolbarActionAt(localX, localY) != null) return true
+                if (toolbarAction == ToolbarAction.ADD) {
+                    return true
+                }
+                if (toolbarAction == ToolbarAction.EDIT) {
+                    return true
+                }
 
                 if (editMode) {
 
@@ -529,6 +610,10 @@ class QuickLauncherPanelController(
                     val cellIndex = indexAt(localX, localY, quickCells)
 
                     if (cellIndex >= 0) {
+
+                        dragFromGlobal = itemPageOffset + cellIndex
+
+                        dragToGlobal = dragFromGlobal
 
                         dragFromIndex = cellIndex
 
@@ -542,6 +627,8 @@ class QuickLauncherPanelController(
 
                         dragCurrentY = localY
 
+                        host.onEditDragBegan()
+
                         return true
 
                     }
@@ -554,10 +641,11 @@ class QuickLauncherPanelController(
 
             MotionEvent.ACTION_MOVE -> {
 
-                if (dragFromIndex >= 0) {
+                if (dragFromGlobal >= 0) {
                     dragCurrentX = localX
                     dragCurrentY = localY
-                    dragTargetIndex = targetIndexForDrag(localX, localY, quickCells)
+                    host.onEditDragMove(localX, localY, panelRect)
+                    updateEditDragTarget(localX, localY, panelRect, quickCells)
                     host.invalidate()
                     return true
                 }
@@ -570,32 +658,16 @@ class QuickLauncherPanelController(
 
                 var handled = managementTouchActive
 
-                when (toolbarActionAt(localX, localY)) {
-
-                    ToolbarAction.ADD -> {
-
-                        openAddDialog()
-
-                        handled = true
-
-                    }
-
-                    ToolbarAction.EDIT -> {
-
-                        editMode = !editMode
-
-                        if (!editMode) {
-
-                            persistLocalItems()
-
-                        }
-
-                        handled = true
-
-                    }
-
-                    null -> Unit
-
+                if (commitToolbarAtRelease(
+                        localX = localX,
+                        localY = localY,
+                        panelRect = panelRect,
+                        tapGesture = tapGesture,
+                        toolbarCommitAllowed = toolbarCommitAllowed,
+                        allowSlideRelease = false,
+                    )
+                ) {
+                    handled = true
                 }
 
                 if (editMode) {
@@ -603,16 +675,23 @@ class QuickLauncherPanelController(
                     if (badgeIndex >= 0) {
                         removeItemAt(badgeIndex)
                         handled = true
-                    } else if (dragFromIndex >= 0 &&
-                        dragTargetIndex >= 0 &&
-                        dragFromIndex != dragTargetIndex
-                    ) {
-                        moveItem(dragFromIndex, dragTargetIndex)
-                        handled = true
+                    } else if (dragFromGlobal >= 0) {
+                        updateEditDragTarget(localX, localY, panelRect, quickCells)
+                        val itemCount = workingItems().size
+                        val insertIndex = QuickLauncherGridLogic.dragInsertIndex(
+                            dragSlotGlobal = dragToGlobal,
+                            itemCount = itemCount,
+                        )
+                        if (insertIndex in 0..itemCount && dragFromGlobal != insertIndex) {
+                            moveItemGlobal(dragFromGlobal, insertIndex)
+                            handled = true
+                        }
                     }
                 }
                 dragFromIndex = -1
                 dragTargetIndex = -1
+                dragFromGlobal = -1
+                dragToGlobal = -1
 
                 managementTouchActive = false
 
@@ -630,52 +709,90 @@ class QuickLauncherPanelController(
 
 
 
-    fun isDragging(): Boolean = dragFromIndex >= 0
+    fun isDragging(): Boolean = dragFromGlobal >= 0
 
     fun dragSourceIndex(): Int = dragFromIndex
 
     fun dragDestinationIndex(): Int = dragTargetIndex
 
-    fun dragVisualOffset(index: Int): Pair<Float, Float> {
-        if (index != dragFromIndex || dragFromIndex < 0) return 0f to 0f
+    fun dragSourceGlobal(): Int = dragFromGlobal
+
+    fun dragDestinationGlobal(): Int = dragToGlobal
+
+    fun dragSourceOnPage(pageStart: Int, pageSize: Int): Boolean {
+        if (dragFromGlobal < 0) return false
+        return dragFromGlobal in pageStart until pageStart + pageSize
+    }
+
+    fun dragSourceOnCurrentPage(): Boolean {
+        val pageSize = host.quickLauncherPageSize().coerceAtLeast(1)
+        return dragSourceOnPage(itemPageOffset, pageSize)
+    }
+
+    fun dragPointerX(): Float = dragCurrentX
+
+    fun dragPointerY(): Float = dragCurrentY
+
+    fun dragVisualOffsetForPage(pageStart: Int, pageSize: Int): Pair<Float, Float> {
+        if (!dragSourceOnPage(pageStart, pageSize)) return 0f to 0f
         return (dragCurrentX - dragStartX) to (dragCurrentY - dragStartY)
+    }
+
+    fun dragVisualOffset(index: Int): Pair<Float, Float> {
+        if (index != dragFromIndex || dragFromIndex < 0 || !dragSourceOnCurrentPage()) {
+            return 0f to 0f
+        }
+        return (dragCurrentX - dragStartX) to (dragCurrentY - dragStartY)
+    }
+
+    fun syncPageLocalDragTarget() {
+        val pageSize = host.quickLauncherPageSize().coerceAtLeast(1)
+        dragTargetIndex = if (dragToGlobal in itemPageOffset until itemPageOffset + pageSize) {
+            dragToGlobal - itemPageOffset
+        } else {
+            -1
+        }
+        dragFromIndex = if (dragFromGlobal in itemPageOffset until itemPageOffset + pageSize) {
+            dragFromGlobal - itemPageOffset
+        } else {
+            -1
+        }
     }
 
 
 
     private fun toolbarActionAt(localX: Float, localY: Float): ToolbarAction? {
+        if (addButtonRect.contains(localX, localY)) return ToolbarAction.ADD
+        if (editButtonRect.contains(localX, localY)) return ToolbarAction.EDIT
 
-        val slop = host.dp(8f)
-
-        fun hit(rect: RectF): Boolean =
-
-            RectF(
-
-                rect.left - slop,
-
-                rect.top - slop,
-
-                rect.right + slop,
-
-                rect.bottom + slop,
-
-            ).contains(localX, localY)
-
+        val slop = host.dp(10f)
+        fun slopRect(rect: RectF) = RectF(
+            rect.left - slop,
+            rect.top - slop,
+            rect.right + slop,
+            rect.bottom + slop,
+        )
+        val addSlop = slopRect(addButtonRect)
+        val editSlop = slopRect(editButtonRect)
+        val inAddSlop = addSlop.contains(localX, localY)
+        val inEditSlop = editSlop.contains(localX, localY)
         return when {
-
-            hit(addButtonRect) -> ToolbarAction.ADD
-
-            hit(editButtonRect) -> ToolbarAction.EDIT
-
+            inAddSlop && !inEditSlop -> ToolbarAction.ADD
+            inEditSlop && !inAddSlop -> ToolbarAction.EDIT
+            inAddSlop && inEditSlop -> {
+                val addDistance = kotlin.math.abs(localY - addButtonRect.centerY())
+                val editDistance = kotlin.math.abs(localY - editButtonRect.centerY())
+                if (addDistance <= editDistance) ToolbarAction.ADD else ToolbarAction.EDIT
+            }
             else -> null
-
         }
-
     }
 
 
 
     private fun openAddDialog() {
+
+        if (host.isAddDialogShowing()) return
 
         val items = workingItems()
 
@@ -758,22 +875,51 @@ class QuickLauncherPanelController(
 
 
 
-    private fun moveItem(pageLocalFrom: Int, pageLocalTo: Int) {
-
-        val from = itemPageOffset + pageLocalFrom
-        val to = itemPageOffset + pageLocalTo
+    private fun moveItemGlobal(from: Int, to: Int) {
 
         val current = workingItems().toMutableList()
 
-        if (from !in current.indices || to !in current.indices) return
+        if (from !in current.indices || to !in 0..current.size) return
+
+        if (from == to) return
 
         val item = current.removeAt(from)
 
-        current.add(to, item)
+        current.add(to.coerceIn(0, current.size), item)
 
         localItems = current
 
         persistLocalItems()
+
+    }
+
+
+
+    private fun updateEditDragTarget(
+        localX: Float,
+        localY: Float,
+        panelRect: RectF,
+        quickCells: List<Pair<QuickLauncherItem, RectF>>,
+    ) {
+        if (dragFromGlobal < 0) return
+        val globalTarget = host.resolveEditDragTargetGlobal(localX, localY, panelRect)
+        if (globalTarget >= 0) {
+            dragToGlobal = globalTarget
+            syncPageLocalDragTarget()
+            return
+        }
+        dragTargetIndex = targetIndexForDrag(localX, localY, quickCells)
+        if (dragTargetIndex >= 0) {
+            dragToGlobal = itemPageOffset + dragTargetIndex
+            syncPageLocalDragTarget()
+        }
+    }
+
+
+
+    private fun moveItem(pageLocalFrom: Int, pageLocalTo: Int) {
+
+        moveItemGlobal(itemPageOffset + pageLocalFrom, itemPageOffset + pageLocalTo)
 
     }
 

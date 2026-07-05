@@ -1,18 +1,13 @@
 package com.slideindex.app.overlay
 
 import android.media.AudioManager
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,10 +55,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -97,46 +96,72 @@ fun OhoQuickToolsPanel(
     visible: Boolean,
     onEvent: (OhoPanelEvent) -> Unit,
     modifier: Modifier = Modifier,
+    side: PanelSide? = null,
 ) {
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
     val panelWidth = (screenWidthDp * 0.62f).let { if (it > 252.dp) 252.dp else it }
     val outerCorner = panelWidth * 0.08f
     val cardCorner = outerCorner * 0.75f
+    val density = LocalDensity.current
+    var panelWidthPx by remember { mutableIntStateOf(0) }
+    val enterProgress = remember { Animatable(0f) }
 
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-            scaleIn(initialScale = 0.85f, animationSpec = tween(220, easing = FastOutSlowInEasing)),
-        exit = fadeOut(tween(180)) + scaleOut(targetScale = 0.85f, animationSpec = tween(180)),
-        modifier = modifier,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(panelWidth)
-                .shadow(elevation = 28.dp, shape = RoundedCornerShape(outerCorner), clip = false)
-                .clip(RoundedCornerShape(outerCorner))
-                .background(OhoColors.PanelBackground)
-                .border(width = 1.dp, color = OhoColors.PanelBorder, shape = RoundedCornerShape(outerCorner))
-                .padding(12.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                TopBrightnessRow(
-                    fraction = state.brightnessFraction,
-                    autoBrightnessEnabled = state.autoBrightnessEnabled,
-                    onFractionChange = { f, previewOnly -> state.updateBrightness(f, previewOnly) },
-                    onAutoBrightnessClick = { onEvent(OhoPanelEvent.ToggleAutoBrightness) },
-                )
-                MediaControlCard(
-                    cornerRadius = cardCorner,
-                    volumeFraction = state.volumeFraction,
-                    mediaAppPackage = state.mediaAppPackage,
-                    mediaIsPlaying = state.mediaIsPlaying,
-                    mediaListenerEnabled = state.mediaListenerEnabled,
-                    onVolumeChange = { f -> state.updateVolume(f) },
-                    onEvent = onEvent,
-                )
-                ToolsGrid(state = state, onEvent = onEvent)
+    LaunchedEffect(visible) {
+        if (visible) {
+            enterProgress.snapTo(0f)
+            enterProgress.animateTo(1f, OverlayPanelEnterAnimation.enterSpec)
+        } else {
+            enterProgress.animateTo(0f, OverlayPanelEnterAnimation.exitSpec)
+        }
+    }
+
+    if (enterProgress.value <= 0.001f && !visible) return
+
+    val marginPx = with(density) { OverlayPanelEnterAnimation.OFFSCREEN_MARGIN.toPx() }
+    val effectivePanelWidthPx = if (panelWidthPx > 0) {
+        panelWidthPx.toFloat()
+    } else {
+        with(density) { panelWidth.toPx() }
+    }
+    val slideOffsetPx = OverlayPanelEnterAnimation.slideOffsetPx(
+        progress = enterProgress.value,
+        panelWidthPx = effectivePanelWidthPx,
+        marginPx = marginPx,
+        side = side,
+    )
+    val panelAlpha = OverlayPanelEnterAnimation.alpha(enterProgress.value)
+
+    Box(
+        modifier = modifier
+            .width(panelWidth)
+            .onSizeChanged { panelWidthPx = it.width }
+            .graphicsLayer {
+                alpha = panelAlpha
+                translationX = slideOffsetPx
             }
+            .shadow(elevation = 28.dp, shape = RoundedCornerShape(outerCorner), clip = false)
+            .clip(RoundedCornerShape(outerCorner))
+            .background(OhoColors.PanelBackground)
+            .border(width = 1.dp, color = OhoColors.PanelBorder, shape = RoundedCornerShape(outerCorner))
+            .padding(12.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            TopBrightnessRow(
+                fraction = state.brightnessFraction,
+                autoBrightnessEnabled = state.autoBrightnessEnabled,
+                onFractionChange = { f, previewOnly -> state.updateBrightness(f, previewOnly) },
+                onAutoBrightnessClick = { onEvent(OhoPanelEvent.ToggleAutoBrightness) },
+            )
+            MediaControlCard(
+                cornerRadius = cardCorner,
+                volumeFraction = state.volumeFraction,
+                mediaAppPackage = state.mediaAppPackage,
+                mediaIsPlaying = state.mediaIsPlaying,
+                mediaListenerEnabled = state.mediaListenerEnabled,
+                onVolumeChange = { f -> state.updateVolume(f) },
+                onEvent = onEvent,
+            )
+            ToolsGrid(state = state, onEvent = onEvent)
         }
     }
 }
@@ -328,6 +353,11 @@ private fun ToolsGrid(state: OhoQuickToolsPanelState, onEvent: (OhoPanelEvent) -
                             active = state.isActive(tile),
                             ringerMode = if (tile == OhoTile.SOUND) state.ringerMode else null,
                             onClick = { onEvent(OhoPanelEvent.Tile(tile)) },
+                            onLongClick = if (tile in QuickToolsTileSettings.longPressTiles) {
+                                { onEvent(OhoPanelEvent.TileLongPress(tile)) }
+                            } else {
+                                null
+                            },
                         )
                     }
                 }
@@ -343,6 +373,7 @@ private fun OhoTileButton(
     active: Boolean,
     ringerMode: Int? = null,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = when {
@@ -365,7 +396,13 @@ private fun OhoTileButton(
             .size(diameter)
             .clip(CircleShape)
             .background(backgroundColor)
-            .clickable(onClick = onClick),
+            .then(
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                } else {
+                    Modifier.clickable(onClick = onClick)
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         OhoTileGlyph(tile = tile, diameter = diameter, tint = iconTint, active = active, ringerMode = ringerMode)

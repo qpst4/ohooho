@@ -39,6 +39,7 @@ data class AppSettings(
     val panelOpacity: Float = 0.95f,
     val hapticEnabled: Boolean = true,
     val hapticStrengthLevel: Int = HapticStrength.MEDIUM.level,
+    val hideFromRecents: Boolean = false,
     val freeWindowEnabled: Boolean = false,
     val freeWindowModeId: Int = FreeWindowMode.detectDefault().id,
     val freeWindowWidthFraction: Float = 0.8f,
