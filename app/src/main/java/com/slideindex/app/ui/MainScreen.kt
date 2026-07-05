@@ -38,9 +38,8 @@ fun MainScreen(
     onRequestNotification: () -> Unit,
     onRequestShizuku: () -> Unit,
     onRequestAccessibility: () -> Unit,
-    onRequestBatteryOptimization: () -> Unit,
     onGestureEnabledChange: (Boolean) -> Unit,
-    onHideFromRecentsChange: (Boolean) -> Unit,
+    onOpenAppKeepAliveSettings: () -> Unit,
     onHapticEnabledChange: (Boolean) -> Unit,
     onHapticStrengthChange: (Int) -> Unit,
     onOpenLayoutSettings: () -> Unit,
@@ -135,19 +134,11 @@ fun MainScreen(
                         }
                     },
                 )
-                SettingSwitchRow(
-                    title = stringResource(R.string.battery_optimization_title),
-                    subtitle = stringResource(R.string.battery_optimization_desc),
-                    checked = batteryOptimizationExempt,
-                    enabled = true,
-                    onCheckedChange = { onRequestBatteryOptimization() },
-                )
-                SettingSwitchRow(
-                    title = stringResource(R.string.hide_from_recents_title),
-                    subtitle = stringResource(R.string.hide_from_recents_desc),
-                    checked = settings.hideFromRecents,
-                    enabled = true,
-                    onCheckedChange = onHideFromRecentsChange,
+                AppKeepAliveEntryCard(
+                    batteryOptimizationExempt = batteryOptimizationExempt,
+                    hideFromRecents = settings.hideFromRecents,
+                    accessibilityKeepAliveEnabled = settings.accessibilityKeepAliveEnabled,
+                    onClick = onOpenAppKeepAliveSettings,
                 )
             }
 

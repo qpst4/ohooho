@@ -2,6 +2,7 @@ package com.slideindex.app.ui
 
 enum class SettingsDestination {
     Main,
+    AppKeepAlive,
     Layout,
     HiddenApps,
     ExcludedApps,

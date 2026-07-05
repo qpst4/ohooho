@@ -206,6 +206,19 @@ class QuickLauncherPanelController(
 
     }
 
+    fun setEditMode(enabled: Boolean) {
+        if (editMode == enabled) return
+        editMode = enabled
+        if (!enabled) {
+            dragFromIndex = -1
+            dragTargetIndex = -1
+            dragFromGlobal = -1
+            dragToGlobal = -1
+            deleteBadgeRects.clear()
+        }
+        host.invalidate()
+    }
+
 
 
     fun syncSettings(settings: AppSettings) {

@@ -84,6 +84,7 @@ class SettingsRepository(private val context: Context) {
             hapticEnabled = prefs[HAPTIC_ENABLED] ?: true,
             hapticStrengthLevel = prefs[HAPTIC_STRENGTH] ?: HapticStrength.MEDIUM.level,
             hideFromRecents = prefs[HIDE_FROM_RECENTS] ?: false,
+            accessibilityKeepAliveEnabled = prefs[ACCESSIBILITY_KEEP_ALIVE] ?: false,
             freeWindowEnabled = prefs[FREE_WINDOW_ENABLED] ?: false,
             freeWindowModeId = prefs[FREE_WINDOW_MODE] ?: FreeWindowMode.detectDefault().id,
             freeWindowWidthFraction = prefs[FREE_WINDOW_WIDTH] ?: 0.8f,
@@ -267,6 +268,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPanelOpacity(value: Float) = edit { it[PANEL_OPACITY] = value }
     suspend fun setHapticEnabled(enabled: Boolean) = edit { it[HAPTIC_ENABLED] = enabled }
     suspend fun setHideFromRecents(enabled: Boolean) = edit { it[HIDE_FROM_RECENTS] = enabled }
+
+    suspend fun setAccessibilityKeepAliveEnabled(enabled: Boolean) =
+        edit { it[ACCESSIBILITY_KEEP_ALIVE] = enabled }
     suspend fun setHapticStrengthLevel(level: Int) = edit {
         it[HAPTIC_STRENGTH] = level.coerceIn(
             HapticStrength.LIGHT.level,
@@ -480,6 +484,7 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         private val HAPTIC_STRENGTH = intPreferencesKey("haptic_strength_level")
         private val HIDE_FROM_RECENTS = booleanPreferencesKey("hide_from_recents")
+        private val ACCESSIBILITY_KEEP_ALIVE = booleanPreferencesKey("accessibility_keep_alive")
         private val FREE_WINDOW_ENABLED = booleanPreferencesKey("free_window_enabled")
         private val FREE_WINDOW_MODE = intPreferencesKey("free_window_mode_id")
         private val FREE_WINDOW_WIDTH = floatPreferencesKey("free_window_width_fraction")

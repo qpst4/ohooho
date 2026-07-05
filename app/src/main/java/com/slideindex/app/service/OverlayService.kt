@@ -8,9 +8,16 @@ import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.MainActivity
 import com.slideindex.app.R
+import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.overlay.LayoutPreviewContent
+import com.slideindex.app.util.SecureSettingsHelper
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Foreground service for persistent notification and settings sync.
@@ -22,6 +29,21 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        startAccessibilityWatchdog()
+    }
+
+    private fun startAccessibilityWatchdog() {
+        lifecycleScope.launch {
+            while (isActive) {
+                delay(ACCESSIBILITY_WATCHDOG_INTERVAL_MS)
+                val app = application as? SlideIndexApp ?: continue
+                val settings = app.settingsRepository.settings.first()
+                if (!settings.accessibilityKeepAliveEnabled) continue
+                if (!settings.serviceEnabled) continue
+                if (!SecureSettingsHelper.hasWriteSecureSettings(this@OverlayService)) continue
+                SecureSettingsHelper.ensureAccessibilityEnabled(this@OverlayService)
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -85,5 +107,6 @@ class OverlayService : LifecycleService() {
 
         private const val CHANNEL_ID = "slide_index_service"
         private const val NOTIFICATION_ID = 1001
+        private const val ACCESSIBILITY_WATCHDOG_INTERVAL_MS = 60_000L
     }
 }

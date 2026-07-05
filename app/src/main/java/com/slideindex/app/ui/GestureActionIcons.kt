@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.DoNotDisturb
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Layers
@@ -82,6 +83,7 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.SCREEN_RECORD -> OhoPanelIcons.ScreenRecord
     GestureActionType.TOGGLE_WIFI -> Icons.Default.Wifi
     GestureActionType.TOGGLE_MOBILE_DATA -> Icons.Default.SignalCellularAlt
+    GestureActionType.SWITCH_INPUT_METHOD -> Icons.Default.Keyboard
     GestureActionType.LAUNCH_APP -> Icons.Default.Apps
     GestureActionType.LAUNCH_SHORTCUT -> Icons.AutoMirrored.Filled.Shortcut
 }

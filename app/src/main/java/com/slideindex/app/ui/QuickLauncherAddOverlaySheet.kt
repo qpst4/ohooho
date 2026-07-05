@@ -568,6 +568,7 @@ private fun QuickLauncherAddActionsTab(
             GestureAction.ScreenRecord,
             GestureAction.ToggleWifi,
             GestureAction.ToggleMobileData,
+            GestureAction.SwitchInputMethod,
             GestureAction.ToggleMute,
             GestureAction.MediaPlayPause,
             GestureAction.MediaPrevious,

@@ -28,6 +28,7 @@ import com.slideindex.app.util.AssistantLauncher
 import com.slideindex.app.util.BrightnessControlHelper
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
+import com.slideindex.app.util.InputMethodHelper
 import com.slideindex.app.util.OverlayBrightnessControl
 import com.slideindex.app.util.QuickToolsHelper
 import com.slideindex.app.util.ScreenRecordHelper
@@ -128,6 +129,7 @@ class ActionExecutor(
             GestureAction.ScreenRecord -> ScreenRecordHelper.toggle(context)
             GestureAction.ToggleWifi -> QuickToolsHelper.toggleWifi(context)
             GestureAction.ToggleMobileData -> QuickToolsHelper.toggleMobileData(context)
+            GestureAction.SwitchInputMethod -> InputMethodHelper.switchInputMethod(context)
             GestureAction.LaunchAssistant -> AssistantLauncher.launchDefault(context)
             GestureAction.ToggleMute -> SystemGestureActions.toggleMute(context)
             GestureAction.MediaPlayPause -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)

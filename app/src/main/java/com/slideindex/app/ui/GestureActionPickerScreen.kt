@@ -221,6 +221,7 @@ private fun ActionPickerActionsTab(
             add(GestureAction.ScreenRecord)
             add(GestureAction.ToggleWifi)
             add(GestureAction.ToggleMobileData)
+            add(GestureAction.SwitchInputMethod)
             add(GestureAction.ToggleMute)
             add(GestureAction.MediaPlayPause)
             add(GestureAction.MediaPrevious)
@@ -673,6 +674,7 @@ internal fun gestureActionLabelText(context: Context, action: GestureAction): St
         GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
         GestureActionType.TOGGLE_MOBILE_DATA -> context.getString(R.string.gesture_action_toggle_mobile_data)
+        GestureActionType.SWITCH_INPUT_METHOD -> context.getString(R.string.gesture_action_switch_input_method)
         GestureActionType.LAUNCH_APP -> context.getString(R.string.gesture_action_launch_app)
         GestureActionType.LAUNCH_SHORTCUT -> context.getString(R.string.gesture_action_launch_shortcut)
     }
@@ -734,6 +736,7 @@ fun gestureActionLabel(action: GestureAction): String = when (action) {
         GestureActionType.SCREEN_RECORD -> stringResource(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> stringResource(R.string.gesture_action_toggle_wifi)
         GestureActionType.TOGGLE_MOBILE_DATA -> stringResource(R.string.gesture_action_toggle_mobile_data)
+        GestureActionType.SWITCH_INPUT_METHOD -> stringResource(R.string.gesture_action_switch_input_method)
         GestureActionType.LAUNCH_APP -> stringResource(R.string.gesture_action_launch_app)
         GestureActionType.LAUNCH_SHORTCUT -> stringResource(R.string.gesture_action_launch_shortcut)
     }

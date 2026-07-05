@@ -32,7 +32,9 @@ import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.service.OverlayService
+import com.slideindex.app.service.QuickLauncherAddTrampoline
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.ui.AppKeepAliveSettingsScreen
 import com.slideindex.app.ui.ExcludedAppsScreen
 import com.slideindex.app.ui.GestureAngleSettingsScreen
 import com.slideindex.app.ui.FreeWindowPreviewScreen
@@ -49,7 +51,9 @@ import com.slideindex.app.ui.TriggerCollectionScreen
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.util.HapticHelper
+import com.slideindex.app.util.KeepAliveHelper
 import com.slideindex.app.util.PermissionHelper
+import com.slideindex.app.util.SecureSettingsHelper
 import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -61,6 +65,7 @@ class MainActivity : ComponentActivity() {
     private var shizukuGranted by mutableStateOf(false)
     private var accessibilityGranted by mutableStateOf(false)
     private var batteryOptimizationExempt by mutableStateOf(false)
+    private var writeSecureSettingsGranted by mutableStateOf(false)
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         shizukuGranted = grantResult == PackageManager.PERMISSION_GRANTED
@@ -131,26 +136,14 @@ class MainActivity : ComponentActivity() {
                         onRequestAccessibility = {
                             startActivity(PermissionHelper.accessibilitySettingsIntent())
                         },
-                        onRequestBatteryOptimization = {
-                            if (!PermissionHelper.requestBatteryOptimizationAccess(this@MainActivity)) {
-                                android.widget.Toast.makeText(
-                                    this@MainActivity,
-                                    getString(R.string.battery_optimization_request_failed),
-                                    android.widget.Toast.LENGTH_SHORT,
-                                ).show()
-                            }
-                        },
                         onGestureEnabledChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setServiceEnabled(enabled)
                                 refreshServiceState()
                             }
                         },
-                        onHideFromRecentsChange = { enabled ->
-                            lifecycleScope.launch {
-                                app.settingsRepository.setHideFromRecents(enabled)
-                                applyHideFromRecents(enabled)
-                            }
+                        onOpenAppKeepAliveSettings = {
+                            destination = SettingsDestination.AppKeepAlive
                         },
                         onHapticEnabledChange = { enabled ->
                             lifecycleScope.launch {
@@ -197,6 +190,61 @@ class MainActivity : ComponentActivity() {
                         },
                         onThemeColorChange = { color ->
                             lifecycleScope.launch { app.settingsRepository.setThemeColor(color) }
+                        },
+                    )
+
+                    SettingsDestination.AppKeepAlive -> AppKeepAliveSettingsScreen(
+                        hideFromRecents = settings.hideFromRecents,
+                        batteryOptimizationExempt = batteryOptimizationExempt,
+                        accessibilityKeepAliveEnabled = settings.accessibilityKeepAliveEnabled,
+                        writeSecureSettingsGranted = writeSecureSettingsGranted,
+                        shizukuGranted = shizukuGranted,
+                        onBack = { destination = SettingsDestination.Main },
+                        onRequestBatteryOptimization = {
+                            if (!PermissionHelper.requestBatteryOptimizationAccess(this@MainActivity)) {
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.battery_optimization_request_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        onRequestAutoStart = {
+                            KeepAliveHelper.gotoSettings(this@MainActivity)
+                        },
+                        onHideFromRecentsChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setHideFromRecents(enabled)
+                                applyHideFromRecents(enabled)
+                            }
+                        },
+                        onAccessibilityKeepAliveChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setAccessibilityKeepAliveEnabled(enabled)
+                                if (enabled) {
+                                    SecureSettingsHelper.ensureAccessibilityEnabled(this@MainActivity)
+                                    refreshPermissionState()
+                                    refreshServiceState()
+                                }
+                            }
+                        },
+                        onRequestSecureSettingsGrant = {
+                            val granted = SecureSettingsHelper.grantViaShizuku(this@MainActivity)
+                            refreshPermissionState()
+                            if (granted) {
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.secure_settings_grant_success),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.secure_settings_grant_failed),
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                            granted
                         },
                     )
 
@@ -521,7 +569,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
-        sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+        if (!QuickLauncherAddTrampoline.isActive()) {
+            sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+        }
         super.onPause()
     }
 
@@ -542,6 +592,7 @@ class MainActivity : ComponentActivity() {
         shizukuGranted = TaskManagerUtil.hasPermission()
         accessibilityGranted = PermissionHelper.isAccessibilityServiceEnabled(this)
         batteryOptimizationExempt = PermissionHelper.isBatteryOptimizationExempt(this)
+        writeSecureSettingsGranted = SecureSettingsHelper.hasWriteSecureSettings(this)
         if (shizukuGranted) {
             TaskManagerUtil.warmUp()
         }
@@ -559,6 +610,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val app = application as SlideIndexApp
             val settings = app.settingsRepository.settings.first()
+            if (settings.accessibilityKeepAliveEnabled &&
+                writeSecureSettingsGranted &&
+                settings.serviceEnabled
+            ) {
+                SecureSettingsHelper.ensureAccessibilityEnabled(this@MainActivity)
+                accessibilityGranted = PermissionHelper.isAccessibilityServiceEnabled(this@MainActivity)
+            }
             val shouldRun = settings.serviceEnabled && accessibilityGranted && notificationGranted
             val serviceIntent = Intent(this@MainActivity, OverlayService::class.java)
             if (shouldRun) {

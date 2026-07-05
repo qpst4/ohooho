@@ -16,6 +16,25 @@
     <string name="battery_optimization_title">Battery optimization</string>
     <string name="battery_optimization_desc">Allow unrestricted background activity so the gesture service is not killed</string>
     <string name="battery_optimization_request_failed">Could not open battery optimization settings. Please whitelist this app manually in system settings.</string>
+    <string name="auto_start_title">Auto-start</string>
+    <string name="auto_start_desc">Works with battery optimization to improve background retention</string>
+    <string name="auto_start_request_failed">Please enable auto-start permission manually in system settings</string>
+    <string name="app_keep_alive_title">App keep-alive</string>
+    <string name="app_keep_alive_desc">Background keep-alive and permissions</string>
+    <string name="app_keep_alive_entry_desc">Background keep-alive and permissions</string>
+    <string name="app_keep_alive_entry_summary_battery">Battery whitelisted</string>
+    <string name="app_keep_alive_entry_summary_recents">Hidden from recents</string>
+    <string name="app_keep_alive_entry_summary_all">Battery whitelist, hidden recents</string>
+    <string name="secure_settings_title">Accessibility keep-alive</string>
+    <string name="secure_settings_desc">Automatically restore accessibility if the system disables it (requires WRITE_SECURE_SETTINGS)</string>
+    <string name="secure_settings_enabled_summary">Accessibility keep-alive on</string>
+    <string name="secure_settings_grant_success">Granted via Shizuku</string>
+    <string name="secure_settings_grant_failed">Grant failed. Please run the ADB command manually.</string>
+    <string name="secure_settings_adb_dialog_title">ADB grant instructions</string>
+    <string name="secure_settings_adb_dialog_message">Connect via USB or wireless debugging and run this command in a terminal (re-run after reinstalling the app):\n\n%1$s</string>
+    <string name="secure_settings_adb_copy">Copy command</string>
+    <string name="secure_settings_adb_copied">Copied to clipboard</string>
+    <string name="gesture_action_switch_input_method">Switch input method</string>
     <string name="hide_from_recents_title">Hide from recents</string>
     <string name="hide_from_recents_desc">When enabled, this app\'s settings screen won\'t appear in the system recents list</string>
     <string name="permission_accessibility_title">Accessibility service</string>
@@ -51,4 +70,5 @@
     <string name="quick_launcher_page_indicator">Page %1$d / %2$d</string>
     <string name="quick_launcher_page_previous">Previous page</string>
     <string name="quick_launcher_page_next">Next page</string>
+    <string name="trigger_collection_desc">Manage left and right edge triggers in pairs</string>
 </resources>

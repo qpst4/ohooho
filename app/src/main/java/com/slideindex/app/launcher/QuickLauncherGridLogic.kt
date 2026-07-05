@@ -41,12 +41,29 @@ object QuickLauncherGridLogic {
         columns: Int,
         rows: Int,
         pageSize: Int,
-        stepX: Float,
-        stepY: Float,
+        cellWidthPx: Float,
+        cellHeightPx: Float,
+        gapPx: Float,
     ): Int {
-        if (stepX <= 0f || stepY <= 0f || columns <= 0 || rows <= 0) return 0
-        val col = ((x / stepX) + 0.5f).toInt().coerceIn(0, columns - 1)
-        val row = ((y / stepY) + 0.5f).toInt().coerceIn(0, rows - 1)
+        if (cellWidthPx <= 0f || cellHeightPx <= 0f || columns <= 0 || rows <= 0) return 0
+        val stepX = cellWidthPx + gapPx
+        val stepY = cellHeightPx + gapPx
+        var col = columns - 1
+        for (c in 0 until columns) {
+            val left = c * stepX
+            if (x < left + cellWidthPx) {
+                col = c
+                break
+            }
+        }
+        var row = rows - 1
+        for (r in 0 until rows) {
+            val top = r * stepY
+            if (y < top + cellHeightPx) {
+                row = r
+                break
+            }
+        }
         return (row * columns + col).coerceIn(0, pageSize - 1)
     }
 

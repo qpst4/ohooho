@@ -765,6 +765,7 @@ class GestureSession(
             GestureAction.ScreenRecord,
             GestureAction.ToggleWifi,
             GestureAction.ToggleMobileData,
+            GestureAction.SwitchInputMethod,
             GestureAction.MediaPlayPause,
             GestureAction.MediaPrevious,
             GestureAction.MediaNext,

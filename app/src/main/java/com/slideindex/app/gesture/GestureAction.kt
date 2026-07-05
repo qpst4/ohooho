@@ -36,6 +36,7 @@ enum class GestureActionType(val id: Int) {
     SCREEN_RECORD(33),
     TOGGLE_WIFI(34),
     TOGGLE_MOBILE_DATA(35),
+    SWITCH_INPUT_METHOD(36),
     ;
 
     companion object {
@@ -268,6 +269,11 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    data object SwitchInputMethod : GestureAction() {
+        override val type = GestureActionType.SWITCH_INPUT_METHOD
+        override val payload = ""
+    }
+
     data object None : GestureAction() {
         override val type = GestureActionType.NONE
         override val payload = ""
@@ -320,6 +326,7 @@ sealed class GestureAction {
                 GestureActionType.SCREEN_RECORD -> ScreenRecord
                 GestureActionType.TOGGLE_WIFI -> ToggleWifi
                 GestureActionType.TOGGLE_MOBILE_DATA -> ToggleMobileData
+                GestureActionType.SWITCH_INPUT_METHOD -> SwitchInputMethod
                 GestureActionType.NONE -> None
             }
         }

@@ -40,6 +40,7 @@ data class AppSettings(
     val hapticEnabled: Boolean = true,
     val hapticStrengthLevel: Int = HapticStrength.MEDIUM.level,
     val hideFromRecents: Boolean = false,
+    val accessibilityKeepAliveEnabled: Boolean = false,
     val freeWindowEnabled: Boolean = false,
     val freeWindowModeId: Int = FreeWindowMode.detectDefault().id,
     val freeWindowWidthFraction: Float = 0.8f,

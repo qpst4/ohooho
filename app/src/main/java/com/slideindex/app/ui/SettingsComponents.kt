@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import kotlin.math.roundToInt
@@ -199,6 +200,51 @@ fun SettingSwitchRow(
 }
 
 @Composable
+fun SettingLinkRow(
+    title: String,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            supportingContent = subtitle?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
 fun SettingToggleRow(
     icon: @Composable () -> Unit,
     title: String,
@@ -275,6 +321,8 @@ fun SettingNavigationRow(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             },
             content = {
