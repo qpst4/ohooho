@@ -37,6 +37,7 @@ enum class GestureActionType(val id: Int) {
     TOGGLE_WIFI(34),
     TOGGLE_MOBILE_DATA(35),
     SWITCH_INPUT_METHOD(36),
+    WIDGET_POPUP_OVERLAY(37),
     ;
 
     companion object {
@@ -249,6 +250,12 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    /** Samsung OHO+ style widget popup hosting system App Widgets via [com.slideindex.app.overlay.WidgetPopupOverlayWindow]. */
+    data object WidgetPopupOverlay : GestureAction() {
+        override val type = GestureActionType.WIDGET_POPUP_OVERLAY
+        override val payload = ""
+    }
+
     data object ToggleDnd : GestureAction() {
         override val type = GestureActionType.TOGGLE_DND
         override val payload = ""
@@ -322,6 +329,7 @@ sealed class GestureAction {
                 GestureActionType.SCROLL_TO_BOTTOM -> ScrollToBottom
                 GestureActionType.SHELL_COMMAND_PANEL -> ShellCommandPanel
                 GestureActionType.QUICK_TOOLS_OVERLAY -> QuickToolsOverlay
+                GestureActionType.WIDGET_POPUP_OVERLAY -> WidgetPopupOverlay
                 GestureActionType.TOGGLE_DND -> ToggleDnd
                 GestureActionType.SCREEN_RECORD -> ScreenRecord
                 GestureActionType.TOGGLE_WIFI -> ToggleWifi

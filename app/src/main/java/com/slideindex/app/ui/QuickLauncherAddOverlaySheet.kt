@@ -558,6 +558,7 @@ private fun QuickLauncherAddActionsTab(
             GestureAction.TaskSwitcher,
             GestureAction.ShellCommandPanel,
             GestureAction.QuickToolsOverlay,
+            GestureAction.WidgetPopupOverlay,
             GestureAction.Back,
             GestureAction.Home,
             GestureAction.Recents,

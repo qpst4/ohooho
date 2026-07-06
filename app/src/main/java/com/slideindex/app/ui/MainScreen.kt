@@ -63,6 +63,7 @@ fun MainScreen(
     onHideTriggerOnLauncherChange: (Boolean) -> Unit,
     onOpenQuickLauncher: () -> Unit,
     onOpenShellCommands: () -> Unit,
+    onOpenWidgetPanel: () -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
     onThemeColorChange: (Int) -> Unit,
 ) {
@@ -192,6 +193,11 @@ fun MainScreen(
                 ShellCommandEntryCard(
                     commandCount = settings.shellCommands.size,
                     onClick = onOpenShellCommands,
+                )
+                WidgetPanelEntryCard(
+                    settings = settings,
+                    enabled = gestureActive,
+                    onClick = onOpenWidgetPanel,
                 )
             }
 

@@ -802,6 +802,7 @@ class GestureSession(
             GestureAction.ScrollToTop,
             GestureAction.ScrollToBottom,
             GestureAction.QuickToolsOverlay,
+            GestureAction.WidgetPopupOverlay,
             -> {
                 callbacks.hapticConfirmLaunch()
                 actionExecutor.execute(action, settings, anchorRawY = rawY)

@@ -14,6 +14,7 @@ enum class SettingsDestination {
     SideGesturesRight,
     QuickLauncher,
     ShellCommands,
+    WidgetPanel,
     GestureAngle,
     AnimationStyleSelect,
     WaveAnimationStyle,

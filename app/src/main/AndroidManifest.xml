@@ -22,7 +22,7 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission
-        android:name="android.permission.PACKAGE_USAGE_STATS"
+        android:name="android.permission.BIND_APPWIDGET"
         tools:ignore="ProtectedPermissions" />
 
     <queries>
@@ -41,6 +41,9 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.CREATE_SHORTCUT" />
+        </intent>
+        <intent>
+            <action android:name="android.appwidget.action.APPWIDGET_PICK" />
         </intent>
     </queries>
 
@@ -117,6 +120,27 @@
             android:taskAffinity=""
             android:theme="@style/Theme.SlideIndex.Transparent"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".service.WidgetBindTrampolineActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".service.WidgetPickerTrampolineActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SlideIndex.Transparent" />
+
+        <activity
+            android:name=".service.WidgetConfigureTrampolineActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SlideIndex.Transparent" />
 
         <activity
             android:name=".service.ScreenCapturePermissionActivity"

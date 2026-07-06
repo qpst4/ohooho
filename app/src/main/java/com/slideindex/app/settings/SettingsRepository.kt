@@ -31,6 +31,7 @@ import com.slideindex.app.gesture.withTriggerAlignOppositeSide
 import com.slideindex.app.gesture.withUpdatedTriggerHandle
 import com.slideindex.app.gesture.withUpdatedTriggerHandleDistances
 import com.slideindex.app.launcher.QuickLauncherItemCodec
+import com.slideindex.app.widget.WidgetPanelCodec
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.shell.ShellCommandCodec
@@ -112,6 +113,11 @@ class SettingsRepository(private val context: Context) {
             quickLauncher = readQuickLauncherItems(prefs),
             shellCommands = ShellCommandCodec.decodeAll(prefs[SHELL_COMMANDS] ?: emptySet()),
             themeColorArgb = prefs[THEME_COLOR] ?: 0xFF6750A4.toInt(),
+            widgetPanelPages = WidgetPanelCodec.decodeAll(prefs[WIDGET_PANEL_PAGES] ?: emptySet()),
+            widgetPanelWidthFraction = prefs[WIDGET_PANEL_WIDTH] ?: 0.8f,
+            widgetPanelHeightFraction = prefs[WIDGET_PANEL_HEIGHT] ?: 0.55f,
+            widgetPanelTopFraction = prefs[WIDGET_PANEL_TOP] ?: 0.15f,
+            widgetPanelBlurEnabled = prefs[WIDGET_PANEL_BLUR] ?: true,
         )
     }
 
@@ -508,6 +514,20 @@ class SettingsRepository(private val context: Context) {
         prefs[SHELL_COMMANDS] = ShellCommandCodec.encodeAll(items)
     }
 
+    suspend fun setWidgetPanelPages(
+        pages: List<com.slideindex.app.widget.WidgetPanelPage>,
+    ) = edit { prefs ->
+        prefs[WIDGET_PANEL_PAGES] = WidgetPanelCodec.encodeAll(pages)
+    }
+
+    suspend fun setWidgetPanelBlurEnabled(enabled: Boolean) = edit { prefs ->
+        prefs[WIDGET_PANEL_BLUR] = enabled
+    }
+
+    suspend fun setWidgetPanelWidthFraction(fraction: Float) = edit { prefs ->
+        prefs[WIDGET_PANEL_WIDTH] = fraction.coerceIn(0.5f, 0.95f)
+    }
+
     private fun legacyLaunchPolicy(prefs: Preferences): Int {
         return if (prefs[FREE_WINDOW_ENABLED] == true) {
             AppLaunchPolicy.ALWAYS_FREE_WINDOW.id
@@ -589,5 +609,10 @@ class SettingsRepository(private val context: Context) {
         private val HIDE_TRIGGER_LAUNCHER = booleanPreferencesKey("hide_trigger_launcher")
         private val DYNAMIC_COLOR_ENABLED = booleanPreferencesKey("dynamic_color_enabled")
         private val THEME_COLOR = intPreferencesKey("theme_color_argb")
+        private val WIDGET_PANEL_PAGES = stringSetPreferencesKey("widget_panel_pages")
+        private val WIDGET_PANEL_WIDTH = floatPreferencesKey("widget_panel_width_fraction")
+        private val WIDGET_PANEL_HEIGHT = floatPreferencesKey("widget_panel_height_fraction")
+        private val WIDGET_PANEL_TOP = floatPreferencesKey("widget_panel_top_fraction")
+        private val WIDGET_PANEL_BLUR = booleanPreferencesKey("widget_panel_blur_enabled")
     }
 }

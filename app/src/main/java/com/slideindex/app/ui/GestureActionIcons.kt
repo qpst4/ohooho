@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.ViewCarousel
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,6 +57,7 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.TASK_SWITCHER -> Icons.Default.ViewCarousel
     GestureActionType.SHELL_COMMAND_PANEL -> Icons.Default.Code
     GestureActionType.QUICK_TOOLS_OVERLAY -> OhoPanelIcons.QuickToolsGrid
+    GestureActionType.WIDGET_POPUP_OVERLAY -> Icons.Default.Widgets
     GestureActionType.BACK -> Icons.AutoMirrored.Filled.ArrowBack
     GestureActionType.HOME -> Icons.Default.Home
     GestureActionType.RECENTS -> Icons.Default.Layers

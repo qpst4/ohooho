@@ -1,0 +1,702 @@
+package com.slideindex.app.widget
+
+import android.appwidget.AppWidgetHostView
+import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewConfiguration
+import android.view.ViewGroup
+import androidx.core.view.NestedScrollingChildHelper
+import androidx.core.view.ViewCompat
+import kotlin.math.abs
+import kotlin.math.min
+import kotlin.math.roundToInt
+
+class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
+
+  var editMode: Boolean = false
+    set(value) {
+      field = value
+      if (value) {
+        cancelPendingLongPress()
+        cancelPendingDrag()
+      }
+      setWillNotDraw(!value)
+      refreshEditChrome()
+      invalidate()
+    }
+
+  var onLongPressBlank: (() -> Unit)? = null
+  var onItemChanged: ((WidgetPanelItem) -> Unit)? = null
+  var onItemRemoved: ((Int) -> Unit)? = null
+  var onConfigureWidget: ((Int) -> Unit)? = null
+  var onAddWidgetRequested: (() -> Unit)? = null
+  var onInteractionActiveChange: ((Boolean) -> Unit)? = null
+
+  var pageColumnCount: Int = 10
+    private set
+  var pageRowCount: Int = 26
+    private set
+  var currentCellSizePx: Int = 0
+    private set
+  var currentCellGapPx: Int = 0
+    private set
+
+  private var boundPage: WidgetPanelPage? = null
+  val currentPage: WidgetPanelPage? get() = boundPage
+
+  private val gridDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0x55FFFFFF
+    style = Paint.Style.FILL
+  }
+  private val gridDotEditPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0x99FFFFFF.toInt()
+    style = Paint.Style.FILL
+  }
+  private val emptySlotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0x66FFFFFF
+    style = Paint.Style.STROKE
+    strokeWidth = 1.5f * resources.displayMetrics.density
+  }
+  private val dragPreviewPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0x664CAF50
+    style = Paint.Style.FILL
+  }
+
+  private var draggingChild: WidgetCardContainer? = null
+  private var draggingItem: WidgetPanelItem? = null
+  private var dragTouchOffsetX = 0f
+  private var dragTouchOffsetY = 0f
+  private var hoverCellX = -1
+  private var hoverCellY = -1
+  private var interactionActive = false
+  private var chromeTouchTarget: WidgetCardContainer? = null
+
+  private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+  private val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
+  private var blankTouchTracking = false
+  private var blankTouchDownX = 0f
+  private var blankTouchDownY = 0f
+  private var pendingLongPress: Runnable? = null
+
+  private var pendingDragChild: WidgetCardContainer? = null
+  private var pendingDragDownX = 0f
+  private var pendingDragDownY = 0f
+  private var pendingDragLongPress: Runnable? = null
+
+  private val nestedScrollChildHelper = NestedScrollingChildHelper(this)
+  private var panelScrollLastY = 0f
+  private var panelScrollDownX = 0f
+  private var panelScrollDownY = 0f
+  private var panelScrollActive = false
+
+  init {
+    clipChildren = false
+    clipToPadding = false
+    setWillNotDraw(true)
+    isNestedScrollingEnabled = true
+    nestedScrollChildHelper.isNestedScrollingEnabled = true
+  }
+
+  private var lastCellSizePx = 0
+
+  fun bind(page: WidgetPanelPage, hostContext: Context) {
+    boundPage = page
+    pageColumnCount = page.columnCount
+    pageRowCount = page.rowCount
+    val density = resources.displayMetrics.density
+    currentCellSizePx = (page.cellWidthDp * density).roundToInt()
+    currentCellGapPx = (12f * density).roundToInt() // Use fixed 12dp gap
+
+    removeAllViews()
+    for (item in page.items) {
+      addWidgetCard(hostContext, item)
+    }
+    post { refreshAllWidgetLayouts() }
+    requestLayout()
+    invalidate()
+  }
+
+  fun addWidgetCard(hostContext: Context, item: WidgetPanelItem): WidgetCardContainer {
+    val hostView = WidgetPopupHost.createView(hostContext, item.appWidgetId) as? AppWidgetHostView
+    val container = WidgetCardContainer(context, item, hostView).apply {
+      onDelete = { onItemRemoved?.invoke(item.appWidgetId) }
+      onConfigure = { onConfigureWidget?.invoke(item.appWidgetId) }
+      onResize = { spanX, spanY ->
+        val updated = this.item.copy(spanX = spanX, spanY = spanY)
+        val pageSnapshot = boundPage
+        if (pageSnapshot != null &&
+          WidgetPanelGridLogic.isAreaFree(pageSnapshot, updated.x, updated.y, spanX, spanY, updated.appWidgetId)
+        ) {
+          onItemChanged?.invoke(updated)
+        }
+      }
+      onInteractionActiveChange = { active -> setInteractionActive(active) }
+      setEditMode(editMode)
+      layoutParams = LayoutParams(0, 0)
+    }
+    addView(container)
+    container.post { container.updateScalableTargetFromContainer() }
+    return container
+  }
+
+  fun refreshAllWidgetLayouts() {
+    for (i in 0 until childCount) {
+      (getChildAt(i) as? WidgetCardContainer)?.refreshWidgetLayout()
+    }
+  }
+
+  private fun syncItemsFromPage(page: WidgetPanelPage) {
+    for (i in 0 until childCount) {
+      val child = getChildAt(i) as? WidgetCardContainer ?: continue
+      val updated = page.items.find { it.appWidgetId == child.item.appWidgetId } ?: continue
+      child.syncItem(updated)
+    }
+  }
+
+  private fun applyPageGeometry(page: WidgetPanelPage) {
+    boundPage = page
+    pageColumnCount = page.columnCount
+    pageRowCount = page.rowCount
+    syncItemsFromPage(page)
+    requestLayout()
+    invalidate()
+    post { refreshAllWidgetLayouts() }
+  }
+
+  private fun itemsSignature(page: WidgetPanelPage): String =
+    page.items.joinToString("|") {
+      "${it.appWidgetId}:${it.x},${it.y},${it.spanX},${it.spanY}"
+    }
+
+  private fun cancelPendingDrag() {
+    pendingDragLongPress?.let { removeCallbacks(it) }
+    pendingDragLongPress = null
+    pendingDragChild = null
+  }
+
+  private fun stopPanelScroll() {
+    if (panelScrollActive || nestedScrollChildHelper.hasNestedScrollingParent(ViewCompat.TYPE_TOUCH)) {
+      nestedScrollChildHelper.stopNestedScroll(ViewCompat.TYPE_TOUCH)
+    }
+    panelScrollActive = false
+  }
+
+  private fun dispatchPanelNestedScroll(event: MotionEvent): Boolean {
+    when (event.actionMasked) {
+      MotionEvent.ACTION_MOVE -> {
+        val dy = (panelScrollLastY - event.y).toInt()
+        panelScrollLastY = event.y
+        if (dy == 0) return panelScrollActive
+        val consumed = IntArray(2)
+        nestedScrollChildHelper.dispatchNestedPreScroll(
+          0,
+          dy,
+          consumed,
+          null,
+          ViewCompat.TYPE_TOUCH,
+        )
+        return true
+      }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        stopPanelScroll()
+        return panelScrollActive
+      }
+    }
+    return false
+  }
+
+  private fun maybeStartPanelScroll(event: MotionEvent): Boolean {
+    val dx = event.x - panelScrollDownX
+    val dy = event.y - panelScrollDownY
+    if (dx * dx + dy * dy <= touchSlop * touchSlop) return false
+    if (abs(dy) <= abs(dx)) return false
+    cancelPendingDrag()
+    cancelPendingLongPress()
+    blankTouchTracking = false
+    if (!panelScrollActive) {
+      panelScrollActive = nestedScrollChildHelper.startNestedScroll(
+        ViewCompat.SCROLL_AXIS_VERTICAL,
+        ViewCompat.TYPE_TOUCH,
+      )
+    }
+    return panelScrollActive
+  }
+
+  private fun handleEditModePanelTouch(event: MotionEvent): Boolean {
+    if (draggingChild != null) {
+      return onTouchEvent(event)
+    }
+
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        panelScrollDownX = event.x
+        panelScrollDownY = event.y
+        panelScrollLastY = event.y
+        panelScrollActive = false
+        val child = findTouchTarget(event.x, event.y)
+        if (child != null) {
+          val localX = event.x - child.left - child.translationX
+          val localY = event.y - child.top - child.translationY
+          if (!child.isTouchOnChrome(localX, localY)) {
+            scheduleWidgetDragLongPress(child, event.x, event.y)
+          }
+        }
+        return true
+      }
+      MotionEvent.ACTION_MOVE -> {
+        if (maybeStartPanelScroll(event)) {
+          return dispatchPanelNestedScroll(event)
+        }
+        if (pendingDragChild != null) {
+          val dx = event.x - pendingDragDownX
+          val dy = event.y - pendingDragDownY
+          if (dx * dx + dy * dy > touchSlop * touchSlop) {
+            cancelPendingDrag()
+          }
+        }
+        return true
+      }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        cancelPendingDrag()
+        stopPanelScroll()
+        return true
+      }
+    }
+    return true
+  }
+
+  private fun scheduleWidgetDragLongPress(child: WidgetCardContainer, x: Float, y: Float) {
+    cancelPendingDrag()
+    pendingDragChild = child
+    pendingDragDownX = x
+    pendingDragDownY = y
+    pendingDragLongPress = Runnable {
+      val target = pendingDragChild
+      if (target !== child || draggingChild != null || !editMode) {
+        cancelPendingDrag()
+        return@Runnable
+      }
+      pendingDragChild = null
+      pendingDragLongPress = null
+      startDrag(child, x, y)
+    }
+    postDelayed(pendingDragLongPress!!, longPressTimeout)
+  }
+
+  private fun cancelPendingLongPress() {
+    pendingLongPress?.let { removeCallbacks(it) }
+    pendingLongPress = null
+  }
+
+  private fun scheduleBlankLongPress() {
+    cancelPendingLongPress()
+    pendingLongPress = Runnable {
+      if (!blankTouchTracking || editMode) return@Runnable
+      if (findTouchTarget(blankTouchDownX, blankTouchDownY) == null) {
+        onLongPressBlank?.invoke()
+      }
+      blankTouchTracking = false
+    }
+    postDelayed(pendingLongPress!!, longPressTimeout)
+  }
+
+  private fun handleBlankAreaTouch(event: MotionEvent): Boolean {
+    if (editMode) return false
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        if (findTouchTarget(event.x, event.y) != null) return false
+        blankTouchTracking = true
+        blankTouchDownX = event.x
+        blankTouchDownY = event.y
+        scheduleBlankLongPress()
+        return true
+      }
+      MotionEvent.ACTION_MOVE -> {
+        if (!blankTouchTracking) return false
+        val dx = event.x - blankTouchDownX
+        val dy = event.y - blankTouchDownY
+        if (dx * dx + dy * dy > touchSlop * touchSlop) {
+          cancelPendingLongPress()
+          blankTouchTracking = false
+        }
+        return true
+      }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        if (!blankTouchTracking) return false
+        cancelPendingLongPress()
+        blankTouchTracking = false
+        return true
+      }
+    }
+    return false
+  }
+
+  private fun refreshEditChrome() {
+    for (i in 0 until childCount) {
+      (getChildAt(i) as? WidgetCardContainer)?.setEditMode(editMode)
+    }
+  }
+
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    val density = resources.displayMetrics.density
+    val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+    val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+    val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+    val heightSize = MeasureSpec.getSize(heightMeasureSpec)
+    val preferredCellPx = ((boundPage?.cellWidthDp ?: 62) * density).roundToInt().coerceAtLeast(1)
+
+    val innerWidthAvailable = if (widthMode != MeasureSpec.UNSPECIFIED && widthSize > 0) {
+      widthSize - paddingLeft - paddingRight
+    } else {
+      0
+    }
+
+    currentCellSizePx = if (innerWidthAvailable > 0 && pageColumnCount > 0) {
+      WidgetSizeHelper.computeCellSizePx(innerWidthAvailable, pageColumnCount, currentCellGapPx)
+    } else {
+      preferredCellPx
+    }
+
+    val contentW = pageColumnCount * currentCellSizePx +
+      (pageColumnCount - 1).coerceAtLeast(0) * currentCellGapPx
+    val contentH = pageRowCount * currentCellSizePx +
+      (pageRowCount - 1).coerceAtLeast(0) * currentCellGapPx
+    val desiredW = paddingLeft + paddingRight + contentW
+    val desiredH = paddingTop + paddingBottom + contentH
+
+    val measuredW = when (widthMode) {
+      MeasureSpec.EXACTLY -> widthSize
+      MeasureSpec.AT_MOST -> min(widthSize, desiredW)
+      else -> desiredW
+    }
+    val measuredH = when (heightMode) {
+      MeasureSpec.EXACTLY -> heightSize
+      MeasureSpec.AT_MOST -> min(heightSize, desiredH)
+      else -> desiredH
+    }
+    setMeasuredDimension(measuredW, measuredH)
+
+    for (i in 0 until childCount) {
+      val child = getChildAt(i) as? WidgetCardContainer ?: continue
+      val spanX = child.layoutSpanX()
+      val spanY = child.layoutSpanY()
+      val childW = spanX * currentCellSizePx + (spanX - 1) * currentCellGapPx
+      val childH = spanY * currentCellSizePx + (spanY - 1) * currentCellGapPx
+      child.measure(
+        MeasureSpec.makeMeasureSpec(childW, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY)
+      )
+    }
+  }
+
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+    for (i in 0 until childCount) {
+      val child = getChildAt(i) as? WidgetCardContainer ?: continue
+      if (child == draggingChild) continue // Handled by translation
+      val item = child.item
+      val left = paddingLeft + item.x * (currentCellSizePx + currentCellGapPx)
+      val top = paddingTop + item.y * (currentCellSizePx + currentCellGapPx)
+      child.layout(left, top, left + child.measuredWidth, top + child.measuredHeight)
+    }
+    if (currentCellSizePx != lastCellSizePx) {
+      lastCellSizePx = currentCellSizePx
+      post { refreshAllWidgetLayouts() }
+    }
+  }
+
+  private fun findTouchTarget(x: Float, y: Float): WidgetCardContainer? {
+    for (i in childCount - 1 downTo 0) {
+      val child = getChildAt(i) as? WidgetCardContainer ?: continue
+      val localX = x - child.left - child.translationX
+      val localY = y - child.top - child.translationY
+      if (child.isTouchOnChrome(localX, localY)) return child
+      val left = child.left + child.translationX
+      val top = child.top + child.translationY
+      if (x >= left && x <= left + child.width && y >= top && y <= top + child.height) {
+        return child
+      }
+    }
+    return null
+  }
+
+  private fun deliverTouchToChild(child: WidgetCardContainer, event: MotionEvent): Boolean {
+    val transformed = MotionEvent.obtain(event)
+    transformed.offsetLocation(
+      -child.left - child.translationX,
+      -child.top - child.translationY,
+    )
+    val handled = child.dispatchTouchEvent(transformed)
+    transformed.recycle()
+    return handled
+  }
+
+  private fun setInteractionActive(active: Boolean) {
+    if (interactionActive == active) return
+    interactionActive = active
+    onInteractionActiveChange?.invoke(active)
+  }
+
+  private fun startDrag(child: WidgetCardContainer, x: Float, y: Float) {
+    draggingChild = child
+    draggingItem = child.item
+    dragTouchOffsetX = x - (child.left + child.translationX)
+    dragTouchOffsetY = y - (child.top + child.translationY)
+    child.bringToFront()
+    child.translationZ = 8f * resources.displayMetrics.density
+    child.animate().cancel()
+    child.scaleX = 1.05f
+    child.scaleY = 1.05f
+    child.alpha = 0.88f
+    setInteractionActive(true)
+    requestDisallowInterceptAllParents(true)
+    updateHoverCell(x, y)
+    invalidate()
+  }
+
+  private fun endDrag(child: WidgetCardContainer) {
+    val item = draggingItem ?: return
+    val page = boundPage
+    child.animate().cancel()
+    child.scaleX = 1f
+    child.scaleY = 1f
+    child.alpha = 1f
+    child.translationZ = 0f
+    setInteractionActive(false)
+    requestDisallowInterceptAllParents(false)
+    if (page != null &&
+      (hoverCellX != item.x || hoverCellY != item.y) &&
+      WidgetPanelGridLogic.isAreaFree(page, hoverCellX, hoverCellY, item.spanX, item.spanY, item.appWidgetId)
+    ) {
+      child.translationX = 0f
+      child.translationY = 0f
+      onItemChanged?.invoke(item.copy(x = hoverCellX, y = hoverCellY))
+    } else {
+      child.translationX = 0f
+      child.translationY = 0f
+      requestLayout()
+    }
+    draggingChild = null
+    draggingItem = null
+    hoverCellX = -1
+    hoverCellY = -1
+    invalidate()
+  }
+
+  private fun requestDisallowInterceptAllParents(disallow: Boolean) {
+    var current: android.view.ViewParent? = parent
+    while (current != null) {
+      current.requestDisallowInterceptTouchEvent(disallow)
+      current = current.parent
+    }
+  }
+
+  private fun updateHoverCell(x: Float, y: Float) {
+    val step = currentCellSizePx + currentCellGapPx
+    val item = draggingItem ?: return
+    val topLeftX = x - dragTouchOffsetX - paddingLeft
+    val topLeftY = y - dragTouchOffsetY - paddingTop
+    hoverCellX = (topLeftX / step).toInt().coerceIn(0, pageColumnCount - item.spanX)
+    hoverCellY = (topLeftY / step).toInt().coerceIn(0, pageRowCount - item.spanY)
+  }
+
+  override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+    val chromeTarget = chromeTouchTarget
+    if (chromeTarget != null) {
+      val handled = deliverTouchToChild(chromeTarget, event)
+      if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+        chromeTouchTarget = null
+      }
+      return handled
+    }
+
+    if (editMode && draggingChild == null && event.actionMasked == MotionEvent.ACTION_DOWN) {
+      val child = findTouchTarget(event.x, event.y)
+      if (child != null) {
+        val localX = event.x - child.left - child.translationX
+        val localY = event.y - child.top - child.translationY
+        if (child.isTouchOnChrome(localX, localY)) {
+          chromeTouchTarget = child
+          return deliverTouchToChild(child, event)
+        }
+      }
+    }
+    if (editMode && draggingChild == null) {
+      return handleEditModePanelTouch(event)
+    }
+    if (draggingChild != null) {
+      return onTouchEvent(event)
+    }
+    return super.dispatchTouchEvent(event)
+  }
+
+  override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+    if (draggingChild != null) return true
+
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        panelScrollDownX = event.x
+        panelScrollDownY = event.y
+        panelScrollLastY = event.y
+        panelScrollActive = false
+        if (!editMode) return false
+        val child = findTouchTarget(event.x, event.y)
+        if (child != null) {
+          val localX = event.x - child.left - child.translationX
+          val localY = event.y - child.top - child.translationY
+          if (!child.isTouchOnChrome(localX, localY)) {
+            scheduleWidgetDragLongPress(child, event.x, event.y)
+          }
+        }
+      }
+      MotionEvent.ACTION_MOVE -> {
+        if (editMode) {
+          if (pendingDragChild != null && draggingChild == null) {
+            val dx = event.x - pendingDragDownX
+            val dy = event.y - pendingDragDownY
+            if (dx * dx + dy * dy > touchSlop * touchSlop) {
+              cancelPendingDrag()
+            }
+          }
+          return draggingChild != null
+        }
+        if (maybeStartPanelScroll(event)) {
+          return true
+        }
+      }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        cancelPendingDrag()
+        if (panelScrollActive) {
+          stopPanelScroll()
+          return true
+        }
+      }
+    }
+    return draggingChild != null || panelScrollActive
+  }
+
+  override fun onTouchEvent(event: MotionEvent): Boolean {
+    if (panelScrollActive && draggingChild == null) {
+      when (event.actionMasked) {
+        MotionEvent.ACTION_MOVE -> return dispatchPanelNestedScroll(event)
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+          stopPanelScroll()
+          return true
+        }
+      }
+    }
+
+    if (draggingChild != null) {
+      val child = draggingChild!!
+      when (event.actionMasked) {
+        MotionEvent.ACTION_MOVE -> {
+          val left = event.x - dragTouchOffsetX
+          val top = event.y - dragTouchOffsetY
+          child.translationX = left - child.left
+          child.translationY = top - child.top
+          updateHoverCell(event.x, event.y)
+          invalidate()
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> endDrag(child)
+      }
+      return true
+    }
+
+    if (!editMode) {
+      if (handleBlankAreaTouch(event)) return true
+    }
+    return false
+  }
+
+  override fun onDraw(canvas: Canvas) {
+    super.onDraw(canvas)
+    if (currentCellSizePx <= 0) return
+    val step = currentCellSizePx + currentCellGapPx
+    val radiusPx = (if (editMode) 2.5f else 2f) * resources.displayMetrics.density
+    val dotPaint = if (editMode) gridDotEditPaint else gridDotPaint
+    val cornerRadius = 16f * resources.displayMetrics.density
+    val cols = pageColumnCount
+    val rows = pageRowCount
+    val occupied = buildOccupiedMask()
+
+    for (y in 0 until rows) {
+      for (x in 0 until cols) {
+        val cx = paddingLeft + x * step + currentCellSizePx / 2f
+        val cy = paddingTop + y * step + currentCellSizePx / 2f
+        canvas.drawCircle(cx, cy, radiusPx, dotPaint)
+      }
+    }
+
+    if (!editMode) return
+
+
+    // Draw hover preview
+    if (draggingChild != null && hoverCellX >= 0 && hoverCellY >= 0) {
+      val item = draggingItem!!
+      val page = boundPage ?: return
+      val isFree = WidgetPanelGridLogic.isAreaFree(page, hoverCellX, hoverCellY, item.spanX, item.spanY, item.appWidgetId)
+      dragPreviewPaint.color = if (isFree) 0x664CAF50 else 0x66F44336
+      val left = paddingLeft + hoverCellX * step
+      val top = paddingTop + hoverCellY * step
+      val right = left + item.spanX * currentCellSizePx + (item.spanX - 1) * currentCellGapPx
+      val bottom = top + item.spanY * currentCellSizePx + (item.spanY - 1) * currentCellGapPx
+      canvas.drawRoundRect(RectF(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat()), cornerRadius, cornerRadius, dragPreviewPaint)
+    }
+  }
+
+  private fun buildOccupiedMask(): Array<BooleanArray> {
+    val rows = pageRowCount
+    val cols = pageColumnCount
+    val mask = Array(rows) { BooleanArray(cols) }
+    val page = boundPage ?: return mask
+    for (item in page.items) {
+      if (item.appWidgetId == draggingItem?.appWidgetId) continue // Don't mark dragging item's old spot as occupied
+      for (dy in 0 until item.spanY) {
+        for (dx in 0 until item.spanX) {
+          val gx = item.x + dx
+          val gy = item.y + dy
+          if (gy in 0 until rows && gx in 0 until cols) {
+            mask[gy][gx] = true
+          }
+        }
+      }
+    }
+    return mask
+  }
+
+  private var lastBindKey: BindKey? = null
+
+  fun bindIfNeeded(page: WidgetPanelPage, hostContext: Context) {
+    val key = BindKey(
+      pageId = page.id,
+      itemsSignature = itemsSignature(page),
+      columnCount = page.columnCount,
+      rowCount = page.rowCount,
+      cellWidthDp = page.cellWidthDp,
+    )
+    val previous = lastBindKey
+    lastBindKey = key
+    if (previous == null || previous.itemsSignature != key.itemsSignature || previous.pageId != key.pageId) {
+      bind(page, hostContext)
+      return
+    }
+    if (previous != key) {
+      applyPageGeometry(page)
+    }
+  }
+
+  private data class BindKey(
+    val pageId: Long,
+    val itemsSignature: String,
+    val columnCount: Int,
+    val rowCount: Int,
+    val cellWidthDp: Int,
+  )
+
+  companion object {
+    const val CELL_GAP_DP = 12f
+  }
+}

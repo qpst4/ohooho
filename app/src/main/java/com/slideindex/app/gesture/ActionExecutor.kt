@@ -11,6 +11,7 @@ import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.overlay.OhoQuickToolsOverlayWindow
+import com.slideindex.app.overlay.WidgetPopupOverlayWindow
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
@@ -117,6 +118,7 @@ class ActionExecutor(
             GestureAction.None, GestureAction.ClickPassthrough,
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
             GestureAction.QuickToolsOverlay -> OhoQuickToolsOverlayWindow.show(context, settings, side, anchorRawY)
+            GestureAction.WidgetPopupOverlay -> WidgetPopupOverlayWindow.show(context, settings, side, anchorRawY)
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
             is GestureAction.LaunchShortcut -> launchGestureShortcut(action, settings, longPressArmed)
             GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {

@@ -59,6 +59,11 @@ data class AppSettings(
     val quickLauncher: List<com.slideindex.app.launcher.QuickLauncherItem> = emptyList(),
     val shellCommands: List<com.slideindex.app.shell.ShellCommand> = emptyList(),
     val themeColorArgb: Int = 0xFF6750A4.toInt(),
+    val widgetPanelPages: List<com.slideindex.app.widget.WidgetPanelPage> = emptyList(),
+    val widgetPanelWidthFraction: Float = 0.8f,
+    val widgetPanelHeightFraction: Float = 0.55f,
+    val widgetPanelTopFraction: Float = 0.15f,
+    val widgetPanelBlurEnabled: Boolean = true,
 )
 
 fun AppSettings.edgeTriggerWidthDp(side: PanelSide): Float = when (side) {

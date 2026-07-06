@@ -31,11 +31,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
 import com.slideindex.app.overlay.LayoutPreviewContent
+import com.slideindex.app.overlay.WidgetPickerOverlayWindow
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.service.QuickLauncherAddTrampoline
 import com.slideindex.app.service.ShellCommandEditorTrampoline
 import com.slideindex.app.service.ShellCommandPanelTrampoline
 import com.slideindex.app.service.ShellCommandResultTrampoline
+import com.slideindex.app.service.WidgetBindTrampolineActivity
+import com.slideindex.app.service.WidgetPickerTrampoline
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.AppKeepAliveSettingsScreen
 import com.slideindex.app.ui.ExcludedAppsScreen
@@ -48,6 +51,7 @@ import com.slideindex.app.ui.MainScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.SettingsDestination
 import com.slideindex.app.ui.ShellCommandPanelScreen
+import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.SideGestureSettingsScreen
 import com.slideindex.app.ui.TriggerAppearanceSettingsScreen
 import com.slideindex.app.ui.TriggerCollectionScreen
@@ -219,6 +223,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenShellCommands = {
                             destination = SettingsDestination.ShellCommands
+                        },
+                        onOpenWidgetPanel = {
+                            destination = SettingsDestination.WidgetPanel
                         },
                         onDynamicColorChange = { enabled ->
                             lifecycleScope.launch {
@@ -642,6 +649,26 @@ class MainActivity : ComponentActivity() {
                             TaskManagerUtil.requestPermission()
                         },
                     )
+
+                    SettingsDestination.WidgetPanel -> WidgetPanelSettingsScreen(
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.Main },
+                        onSavePages = { pages ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setWidgetPanelPages(pages)
+                            }
+                        },
+                        onBlurEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setWidgetPanelBlurEnabled(enabled)
+                            }
+                        },
+                        onWidthFractionChange = { fraction ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setWidgetPanelWidthFraction(fraction)
+                            }
+                        },
+                    )
                     }
                 }
             }
@@ -652,6 +679,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         refreshPermissionState()
         refreshServiceState()
+        com.slideindex.app.widget.WidgetPopupHost.startListening(this)
         val app = application as SlideIndexApp
         lifecycleScope.launch {
             applyHideFromRecents(app.settingsRepository.settings.first().hideFromRecents)
@@ -664,6 +692,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        if (!WidgetBindTrampolineActivity.isActive() &&
+            !WidgetPickerOverlayWindow.isShowing
+        ) {
+            com.slideindex.app.widget.WidgetPopupHost.stopListening(this)
+        }
         if (!QuickLauncherAddTrampoline.isActive() &&
             !ShellCommandPanelTrampoline.isActive() &&
             !ShellCommandEditorTrampoline.isActive() &&

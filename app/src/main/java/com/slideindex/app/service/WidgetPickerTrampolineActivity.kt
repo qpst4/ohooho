@@ -1,0 +1,69 @@
+package com.slideindex.app.service
+
+import android.graphics.Color as AndroidColor
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import com.slideindex.app.SlideIndexApp
+import com.slideindex.app.ui.WidgetPickerScreen
+import com.slideindex.app.ui.theme.SlideIndexTheme
+import com.slideindex.app.widget.WidgetProviderEntry
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+
+/**
+ * Fallback picker when [com.slideindex.app.overlay.WidgetPickerOverlayWindow] cannot attach
+ * (e.g. settings screen while accessibility host is unavailable).
+ */
+class WidgetPickerTrampolineActivity : ComponentActivity() {
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge(
+      statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+      navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+    )
+    super.onCreate(savedInstanceState)
+
+    val app = application as SlideIndexApp
+    val initialSettings = runBlocking { app.settingsRepository.settings.first() }
+    var themeSeedArgb by mutableIntStateOf(initialSettings.themeColorArgb)
+    var dynamicColorEnabled by mutableStateOf(initialSettings.dynamicColorEnabled)
+
+    setContent {
+      BackHandler {
+        WidgetPickerTrampoline.deliverCancel()
+        finish()
+      }
+      SlideIndexTheme(
+        seedColor = Color(themeSeedArgb),
+        dynamicColor = dynamicColorEnabled,
+      ) {
+        WidgetPickerScreen(
+          onBack = {
+            WidgetPickerTrampoline.deliverCancel()
+            finish()
+          },
+          onWidgetSelected = { entry -> onWidgetPicked(entry) },
+        )
+      }
+    }
+  }
+
+  private fun onWidgetPicked(entry: WidgetProviderEntry) {
+    WidgetPickerTrampoline.startBindFlow(this, entry.provider.provider)
+    finish()
+  }
+
+  companion object {
+    fun createIntent(context: android.content.Context) =
+      android.content.Intent(context, WidgetPickerTrampolineActivity::class.java)
+  }
+}
