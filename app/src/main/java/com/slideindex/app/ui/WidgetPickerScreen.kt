@@ -17,11 +17,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +72,24 @@ fun WidgetPickerScreen(
   var groups by remember { mutableStateOf<List<WidgetAppGroup>>(emptyList()) }
   var loading by remember { mutableStateOf(true) }
   var searchQuery by remember { mutableStateOf("") }
+  var detailGroup by remember { mutableStateOf<WidgetAppGroup?>(null) }
+
+  LaunchedEffect(Unit) {
+    loading = true
+    groups = WidgetCatalog.loadGroups(context)
+    loading = false
+  }
+
+  val detail = detailGroup
+  if (detail != null) {
+    WidgetAppDetailScreen(
+      group = detail,
+      onBack = { detailGroup = null },
+      onWidgetSelected = onWidgetSelected,
+    )
+    return
+  }
+
   val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
   LaunchedEffect(Unit) {
@@ -138,6 +160,7 @@ fun WidgetPickerScreen(
             items(filtered, key = { it.packageName }) { group ->
               WidgetAppGroupSection(
                 group = group,
+                onOpenApp = { detailGroup = group },
                 onSelect = onWidgetSelected,
               )
             }
@@ -148,15 +171,61 @@ fun WidgetPickerScreen(
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun WidgetAppDetailScreen(
+  group: WidgetAppGroup,
+  onBack: () -> Unit,
+  onWidgetSelected: (WidgetProviderEntry) -> Unit,
+) {
+  val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+  Scaffold(
+    modifier = Modifier.fillMaxSize(),
+    topBar = {
+      MediumFlexibleTopAppBar(
+        title = { SettingsAppBarTitle(group.appLabel) },
+        navigationIcon = {
+          IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+          }
+        },
+        scrollBehavior = scrollBehavior,
+      )
+    },
+  ) { padding ->
+    LazyVerticalGrid(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(padding),
+      columns = GridCells.Adaptive(minSize = 132.dp),
+      contentPadding = PaddingValues(
+        start = PickerListHorizontalPadding,
+        end = PickerListHorizontalPadding,
+        top = 8.dp,
+        bottom = 24.dp,
+      ),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      items(group.widgets, key = { it.provider.provider.flattenToString() }) { entry ->
+        WidgetPreviewCard(entry = entry, onClick = { onWidgetSelected(entry) })
+      }
+    }
+  }
+}
+
 @Composable
 private fun WidgetAppGroupSection(
   group: WidgetAppGroup,
+  onOpenApp: (WidgetAppGroup) -> Unit,
   onSelect: (WidgetProviderEntry) -> Unit,
 ) {
   Column(modifier = Modifier.fillMaxWidth()) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
+        .clickable { onOpenApp(group) }
         .padding(horizontal = PickerListHorizontalPadding, vertical = 4.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -196,6 +265,11 @@ private fun WidgetAppGroupSection(
           modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         )
       }
+      Icon(
+        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        contentDescription = stringResource(R.string.widget_picker_open_app_widgets),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
     }
 
     LazyRow(

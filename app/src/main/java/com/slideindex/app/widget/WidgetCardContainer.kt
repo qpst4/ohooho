@@ -1,5 +1,6 @@
 package com.slideindex.app.widget
 
+import android.animation.ValueAnimator
 import android.appwidget.AppWidgetHostView
 import android.content.Context
 import android.graphics.Canvas
@@ -11,6 +12,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
+import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.graphics.Path
 import kotlin.math.cos
@@ -41,7 +43,14 @@ class WidgetCardContainer(
   private var editModeEnabled = false
   private var previewSpanX = item.spanX
   private var previewSpanY = item.spanY
+  private var previewWidthPx = 0
+  private var previewHeightPx = 0
   private var previewingResize = false
+  private var resizeSnapAnimator: ValueAnimator? = null
+  private var hostEverBound = false
+  private var pendingHostLayoutCommit: Runnable? = null
+  private var lastDebouncedCommitSpanX = -1
+  private var lastDebouncedCommitSpanY = -1
 
   private val density = resources.displayMetrics.density
   private val cardCornerRadiusPx = 16f * density
@@ -62,6 +71,7 @@ class WidgetCardContainer(
     if (hostView != null) {
       scalableFrame.bindWidget(hostView, item.appWidgetId, item.spanX, item.spanY)
       loadingPlaceholder.visibility = GONE
+      hostEverBound = true
     } else {
       loadingPlaceholder.visibility = VISIBLE
     }
@@ -144,12 +154,29 @@ class WidgetCardContainer(
     loadingPlaceholder.visibility = GONE
     scalableFrame.visibility = VISIBLE
     scalableFrame.bindWidget(hostView, item.appWidgetId, item.spanX, item.spanY)
+    hostEverBound = true
+    updateHostLongClickHandling(editModeEnabled)
     post { updateScalableTargetFromContainer() }
+  }
+
+  private fun ensureHostViewAttached() {
+    if (scalableFrame.childCount > 0) return
+    if (!hostEverBound) return
+    val hostView = WidgetPopupHost.obtainHostView(context, item.appWidgetId) ?: return
+    loadingPlaceholder.visibility = GONE
+    scalableFrame.visibility = VISIBLE
+    scalableFrame.bindWidget(hostView, item.appWidgetId, layoutSpanX(), layoutSpanY())
+    updateHostLongClickHandling(editModeEnabled)
+    post {
+      updateScalableTargetFromContainer()
+      scalableFrame.commitHostLayout(force = true)
+    }
   }
 
   private fun attachHostWhenReady(hostView: AppWidgetHostView) {
     loadingPlaceholder.visibility = GONE
     scalableFrame.visibility = VISIBLE
+    hostEverBound = true
     post {
       updateScalableTargetFromContainer()
       scalableFrame.commitHostLayout()
@@ -162,11 +189,24 @@ class WidgetCardContainer(
     deleteButton.visibility = if (enabled) VISIBLE else GONE
     resizeHandle.visibility = if (enabled) VISIBLE else GONE
     scalableFrame.setWidgetTouchEnabled(!enabled)
+    updateHostLongClickHandling(enabled)
 
     val info = WidgetPopupHost.providerInfo(context, item.appWidgetId)
     val hasConfigure = info?.configure != null
     configureButton.visibility = if (enabled && hasConfigure) VISIBLE else GONE
     invalidate()
+  }
+
+  private fun updateHostLongClickHandling(editMode: Boolean) {
+    val hostView = if (scalableFrame.childCount > 0) scalableFrame.getChildAt(0) else null
+    if (hostView == null) return
+    if (editMode) {
+      hostView.isLongClickable = false
+      hostView.setOnLongClickListener(null)
+    } else {
+      hostView.isLongClickable = true
+      hostView.setOnLongClickListener { true }
+    }
   }
 
   private fun drawEditOutline(canvas: Canvas) {
@@ -198,39 +238,95 @@ class WidgetCardContainer(
     }
   }
 
+  fun isPreviewingResize(): Boolean = previewingResize
+
+  fun previewLayoutWidthPx(gridStepPx: Int): Int {
+    if (previewingResize && previewWidthPx > 0) return previewWidthPx
+    return layoutSpanX() * gridStepPx.coerceAtLeast(1)
+  }
+
+  fun previewLayoutHeightPx(gridStepPx: Int): Int {
+    if (previewingResize && previewHeightPx > 0) return previewHeightPx
+    return layoutSpanY() * gridStepPx.coerceAtLeast(1)
+  }
+
   fun updateScalableTargetFromContainer() {
     scalableFrame.applySpan(layoutSpanX(), layoutSpanY())
   }
 
-  fun previewResize(spanX: Int, spanY: Int, gridStepPx: Int) {
-    if (previewSpanX == spanX && previewSpanY == spanY) return
+  fun applyResizePreview(spanX: Int, spanY: Int, widthPx: Int, heightPx: Int) {
+    if (
+      previewSpanX == spanX &&
+      previewSpanY == spanY &&
+      previewWidthPx == widthPx &&
+      previewHeightPx == heightPx
+    ) {
+      return
+    }
     previewSpanX = spanX
     previewSpanY = spanY
+    previewWidthPx = widthPx
+    previewHeightPx = heightPx
     if (!previewingResize) {
       previewingResize = true
       scalableFrame.setResizing(true)
     }
     (parent as? View)?.requestLayout()
+    (parent as? WidgetCanvasLayout)?.notifyResizePreviewChanged()
+    if (spanX != lastDebouncedCommitSpanX || spanY != lastDebouncedCommitSpanY) {
+      lastDebouncedCommitSpanX = spanX
+      lastDebouncedCommitSpanY = spanY
+      scheduleDebouncedHostLayoutCommit()
+    }
+  }
+
+  private fun scheduleDebouncedHostLayoutCommit() {
+    pendingHostLayoutCommit?.let { removeCallbacks(it) }
+    pendingHostLayoutCommit = Runnable {
+      pendingHostLayoutCommit = null
+      if (width <= 0 || height <= 0) return@Runnable
+      updateScalableTargetFromContainer()
+      scalableFrame.commitHostLayout(force = true)
+    }.also { postDelayed(it, 80) }
+  }
+
+  private fun cancelPendingHostLayoutCommit() {
+    pendingHostLayoutCommit?.let { removeCallbacks(it) }
+    pendingHostLayoutCommit = null
+    lastDebouncedCommitSpanX = -1
+    lastDebouncedCommitSpanY = -1
+  }
+
+  fun previewResize(spanX: Int, spanY: Int, gridStepPx: Int) {
+    val step = gridStepPx.coerceAtLeast(1)
+    applyResizePreview(spanX, spanY, spanX * step, spanY * step)
   }
 
   fun clearResizePreview() {
+    resizeSnapAnimator?.cancel()
+    resizeSnapAnimator = null
+    cancelPendingHostLayoutCommit()
     if (!previewingResize) return
     previewingResize = false
     previewSpanX = item.spanX
     previewSpanY = item.spanY
+    previewWidthPx = 0
+    previewHeightPx = 0
     scalableFrame.setResizing(false)
     scalableFrame.commitHostLayout()
     updateScalableTargetFromContainer()
     (parent as? View)?.requestLayout()
+    (parent as? WidgetCanvasLayout)?.notifyResizePreviewChanged()
   }
 
   fun layoutSpanX(): Int = if (previewingResize) previewSpanX else item.spanX
 
   fun layoutSpanY(): Int = if (previewingResize) previewSpanY else item.spanY
 
-  fun refreshWidgetLayout() {
+  fun refreshWidgetLayout(force: Boolean = false) {
+    ensureHostViewAttached()
     updateScalableTargetFromContainer()
-    scalableFrame.commitHostLayout()
+    scalableFrame.commitHostLayout(force = force)
     requestLayout()
   }
 
@@ -247,28 +343,81 @@ class WidgetCardContainer(
     })
   }
 
-  private fun finishResize(newSpanX: Int, newSpanY: Int, sizeChanged: Boolean) {
+  private fun finishResize(newSpanX: Int, newSpanY: Int, sizeChanged: Boolean, onComplete: (() -> Unit)? = null) {
+    resizeSnapAnimator?.cancel()
+    val canvas = parent as? WidgetCanvasLayout
+    val step = canvas?.gridStepPx?.coerceAtLeast(1) ?: 1
+    val targetW = newSpanX * step
+    val targetH = newSpanY * step
+    val startW = previewLayoutWidthPx(step)
+    val startH = previewLayoutHeightPx(step)
+    val needsSnapAnim = startW != targetW || startH != targetH
+
+    if (needsSnapAnim) {
+      previewSpanX = newSpanX
+      previewSpanY = newSpanY
+      resizeSnapAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+        duration = 120L
+        interpolator = DecelerateInterpolator()
+        addUpdateListener { anim ->
+          val t = anim.animatedValue as Float
+          previewWidthPx = (startW + (targetW - startW) * t).roundToInt()
+          previewHeightPx = (startH + (targetH - startH) * t).roundToInt()
+          (parent as? View)?.requestLayout()
+        }
+        addListener(object : android.animation.AnimatorListenerAdapter() {
+          override fun onAnimationEnd(animation: android.animation.Animator) {
+            resizeSnapAnimator = null
+            completeFinishResize(newSpanX, newSpanY, sizeChanged, onComplete)
+          }
+
+          override fun onAnimationCancel(animation: android.animation.Animator) {
+            resizeSnapAnimator = null
+            completeFinishResize(newSpanX, newSpanY, sizeChanged, onComplete)
+          }
+        })
+        start()
+      }
+      return
+    }
+    completeFinishResize(newSpanX, newSpanY, sizeChanged, onComplete)
+  }
+
+  private fun completeFinishResize(
+    newSpanX: Int,
+    newSpanY: Int,
+    sizeChanged: Boolean,
+    onComplete: (() -> Unit)? = null,
+  ) {
+    cancelPendingHostLayoutCommit()
     if (sizeChanged) {
       syncItem(item.copy(spanX = newSpanX, spanY = newSpanY))
     } else {
       previewSpanX = item.spanX
       previewSpanY = item.spanY
     }
+    previewWidthPx = 0
+    previewHeightPx = 0
     previewingResize = false
     scalableFrame.setResizing(false)
+    scalableFrame.resetHostSizeCache()
     (parent as? View)?.requestLayout()
+    (parent as? WidgetCanvasLayout)?.notifyResizePreviewChanged()
     runAfterNextLayout {
+      ensureHostViewAttached()
       updateScalableTargetFromContainer()
       scalableFrame.commitHostLayout(force = true)
       if (sizeChanged) {
         onResize?.invoke(newSpanX, newSpanY)
       }
+      onComplete?.invoke()
     }
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
     if (width <= 0 || height <= 0) return
+    ensureHostViewAttached()
     updateScalableTargetFromContainer()
     if (!previewingResize) {
       scalableFrame.commitHostLayout()
@@ -328,6 +477,8 @@ class WidgetCardContainer(
   private inner class ResizeTouchListener : OnTouchListener {
     private var startSpanX = item.spanX
     private var startSpanY = item.spanY
+    private var startWidthPx = 0
+    private var startHeightPx = 0
     private var startRawX = 0f
     private var startRawY = 0f
     private var gridStepPx = 0
@@ -341,43 +492,57 @@ class WidgetCardContainer(
       val step = gridStepPx.coerceAtLeast(1)
       when (event.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
+          resizeSnapAnimator?.cancel()
+          resizeSnapAnimator = null
           startSpanX = item.spanX
           startSpanY = item.spanY
           previewSpanX = startSpanX
           previewSpanY = startSpanY
+          startWidthPx = startSpanX * step
+          startHeightPx = startSpanY * step
           startRawX = event.rawX
           startRawY = event.rawY
-          scalableFrame.setResizing(true)
+          scalableFrame.resetHostSizeCache()
+          applyResizePreview(startSpanX, startSpanY, startWidthPx, startHeightPx)
           onInteractionActiveChange?.invoke(true)
           requestDisallowInterceptAllParents(true)
           return true
         }
         MotionEvent.ACTION_MOVE -> {
-          val dx = ((event.rawX - startRawX) / step).roundToInt()
-          val dy = ((event.rawY - startRawY) / step).roundToInt()
-          previewSpanX = (startSpanX + dx).coerceIn(1, parent.pageColumnCount - item.x)
-          previewSpanY = (startSpanY + dy).coerceIn(1, parent.pageRowCount - item.y)
+          val maxSpanX = parent.pageColumnCount - item.x
+          val maxSpanY = parent.pageRowCount - item.y
+          val maxW = maxSpanX * step
+          val maxH = maxSpanY * step
+          val rawDx = event.rawX - startRawX
+          val rawDy = event.rawY - startRawY
+          val newW = (startWidthPx + rawDx).roundToInt().coerceIn(step, maxW)
+          val newH = (startHeightPx + rawDy).roundToInt().coerceIn(step, maxH)
+          val candidateSpanX = ((newW + step - 1) / step).coerceIn(1, maxSpanX)
+          val candidateSpanY = ((newH + step - 1) / step).coerceIn(1, maxSpanY)
           val page = parent.currentPage ?: return true
           if (WidgetPanelGridLogic.isAreaFree(
               page,
               item.x,
               item.y,
-              previewSpanX,
-              previewSpanY,
+              candidateSpanX,
+              candidateSpanY,
               item.appWidgetId,
             )
           ) {
-            previewResize(previewSpanX, previewSpanY, gridStepPx)
+            previewSpanX = candidateSpanX
+            previewSpanY = candidateSpanY
+            applyResizePreview(candidateSpanX, candidateSpanY, newW, newH)
           }
           return true
         }
         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-          onInteractionActiveChange?.invoke(false)
           requestDisallowInterceptAllParents(false)
           val newSpanX = previewSpanX
           val newSpanY = previewSpanY
           val sizeChanged = newSpanX != item.spanX || newSpanY != item.spanY
-          finishResize(newSpanX, newSpanY, sizeChanged)
+          finishResize(newSpanX, newSpanY, sizeChanged) {
+            onInteractionActiveChange?.invoke(false)
+          }
           return true
         }
       }

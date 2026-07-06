@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -43,7 +44,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +71,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.R
 import com.slideindex.app.service.WidgetBindTrampolineActivity
@@ -355,15 +356,11 @@ object WidgetPopupOverlayWindow {
       val pagerState = rememberPagerState(pageCount = { pages.size })
       var panelHeightPx by remember { mutableIntStateOf(0) }
 
-      LaunchedEffect(Unit) {
+      LaunchedEffect(visible) {
+        if (!visible) return@LaunchedEffect
         val stored = app.settingsRepository.settings.first().widgetPanelPages
-        val raw = WidgetPanelDefaults.effectivePages(stored)
+        pages = WidgetPanelDefaults.effectivePages(stored)
           .map { WidgetPanelGridLogic.fitPageToGrid(it) }
-        val repaired = raw.map { WidgetPanelGridLogic.repairAndFitPage(hostContext, it) }
-        pages = repaired
-        if (repaired != raw) {
-          app.schedulePersistWidgetPanelPages(repaired)
-        }
       }
 
       fun persist(updated: List<WidgetPanelPage>) {
@@ -587,25 +584,38 @@ object WidgetPopupOverlayWindow {
             }
             }
           }
+        }
 
-          if (visible && editMode) {
+        if (visible && editMode) {
+          Box(
+            modifier = Modifier
+              .align(Alignment.TopCenter)
+              .padding(top = marginTopDp)
+              .width(panelWidthDp)
+              .height(with(density) { panelHeightPx.toDp().coerceAtLeast(1.dp) })
+              .zIndex(2f),
+          ) {
             Column(
               modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 8.dp, bottom = 8.dp),
-              horizontalAlignment = Alignment.End,
+              horizontalAlignment = Alignment.CenterHorizontally,
               verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+              val fabSize = 48.dp
               FloatingActionButton(
                 onClick = { launchWidgetPicker(pagerState.currentPage) },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(fabSize),
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
               ) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.widget_panel_add_widget))
               }
-              SmallFloatingActionButton(
+              FloatingActionButton(
                 onClick = { editMode = false },
+                modifier = Modifier.size(fabSize),
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                contentColor = MaterialTheme.colorScheme.onSurface,
               ) {
                 Icon(Icons.Default.Close, contentDescription = stringResource(R.string.widget_panel_exit_edit))
               }

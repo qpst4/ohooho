@@ -3,6 +3,7 @@ package com.slideindex.app.widget
 import android.appwidget.AppWidgetHostView
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
@@ -23,6 +24,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
       if (value) {
         cancelPendingLongPress()
         cancelPendingDrag()
+        cancelBrowseLongPress()
       }
       setWillNotDraw(!value)
       refreshEditChrome()
@@ -68,6 +70,16 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     color = 0x664CAF50
     style = Paint.Style.FILL
   }
+  private val resizePreviewFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0x33FFFFFF
+    style = Paint.Style.FILL
+  }
+  private val resizePreviewStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    color = 0xCCFFFFFF.toInt()
+    style = Paint.Style.STROKE
+    strokeWidth = 2f * resources.displayMetrics.density
+    pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+  }
 
   private var draggingChild: WidgetCardContainer? = null
   private var draggingItem: WidgetPanelItem? = null
@@ -89,6 +101,12 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
   private var pendingDragDownX = 0f
   private var pendingDragDownY = 0f
   private var pendingDragLongPress: Runnable? = null
+  private var browseTouchChild: WidgetCardContainer? = null
+  private var browseTouchDownX = 0f
+  private var browseTouchDownY = 0f
+  private var browseTouchTracking = false
+  private var browseLongPressConsumed = false
+  private var pendingBrowseLongPress: Runnable? = null
 
   private val nestedScrollChildHelper = NestedScrollingChildHelper(this)
   private var panelScrollLastY = 0f
@@ -139,7 +157,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
   }
 
   fun addWidgetCard(hostContext: Context, item: WidgetPanelItem): WidgetCardContainer {
-    val hostView = WidgetPopupHost.createView(hostContext, item.appWidgetId) as? AppWidgetHostView
+    val hostView = WidgetPopupHost.obtainHostView(hostContext, item.appWidgetId)
     val container = WidgetCardContainer(context, item, hostView).apply {
       onDelete = {
         val widgetId = this.item.appWidgetId
@@ -161,7 +179,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
 
   fun refreshAllWidgetLayouts() {
     for (i in 0 until childCount) {
-      (getChildAt(i) as? WidgetCardContainer)?.refreshWidgetLayout()
+      (getChildAt(i) as? WidgetCardContainer)?.refreshWidgetLayout(force = true)
     }
   }
 
@@ -169,8 +187,11 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     for (i in 0 until childCount) {
       val child = getChildAt(i) as? WidgetCardContainer ?: continue
       val updated = page.items.find { it.appWidgetId == child.item.appWidgetId } ?: continue
+      if (child.item == updated) continue
       child.syncItem(updated)
-      child.post { child.refreshWidgetLayout() }
+      if (!child.isPreviewingResize()) {
+        child.post { child.refreshWidgetLayout(force = true) }
+      }
     }
   }
 
@@ -186,21 +207,30 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
 
   private fun applyPageItems(page: WidgetPanelPage, hostContext: Context) {
     boundPage = page
+    var structureChanged = false
     for (i in childCount - 1 downTo 0) {
       val child = getChildAt(i) as? WidgetCardContainer ?: continue
       if (page.items.none { it.appWidgetId == child.item.appWidgetId }) {
         removeViewAt(i)
+        structureChanged = true
       }
     }
     syncItemsFromPage(page)
     for (item in page.items) {
       if (findChildByWidgetId(item.appWidgetId) == null) {
         addWidgetCard(hostContext, item)
+        structureChanged = true
       }
     }
     requestLayout()
     invalidate()
-    post { refreshAllWidgetLayouts() }
+    if (structureChanged) {
+      post { refreshAllWidgetLayouts() }
+    }
+  }
+
+  fun notifyResizePreviewChanged() {
+    invalidate()
   }
 
   fun commitItemChange(item: WidgetPanelItem) {
@@ -219,9 +249,10 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     }
     val updatedPage = WidgetPanelGridLogic.upsertItem(page, item)
     boundPage = updatedPage
+    lastBindKey = bindKeyFor(updatedPage)
     findChildByWidgetId(item.appWidgetId)?.let { child ->
       child.syncItem(item)
-      child.refreshWidgetLayout()
+      child.refreshWidgetLayout(force = true)
     }
     requestLayout()
     onPageCommitted?.invoke(updatedPage)
@@ -252,6 +283,68 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     pendingDragLongPress?.let { removeCallbacks(it) }
     pendingDragLongPress = null
     pendingDragChild = null
+  }
+
+  private fun cancelBrowseLongPress() {
+    pendingBrowseLongPress?.let { removeCallbacks(it) }
+    pendingBrowseLongPress = null
+    browseTouchChild = null
+    browseTouchTracking = false
+    browseLongPressConsumed = false
+  }
+
+  private fun scheduleBrowseLongPress(child: WidgetCardContainer, x: Float, y: Float) {
+    cancelBrowseLongPress()
+    browseTouchChild = child
+    browseTouchDownX = x
+    browseTouchDownY = y
+    browseTouchTracking = true
+    pendingBrowseLongPress = Runnable {
+      if (!browseTouchTracking || editMode) return@Runnable
+      val target = browseTouchChild ?: return@Runnable
+      if (findTouchTarget(browseTouchDownX, browseTouchDownY) !== target) return@Runnable
+      browseLongPressConsumed = true
+      browseTouchTracking = false
+      val cancel = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+      deliverTouchToChild(target, cancel)
+      cancel.recycle()
+      onLongPressBlank?.invoke()
+    }
+    postDelayed(pendingBrowseLongPress!!, longPressTimeout)
+  }
+
+  private fun handleBrowseModeTouch(event: MotionEvent): Boolean {
+    if (editMode) return false
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        val child = findTouchTarget(event.x, event.y)
+        if (child != null) {
+          scheduleBrowseLongPress(child, event.x, event.y)
+        } else {
+          cancelBrowseLongPress()
+        }
+        return false
+      }
+      MotionEvent.ACTION_MOVE -> {
+        if (!browseTouchTracking) return false
+        val dx = event.x - browseTouchDownX
+        val dy = event.y - browseTouchDownY
+        if (dx * dx + dy * dy > touchSlop * touchSlop) {
+          cancelBrowseLongPress()
+        }
+        return false
+      }
+      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+        if (browseLongPressConsumed) {
+          browseLongPressConsumed = false
+          cancelBrowseLongPress()
+          return true
+        }
+        cancelBrowseLongPress()
+        return false
+      }
+    }
+    return false
   }
 
   private fun stopPanelScroll() {
@@ -292,6 +385,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     if (abs(dy) <= abs(dx)) return false
     cancelPendingDrag()
     cancelPendingLongPress()
+    cancelBrowseLongPress()
     blankTouchTracking = false
     if (!panelScrollActive) {
       panelScrollActive = nestedScrollChildHelper.startNestedScroll(
@@ -461,10 +555,8 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
 
     for (i in 0 until childCount) {
       val child = getChildAt(i) as? WidgetCardContainer ?: continue
-      val spanX = child.layoutSpanX()
-      val spanY = child.layoutSpanY()
-      val childW = spanX * currentGridStepPx
-      val childH = spanY * currentGridStepPx
+      val childW = child.previewLayoutWidthPx(currentGridStepPx)
+      val childH = child.previewLayoutHeightPx(currentGridStepPx)
       child.measure(
         MeasureSpec.makeMeasureSpec(childW, MeasureSpec.EXACTLY),
         MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY)
@@ -483,7 +575,9 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     }
     if (currentGridStepPx != lastGridStepPx) {
       lastGridStepPx = currentGridStepPx
-      post { refreshAllWidgetLayouts() }
+      if (!interactionActive && !browseTouchTracking) {
+        post { refreshAllWidgetLayouts() }
+      }
     }
   }
 
@@ -517,6 +611,16 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     if (interactionActive == active) return
     interactionActive = active
     onInteractionActiveChange?.invoke(active)
+    if (!active && !anyChildPreviewingResize()) {
+      post { refreshAllWidgetLayouts() }
+    }
+  }
+
+  private fun anyChildPreviewingResize(): Boolean {
+    for (i in 0 until childCount) {
+      if ((getChildAt(i) as? WidgetCardContainer)?.isPreviewingResize() == true) return true
+    }
+    return false
   }
 
   private fun startDrag(child: WidgetCardContainer, x: Float, y: Float) {
@@ -608,6 +712,9 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
     }
     if (draggingChild != null) {
       return onTouchEvent(event)
+    }
+    if (!editMode) {
+      if (handleBrowseModeTouch(event)) return true
     }
     return super.dispatchTouchEvent(event)
   }
@@ -710,8 +817,27 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
 
     if (!editMode) return
 
+    for (i in 0 until childCount) {
+      val child = getChildAt(i) as? WidgetCardContainer ?: continue
+      if (!child.isPreviewingResize()) continue
+      val item = child.item
+      val spanX = child.layoutSpanX()
+      val spanY = child.layoutSpanY()
+      val page = boundPage
+      val isFree = page == null ||
+        WidgetPanelGridLogic.isAreaFree(page, item.x, item.y, spanX, spanY, item.appWidgetId)
+      val left = paddingLeft + item.x * step
+      val top = paddingTop + item.y * step
+      val right = left + spanX * step
+      val bottom = top + spanY * step
+      val rect = RectF(left, top, right, bottom)
+      resizePreviewFillPaint.color = if (isFree) 0x33FFFFFF else 0x33F44336
+      resizePreviewStrokePaint.color = if (isFree) 0xCCFFFFFF.toInt() else 0xCCF44336.toInt()
+      canvas.drawRoundRect(rect, cornerRadius, cornerRadius, resizePreviewFillPaint)
+      canvas.drawRoundRect(rect, cornerRadius, cornerRadius, resizePreviewStrokePaint)
+    }
 
-    // Draw hover preview
+    // Draw hover preview for drag
     if (draggingChild != null && hoverCellX >= 0 && hoverCellY >= 0) {
       val item = draggingItem!!
       val page = boundPage ?: return
@@ -729,6 +855,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
 
   fun bindIfNeeded(page: WidgetPanelPage, hostContext: Context) {
     boundHostContext = hostContext
+    if (interactionActive) return
     val resolvedPage = resolvePageForBind(page)
     val key = bindKeyFor(resolvedPage)
     val previous = lastBindKey

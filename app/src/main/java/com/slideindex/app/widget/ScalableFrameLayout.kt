@@ -66,9 +66,19 @@ class ScalableFrameLayout @JvmOverloads constructor(
   private var lastAppliedHeightPx = 0
 
   fun bindWidget(hostView: AppWidgetHostView, appWidgetId: Int, spanX: Int, spanY: Int) {
+    val sx = spanX.coerceAtLeast(1)
+    val sy = spanY.coerceAtLeast(1)
+    if (childCount == 1 && getChildAt(0) === hostView && this.appWidgetId == appWidgetId) {
+      this.spanX = sx
+      this.spanY = sy
+      requestLayout()
+      invalidate()
+      return
+    }
+    (hostView.parent as? ViewGroup)?.removeView(hostView)
     this.appWidgetId = appWidgetId
-    this.spanX = spanX.coerceAtLeast(1)
-    this.spanY = spanY.coerceAtLeast(1)
+    this.spanX = sx
+    this.spanY = sy
     slotWidthPx = 0
     slotHeightPx = 0
     renderWidthPx = 0
@@ -125,6 +135,11 @@ class ScalableFrameLayout @JvmOverloads constructor(
     flushHostSizeToProvider(force)
   }
 
+  fun resetHostSizeCache() {
+    lastAppliedWidthPx = 0
+    lastAppliedHeightPx = 0
+  }
+
   private fun flushHostSizeToProvider(force: Boolean = false) {
     if (slotWidthPx <= 0 || slotHeightPx <= 0 || renderWidthPx <= 0 || renderHeightPx <= 0) return
     applyWidgetSizeToHost(force)
@@ -160,9 +175,10 @@ class ScalableFrameLayout @JvmOverloads constructor(
 
   private fun slotSizeDp(): Pair<Int, Int> {
     val density = resources.displayMetrics.density
-    val wDp = (slotWidthPx / density).roundToInt().coerceAtLeast(40)
-    val hDp = (slotHeightPx / density).roundToInt().coerceAtLeast(40)
-    return wDp to hDp
+    val slotWDp = (slotWidthPx / density).roundToInt().coerceAtLeast(40)
+    val slotHDp = (slotHeightPx / density).roundToInt().coerceAtLeast(40)
+    val (spanWDp, spanHDp) = WidgetSizeHelper.spanToMinSizeDp(spanX, spanY)
+    return maxOf(slotWDp, spanWDp) to maxOf(slotHDp, spanHDp)
   }
 
   private fun applyWidgetSizeToHost(force: Boolean = false) {

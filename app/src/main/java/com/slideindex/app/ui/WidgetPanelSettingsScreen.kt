@@ -19,6 +19,7 @@ import com.slideindex.app.widget.WidgetPanelLayoutMetrics
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -95,13 +96,8 @@ fun WidgetPanelSettingsScreen(
   val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
   LaunchedEffect(Unit) {
-    val raw = WidgetPanelDefaults.effectivePages(settings.widgetPanelPages)
+    pages = WidgetPanelDefaults.effectivePages(settings.widgetPanelPages)
       .map { WidgetPanelGridLogic.fitPageToGrid(it) }
-    val repaired = raw.map { WidgetPanelGridLogic.repairAndFitPage(context, it) }
-    if (repaired != raw) {
-      pages = repaired
-      onSavePages(repaired)
-    }
   }
 
   Scaffold(
@@ -265,15 +261,18 @@ private fun WidgetPanelGridEditor(
       modifier = Modifier
         .fillMaxWidth()
         .padding(top = 8.dp),
+      contentAlignment = Alignment.TopCenter,
     ) {
+      val screenWidthPx = context.resources.displayMetrics.widthPixels
       val layoutMetrics = WidgetPanelLayoutMetrics.compute(
-        screenWidthPx = with(density) { maxWidth.roundToPx() },
+        screenWidthPx = screenWidthPx,
         page = page,
         density = density.density,
-        panelPaddingDp = 0f,
+        panelPaddingDp = 12f,
         panelInnerPaddingDp = 4f,
-        horizontalInsetDp = 0f,
+        horizontalInsetDp = 16f,
       )
+      val panelWidthDp = with(density) { layoutMetrics.panelWidthPx.toDp() }
       val viewportHeight = with(density) {
         layoutMetrics.viewportHeightPx.toDp().coerceAtLeast(200.dp)
       }
@@ -281,7 +280,7 @@ private fun WidgetPanelGridEditor(
 
       Box(
         modifier = Modifier
-          .fillMaxWidth()
+          .width(panelWidthDp)
           .height(viewportHeight)
           .clip(RoundedCornerShape(20.dp))
           .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = page.overlayAlpha.coerceIn(0.25f, 0.9f))),

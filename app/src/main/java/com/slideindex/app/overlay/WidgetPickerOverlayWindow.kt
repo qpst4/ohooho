@@ -1,7 +1,6 @@
 package com.slideindex.app.overlay
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -9,18 +8,21 @@ import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,9 +31,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.service.WidgetPickerTrampoline
@@ -73,23 +76,23 @@ object WidgetPickerOverlayWindow {
     val overlayContext = OverlayCompose.themedContext(hostContext)
     val wm = hostContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return false
     val dialogOwner = OverlayComposeOwner()
-    
+
     val view = OverlayCompose.createComposeView(overlayContext, dialogOwner).apply {
       setContent {
         SlideIndexTheme(dynamicColor = true) {
           var picked by remember { mutableStateOf(false) }
           WidgetPickerOverlayRoot(
-            onDismissRequest = { 
+            onDismissRequest = {
               if (!picked) {
                 WidgetPickerTrampoline.deliverCancel()
               }
-              dismiss() 
+              dismiss()
             },
             onWidgetSelected = { entry ->
               picked = true
               WidgetPickerTrampoline.startBindFlow(hostContext, entry.provider.provider)
               WidgetPickerOverlayWindow.dismiss()
-            }
+            },
           )
         }
       }
@@ -108,7 +111,7 @@ object WidgetPickerOverlayWindow {
       type,
       WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-      PixelFormat.TRANSLUCENT
+      PixelFormat.TRANSLUCENT,
     ).apply {
       gravity = Gravity.TOP or Gravity.START
     }
@@ -143,6 +146,9 @@ object WidgetPickerOverlayWindow {
   }
 }
 
+private const val PICKER_ANIM_IN_MS = 280
+private const val PICKER_ANIM_OUT_MS = 240
+
 @Composable
 fun WidgetPickerOverlayRoot(
   onDismissRequest: () -> Unit,
@@ -154,54 +160,63 @@ fun WidgetPickerOverlayRoot(
     visible = true
   }
 
-  val dismiss = {
-    visible = false
-  }
+  val progress by animateFloatAsState(
+    targetValue = if (visible) 1f else 0f,
+    animationSpec = if (visible) {
+      tween(PICKER_ANIM_IN_MS, easing = LinearOutSlowInEasing)
+    } else {
+      tween(PICKER_ANIM_OUT_MS, easing = FastOutLinearInEasing)
+    },
+    label = "widgetPickerProgress",
+  )
 
-  // Handle actual dismissal after animation
+  val dismiss = { visible = false }
+
   LaunchedEffect(visible) {
     if (!visible) {
-      delay(300) // wait for animation
+      delay(PICKER_ANIM_OUT_MS.toLong())
       onDismissRequest()
     }
   }
 
-  Box(
-    modifier = Modifier
-      .fillMaxSize()
-      .background(Color.Black.copy(alpha = if (visible) 0.5f else 0f))
-      .clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = null,
-        onClick = dismiss
-      )
-  ) {
-    AnimatedVisibility(
-      visible = visible,
-      enter = slideInVertically(
-        initialOffsetY = { it },
-        animationSpec = tween(300)
-      ),
-      exit = slideOutVertically(
-        targetOffsetY = { it },
-        animationSpec = tween(300)
-      ),
+  Box(modifier = Modifier.fillMaxSize()) {
+    Box(
       modifier = Modifier
-        .align(Alignment.BottomCenter)
-        .fillMaxWidth()
-        .fillMaxHeight(0.85f)
-        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+        .fillMaxSize()
+        .background(Color.Black.copy(alpha = 0.5f * progress))
         .clickable(
           interactionSource = remember { MutableInteractionSource() },
           indication = null,
-          onClick = {} // Consume clicks to prevent dismissing when clicking inside
-        )
-        .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
+          onClick = dismiss,
+        ),
+    )
+
+    BoxWithConstraints(
+      modifier = Modifier.fillMaxSize(),
+      contentAlignment = Alignment.BottomCenter,
     ) {
-      WidgetPickerScreen(
-        onBack = dismiss,
-        onWidgetSelected = onWidgetSelected
-      )
+      val density = LocalDensity.current
+      val sheetHeight = maxHeight * 0.85f
+      val offsetY = with(density) { sheetHeight.toPx() * (1f - progress) }
+
+      Surface(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(sheetHeight)
+          .graphicsLayer { translationY = offsetY }
+          .clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = {},
+          ),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = MaterialTheme.colorScheme.surface,
+      ) {
+        WidgetPickerScreen(
+          onBack = dismiss,
+          onWidgetSelected = onWidgetSelected,
+        )
+      }
     }
   }
 }

@@ -415,6 +415,7 @@
     <string name="widget_picker_search_hint">搜索小部件…</string>
     <string name="widget_picker_empty">未找到可用的小组件</string>
     <string name="widget_picker_span_size">%1$d × %2$d</string>
+    <string name="widget_picker_open_app_widgets">查看全部小组件</string>
     <string name="widget_panel_edit_mode">编辑模式</string>
     <string name="widget_panel_exit_edit">退出编辑</string>
     <string name="widget_panel_edit_hint">长按空白处进入编辑</string>

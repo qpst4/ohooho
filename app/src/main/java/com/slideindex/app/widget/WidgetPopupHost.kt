@@ -1,5 +1,6 @@
 package com.slideindex.app.widget
 
+import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
@@ -18,6 +19,8 @@ object WidgetPopupHost {
 
   @Volatile
   private var listening = false
+
+  private val cachedHostViews = java.util.concurrent.ConcurrentHashMap<Int, AppWidgetHostView>()
 
   fun appWidgetHost(context: Context): SlideIndexAppWidgetHost {
     val appContext = context.applicationContext
@@ -53,8 +56,17 @@ object WidgetPopupHost {
     appWidgetHost(context).allocateAppWidgetId()
 
   fun deleteAppWidgetId(context: Context, appWidgetId: Int) {
+    cachedHostViews.remove(appWidgetId)
     runCatching { appWidgetHost(context).deleteAppWidgetId(appWidgetId) }
       .onFailure { Log.w(TAG, "deleteAppWidgetId($appWidgetId) failed", it) }
+  }
+
+  fun obtainHostView(context: Context, appWidgetId: Int): AppWidgetHostView? {
+    cachedHostViews[appWidgetId]?.let { cached ->
+      (cached.parent as? android.view.ViewGroup)?.removeView(cached)
+      return cached
+    }
+    return createView(context, appWidgetId) as? AppWidgetHostView
   }
 
   fun providerInfo(context: Context, appWidgetId: Int): AppWidgetProviderInfo? =
@@ -67,6 +79,11 @@ object WidgetPopupHost {
     return runCatching { widgetHost.createView(context, appWidgetId, info) }
       .onFailure { Log.e(TAG, "createView($appWidgetId) failed", it) }
       .getOrNull()
+      ?.also { view ->
+        if (view is AppWidgetHostView) {
+          cachedHostViews[appWidgetId] = view
+        }
+      }
   }
 
   fun labelFor(context: Context, appWidgetId: Int): String {

@@ -89,32 +89,16 @@ object WidgetPanelGridLogic {
     /** Re-read provider span metadata only for suspicious 1×1 saves; preserves user resize. */
     fun repairAndFitPage(context: Context, page: WidgetPanelPage): WidgetPanelPage {
         if (page.items.isEmpty()) return page
-        var placed = emptyList<WidgetPanelItem>()
-        val repaired = mutableListOf<WidgetPanelItem>()
-        for (item in page.items) {
+        val items = page.items.map { item ->
             val info = WidgetPopupHost.providerInfo(context, item.appWidgetId)
             val candidate = if (info != null) {
                 repairUndersizedSpan(page, item, info)
             } else {
-                fitItemToGrid(page, item)
+                item
             }
-            val pageSoFar = page.copy(items = placed)
-            val fitted = if (
-                isAreaFree(pageSoFar, candidate.x, candidate.y, candidate.spanX, candidate.spanY, item.appWidgetId)
-            ) {
-                candidate
-            } else {
-                val slot = findFirstFreeSlot(pageSoFar, candidate.spanX, candidate.spanY)
-                if (slot != null) {
-                    fitItemToGrid(page, candidate.copy(x = slot.first, y = slot.second))
-                } else {
-                    fitItemToGrid(page, item)
-                }
-            }
-            repaired += fitted
-            placed = repaired.toList()
+            fitItemToGrid(page, candidate)
         }
-        return page.copy(items = repaired)
+        return page.copy(items = items)
     }
 
     private fun repairUndersizedSpan(

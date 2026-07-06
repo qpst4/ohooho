@@ -74,27 +74,38 @@ object WidgetCatalog {
     context: Context,
     manager: AppWidgetManager,
   ): List<AppWidgetProviderInfo> {
+    val seen = HashSet<String>()
+    val merged = mutableListOf<AppWidgetProviderInfo>()
+
+    fun absorb(list: List<AppWidgetProviderInfo>?) {
+      if (list.isNullOrEmpty()) return
+      for (info in list) {
+        val key = info.provider.flattenToString()
+        if (seen.add(key)) merged.add(info)
+      }
+    }
+
     return runCatching {
+      // Always seed from the full installed list first. On some OEM builds
+      // getInstalledProvidersForProfile() returns an incomplete subset.
+      absorb(manager.installedProviders)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        val userManager = context.getSystemService(UserManager::class.java) ?: return manager.installedProviders
-        val merged = mutableListOf<AppWidgetProviderInfo>()
-        val seen = HashSet<String>()
-        for (profile in userManager.userProfiles) {
-          val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.getInstalledProvidersForProfile(profile)
-          } else {
-            manager.installedProviders
-          }
-          for (info in list) {
-            val key = info.provider.flattenToString()
-            if (seen.add(key)) merged.add(info)
+        val userManager = context.getSystemService(UserManager::class.java)
+        if (userManager != null) {
+          for (profile in userManager.userProfiles) {
+            val list = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+              manager.getInstalledProvidersForProfile(profile)
+            } else {
+              emptyList()
+            }
+            absorb(list)
           }
         }
-        merged.ifEmpty { manager.installedProviders }
-      } else {
-        manager.installedProviders
       }
-    }.getOrElse { manager.installedProviders }
+      merged
+    }.getOrElse {
+      manager.installedProviders
+    }
   }
 }
 
