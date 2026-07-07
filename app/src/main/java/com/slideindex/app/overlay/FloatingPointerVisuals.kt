@@ -397,35 +397,43 @@ private fun DrawScope.drawTrailDot(
 internal fun DrawScope.drawFloatingPointerRipple(
     center: Offset,
     elapsedMs: Long,
-    ringColor: Color,
+    rippleColor: Color,
     pointerDiameterPx: Float,
-    durationMs: Long = 280L,
+    durationMs: Long = FLOATING_POINTER_RIPPLE_DURATION_MS,
 ) {
     if (elapsedMs < 0L || elapsedMs > durationMs) return
-    val progress = elapsedMs.toFloat() / durationMs
-    val eased = 1f - (1f - progress).pow(2f)
-    val maxRadius = pointerDiameterPx * 1.35f
-    val radius = maxRadius * eased
-    val alpha = (1f - progress).pow(1.4f) * ringColor.alpha
+    val progress = (elapsedMs.toFloat() / durationMs).coerceIn(0f, 1f)
+    val maxRadius = pointerDiameterPx * 2.4f
 
+    val fillRadius = maxRadius * progress.pow(0.82f)
+    val fillAlpha = (1f - progress).pow(2.2f) * 0.42f
     drawCircle(
-        color = ringColor.copy(alpha = alpha * 0.12f),
-        radius = radius * 1.08f,
+        color = rippleColor.copy(alpha = fillAlpha * rippleColor.alpha),
+        radius = fillRadius,
         center = center,
     )
+
+    val ringProgress = (progress * 1.05f).coerceIn(0f, 1f)
+    val ringRadius = maxRadius * 0.9f * ringProgress
+    val ringAlpha = (1f - ringProgress).pow(1.6f) * 0.85f
     drawCircle(
-        color = ringColor.copy(alpha = alpha * 0.55f),
-        radius = radius,
+        color = rippleColor.copy(alpha = ringAlpha * rippleColor.alpha),
+        radius = ringRadius,
         center = center,
-        style = Stroke(width = (2.8f - progress * 1.2f).coerceAtLeast(1.2f)),
+        style = Stroke(width = (4f - progress * 2f).coerceAtLeast(1.5f)),
     )
-    val innerProgress = (progress * 1.35f).coerceIn(0f, 1f)
-    val innerRadius = maxRadius * 0.35f * (1f - (1f - innerProgress).pow(2f))
-    val innerAlpha = (1f - innerProgress).pow(1.8f) * ringColor.alpha
-    drawCircle(
-        color = ringColor.copy(alpha = innerAlpha * 0.35f),
-        radius = innerRadius,
-        center = center,
-        style = Stroke(width = 1.6f),
-    )
+
+    if (progress > 0.12f) {
+        val secondaryProgress = ((progress - 0.12f) / 0.88f).coerceIn(0f, 1f)
+        val secondaryRadius = maxRadius * 0.65f * secondaryProgress
+        val secondaryAlpha = (1f - secondaryProgress).pow(2f) * 0.45f
+        drawCircle(
+            color = rippleColor.copy(alpha = secondaryAlpha * rippleColor.alpha),
+            radius = secondaryRadius,
+            center = center,
+            style = Stroke(width = 2f),
+        )
+    }
 }
+
+internal const val FLOATING_POINTER_RIPPLE_DURATION_MS = 380L

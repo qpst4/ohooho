@@ -248,7 +248,10 @@ internal class FloatingPointerHostLayout(
         onHaptic()
         val clickX = session.pointerX.floatValue
         val clickY = session.pointerY.floatValue
-        session.triggerRipple(clickX, clickY)
+        val settings = settingsProvider()
+        if (settings.floatingPointerClickVisualFeedbackEnabled) {
+            session.triggerRipple(clickX, clickY)
+        }
         onPointerClick(clickX, clickY)
     }
 

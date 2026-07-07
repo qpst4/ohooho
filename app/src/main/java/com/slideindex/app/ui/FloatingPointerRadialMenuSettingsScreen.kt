@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -49,6 +50,7 @@ fun FloatingPointerRadialMenuSettingsScreen(
     settings: AppSettings,
     onBack: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
+    onAlwaysVisibleChange: (Boolean) -> Unit,
     onLongPressMsChange: (Int) -> Unit,
     onSlotActionChange: (Int, GestureAction) -> Unit,
     onOuterDiameterChange: (Float) -> Unit,
@@ -131,6 +133,19 @@ fun FloatingPointerRadialMenuSettingsScreen(
                             onCheckedChange = onEnabledChange,
                         )
                         if (settings.floatingPointerRadialMenuEnabled) {
+                            SettingSwitchRow(
+                                title = stringResource(R.string.floating_pointer_radial_always_visible),
+                                subtitle = stringResource(R.string.floating_pointer_radial_always_visible_desc),
+                                icon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Visibility,
+                                        contentDescription = null,
+                                    )
+                                },
+                                checked = settings.floatingPointerRadialAlwaysVisible,
+                                enabled = true,
+                                onCheckedChange = onAlwaysVisibleChange,
+                            )
                             SettingsSliderRow(
                                 title = stringResource(R.string.floating_pointer_radial_long_press_ms),
                                 value = settings.floatingPointerRadialLongPressMs.toFloat(),

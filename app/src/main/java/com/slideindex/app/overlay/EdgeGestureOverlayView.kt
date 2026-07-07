@@ -570,7 +570,7 @@ class EdgeGestureOverlayView(
                     if (FloatingPointerOverlayWindow.isConsumingEdgeGestureTouch()) {
                         dismissGestureAnimationForFloatingPointerHandoff()
                     } else {
-                        updateGestureAnimationIfNeeded(rawX, rawY)
+                        updateOrDismissGestureAnimation(rawX, rawY)
                     }
                 }
                 if (FloatingPointerOverlayWindow.isConsumingEdgeGestureTouch()) {
@@ -3551,6 +3551,11 @@ class EdgeGestureOverlayView(
         panelGridSession.reset()
         onSessionStartCallback()
         notifyPresentationTouchRequirementChanged()
+        if (mode != OverlayPanelMode.NONE || gestureSession.isAdjustMode()) {
+            if (gestureAnimationOverlay.animationState?.isActive == true) {
+                finishGestureAnimationIfNeeded()
+            }
+        }
         if (mode != OverlayPanelMode.NONE) {
             post {
                 if (gestureSession.panelMode() != mode) return@post
@@ -3839,6 +3844,24 @@ class EdgeGestureOverlayView(
             swipeDirection = pathRecognizer.currentSwipeDirection(),
             inwardPx = pathRecognizer.currentInwardPx(),
         )
+    }
+
+    private fun shouldDismissGestureAnimationDuringSession(): Boolean {
+        if (!gestureSession.isActive()) return false
+        return gestureSession.isMoveTimeActionLocked() ||
+            gestureSession.isAdjustMode() ||
+            gestureSession.panelMode() != OverlayPanelMode.NONE
+    }
+
+    private fun updateOrDismissGestureAnimation(rawX: Float, rawY: Float) {
+        if (!settings.gestureHintEnabled) return
+        if (shouldDismissGestureAnimationDuringSession()) {
+            if (gestureAnimationOverlay.animationState?.isActive == true) {
+                finishGestureAnimationIfNeeded()
+            }
+            return
+        }
+        updateGestureAnimationIfNeeded(rawX, rawY)
     }
 
     private fun finishGestureAnimationIfNeeded() {

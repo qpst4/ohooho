@@ -478,6 +478,11 @@
     <string name="floating_pointer_fill_color">填充颜色</string>
     <string name="floating_pointer_fill_color_desc">圆环内缘与中心小点之间的区域</string>
     <string name="floating_pointer_dot_color">内部小点颜色</string>
+    <string name="floating_pointer_visual_feedback_section">视觉反馈</string>
+    <string name="floating_pointer_click_visual_feedback">视觉反馈</string>
+    <string name="floating_pointer_click_visual_feedback_desc">开启点击功能视觉反馈</string>
+    <string name="floating_pointer_ripple_color">波纹颜色</string>
+    <string name="floating_pointer_ripple_color_desc">点击的视觉反馈颜色</string>
     <string name="floating_pointer_trail_section">尾影</string>
     <string name="floating_pointer_trail_off">关闭</string>
     <string name="floating_pointer_trail_simple">简洁</string>
@@ -515,6 +520,8 @@
     <string name="floating_pointer_radial_settings_desc">长按摇杆后，四周会弹出环形功能菜单；手指不抬起即可滑到外圈扇区，松手执行对应动作。</string>
     <string name="floating_pointer_radial_enabled">长按功能</string>
     <string name="floating_pointer_radial_enabled_desc">打开摇杆功能环一次</string>
+    <string name="floating_pointer_radial_always_visible">始终可见</string>
+    <string name="floating_pointer_radial_always_visible_desc">始终显示摇杆功能</string>
     <string name="floating_pointer_radial_long_press_ms">长按触发时长</string>
     <string name="floating_pointer_radial_long_press_ms_value">%1$d ms</string>
     <string name="floating_pointer_radial_usage_hint">关闭后，长按摇杆将恢复为关闭悬浮指针。</string>

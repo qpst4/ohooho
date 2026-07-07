@@ -28,6 +28,7 @@ private enum class PointerColorTarget {
     Fill,
     Dot,
     Trail,
+    Ripple,
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -41,6 +42,8 @@ fun FloatingPointerPointerSettingsScreen(
     onRingColorChange: (Int) -> Unit,
     onFillColorChange: (Int) -> Unit,
     onDotColorChange: (Int) -> Unit,
+    onClickVisualFeedbackChange: (Boolean) -> Unit,
+    onRippleColorChange: (Int) -> Unit,
     onTrailTypeChange: (FloatingPointerTrailType) -> Unit,
     onTrailDurationChange: (Int) -> Unit,
     onTrailColorChange: (Int) -> Unit,
@@ -68,6 +71,7 @@ fun FloatingPointerPointerSettingsScreen(
                     PointerColorTarget.Fill -> onFillColorChange(color)
                     PointerColorTarget.Dot -> onDotColorChange(color)
                     PointerColorTarget.Trail -> onTrailColorChange(color)
+                    PointerColorTarget.Ripple -> onRippleColorChange(color)
                     null -> Unit
                 }
                 colorTarget = null
@@ -148,6 +152,29 @@ fun FloatingPointerPointerSettingsScreen(
                     colorTarget = PointerColorTarget.Dot
                 },
             )
+        }
+
+        SettingsSectionTitle(stringResource(R.string.floating_pointer_visual_feedback_section))
+        SettingsCard {
+            SettingSwitchRow(
+                title = stringResource(R.string.floating_pointer_click_visual_feedback),
+                subtitle = stringResource(R.string.floating_pointer_click_visual_feedback_desc),
+                checked = settings.floatingPointerClickVisualFeedbackEnabled,
+                enabled = true,
+                onCheckedChange = onClickVisualFeedbackChange,
+            )
+            if (settings.floatingPointerClickVisualFeedbackEnabled) {
+                AnimationStyleColorRow(
+                    title = stringResource(R.string.floating_pointer_ripple_color),
+                    subtitle = stringResource(R.string.floating_pointer_ripple_color_desc),
+                    color = settings.floatingPointerRippleColorArgb,
+                    enabled = true,
+                    onClick = {
+                        pickerInitialColor = settings.floatingPointerRippleColorArgb
+                        colorTarget = PointerColorTarget.Ripple
+                    },
+                )
+            }
         }
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_trail_section))

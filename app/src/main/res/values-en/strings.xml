@@ -105,6 +105,11 @@
     <string name="floating_pointer_fill_color">Fill color</string>
     <string name="floating_pointer_fill_color_desc">Area between the inner ring edge and center dot</string>
     <string name="floating_pointer_dot_color">Inner dot color</string>
+    <string name="floating_pointer_visual_feedback_section">Visual feedback</string>
+    <string name="floating_pointer_click_visual_feedback">Visual feedback</string>
+    <string name="floating_pointer_click_visual_feedback_desc">Show visual feedback when tapping</string>
+    <string name="floating_pointer_ripple_color">Ripple color</string>
+    <string name="floating_pointer_ripple_color_desc">Color of the tap ripple effect</string>
     <string name="floating_pointer_trail_section">Trail</string>
     <string name="floating_pointer_trail_off">Off</string>
     <string name="floating_pointer_trail_simple">Simple</string>
@@ -152,6 +157,8 @@
     <string name="floating_pointer_radial_settings_desc">Long-press the joystick to show a ring of actions around it. Slide to a segment without lifting, then release to run that action.</string>
     <string name="floating_pointer_radial_enabled">Long-press function</string>
     <string name="floating_pointer_radial_enabled_desc">Open the joystick action ring once</string>
+    <string name="floating_pointer_radial_always_visible">Always visible</string>
+    <string name="floating_pointer_radial_always_visible_desc">Always show joystick functions</string>
     <string name="floating_pointer_radial_long_press_ms">Long-press duration</string>
     <string name="floating_pointer_radial_long_press_ms_value">%1$d ms</string>
     <string name="floating_pointer_radial_usage_hint">When disabled, long-press dismisses the floating pointer.</string>

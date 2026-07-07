@@ -83,6 +83,8 @@ data class AppSettings(
     val floatingPointerRingColorArgb: Int = 0xFFFFFFFF.toInt(),
     val floatingPointerFillColorArgb: Int = 0x19000000,
     val floatingPointerDotColorArgb: Int = 0xFFFFFFFF.toInt(),
+    val floatingPointerClickVisualFeedbackEnabled: Boolean = true,
+    val floatingPointerRippleColorArgb: Int = 0xFFFF8A80.toInt(),
     val floatingPointerTrailTypeId: Int = FloatingPointerTrailType.HIGH_DETAIL.id,
     val floatingPointerTrailDurationMs: Int = 150,
     val floatingPointerTrailColorArgb: Int = 0x66FF5252,
@@ -96,6 +98,8 @@ data class AppSettings(
     val floatingPointerIdleHideDelayMs: Int = 3000,
     /** Long-press on joystick opens the radial action ring. */
     val floatingPointerRadialMenuEnabled: Boolean = true,
+    /** Keep the radial action ring visible around the joystick without long-press. */
+    val floatingPointerRadialAlwaysVisible: Boolean = false,
     val floatingPointerRadialLongPressMs: Int = 500,
     val floatingPointerRadialOuterDiameterPx: Float = 440f,
     val floatingPointerRadialInnerDiameterPx: Float = 192f,

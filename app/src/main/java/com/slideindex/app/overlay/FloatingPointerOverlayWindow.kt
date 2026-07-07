@@ -14,6 +14,9 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,11 +31,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.ComposeView
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.gesture.ActionExecutor
@@ -395,7 +400,7 @@ object FloatingPointerOverlayWindow {
             )
         }
         visible.value = false
-        mainHandler.postDelayed({ cleanup() }, 120L)
+        mainHandler.postDelayed({ cleanup() }, FLOATING_POINTER_PRESENCE_ANIMATION_MS)
     }
 
     private fun collapseTouchCapture(
@@ -728,8 +733,8 @@ object FloatingPointerOverlayWindow {
     private const val POINTER_TAP_OUTSIDE_SUPPRESS_MS = 500L
     /** ACTION_OUTSIDE can arrive after dispatchGesture/onFinished returns. */
     private const val POINTER_TAP_OUTSIDE_ECHO_AFTER_COMPLETE_MS = 350L
-    private const val QUICK_SWIPE_CLEANUP_DELAY_MS = 120L
-    private const val OUTSIDE_DISMISS_CLEANUP_DELAY_MS = 120L
+    private const val QUICK_SWIPE_CLEANUP_DELAY_MS = FLOATING_POINTER_PRESENCE_ANIMATION_MS
+    private const val OUTSIDE_DISMISS_CLEANUP_DELAY_MS = FLOATING_POINTER_PRESENCE_ANIMATION_MS
     private const val RADIAL_ACTION_INJECT_DELAY_MS = 120L
 
     /**
@@ -760,7 +765,7 @@ private data class OverlayScreenBounds(
     val height: Float,
 )
 
-private const val FLOATING_POINTER_RIPPLE_DURATION_MS = 280L
+private const val FLOATING_POINTER_PRESENCE_ANIMATION_MS = 280L
 
 internal class FloatingPointerSession(
     val density: Float,
@@ -1200,7 +1205,15 @@ private fun FloatingPointerDisplay(
         seedColor = Color(settings.themeColorArgb),
         dynamicColor = settings.dynamicColorEnabled,
     ) {
-        if (!visible) return@SlideIndexTheme
+        val presence by animateFloatAsState(
+            targetValue = if (visible) 1f else 0f,
+            animationSpec = tween(
+                durationMillis = FLOATING_POINTER_PRESENCE_ANIMATION_MS.toInt(),
+                easing = FastOutSlowInEasing,
+            ),
+            label = "floatingPointerPresence",
+        )
+        if (presence <= 0.001f && !visible) return@SlideIndexTheme
 
         val pointerX by session.pointerX
         val pointerY by session.pointerY
@@ -1213,6 +1226,7 @@ private fun FloatingPointerDisplay(
         val rippleActive by session.rippleActive
         val showPointer = (!settings.floatingPointerHideWhenJoystickReleased || pointerVisible) &&
             !session.awaitingPlacement
+        val presenceScale = 0.72f + 0.28f * presence
         var animationTick by remember { mutableLongStateOf(0L) }
 
         LaunchedEffect(Unit) {
@@ -1221,15 +1235,34 @@ private fun FloatingPointerDisplay(
                     val now = System.currentTimeMillis()
                     session.clearRippleIfExpired(now)
                     session.pruneExpiredTrailPoints(now)
-                    if (session.hasActiveTrail(now) || session.rippleActive.value) {
+                    if (session.hasActiveTrail(now) ||
+                        session.rippleActive.value ||
+                        presence < 0.999f
+                    ) {
                         animationTick = frameTime
                     }
                 }
             }
         }
 
-        Box(Modifier.fillMaxSize()) {
-            // Subscribe to per-frame invalidation while trail or ripple is animating.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val anchorX = if (!session.awaitingPlacement) joystickX else pointerX
+                    val anchorY = if (!session.awaitingPlacement) joystickY else pointerY
+                    val width = size.width.coerceAtLeast(1f)
+                    val height = size.height.coerceAtLeast(1f)
+                    transformOrigin = TransformOrigin(
+                        pivotFractionX = (anchorX / width).coerceIn(0f, 1f),
+                        pivotFractionY = (anchorY / height).coerceIn(0f, 1f),
+                    )
+                    scaleX = presenceScale
+                    scaleY = presenceScale
+                    alpha = presence
+                },
+        ) {
+            // Subscribe to per-frame invalidation while trail, ripple, or presence is animating.
             animationTick
             Canvas(Modifier.fillMaxSize()) {
                 val now = System.currentTimeMillis()
@@ -1245,12 +1278,12 @@ private fun FloatingPointerDisplay(
                         dotColor = Color(settings.floatingPointerDotColorArgb),
                     )
                 }
-                if (rippleActive) {
+                if (rippleActive && settings.floatingPointerClickVisualFeedbackEnabled) {
                     val elapsed = now - session.rippleStartTimeMs.value
                     drawFloatingPointerRipple(
                         center = Offset(session.rippleCenterX.floatValue, session.rippleCenterY.floatValue),
                         elapsedMs = elapsed,
-                        ringColor = Color(settings.floatingPointerRingColorArgb),
+                        rippleColor = Color(settings.floatingPointerRippleColorArgb),
                         pointerDiameterPx = settings.floatingPointerPointerDiameterPx,
                     )
                 }
@@ -1270,6 +1303,17 @@ private fun FloatingPointerDisplay(
                         settings = settings,
                         slots = settings.floatingPointerRadialSlotActions,
                         highlightedSlot = radialHighlightedSlot,
+                    )
+                } else if (
+                    settings.floatingPointerRadialMenuEnabled &&
+                    settings.floatingPointerRadialAlwaysVisible &&
+                    !session.awaitingPlacement
+                ) {
+                    drawFloatingPointerRadialMenu(
+                        center = Offset(joystickX, joystickY),
+                        settings = settings,
+                        slots = settings.floatingPointerRadialSlotActions,
+                        highlightedSlot = -1,
                     )
                 }
             }

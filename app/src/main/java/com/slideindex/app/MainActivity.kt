@@ -1023,6 +1023,16 @@ class MainActivity : ComponentActivity() {
                                 app.settingsRepository.setFloatingPointerDotColor(color)
                             }
                         },
+                        onClickVisualFeedbackChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerClickVisualFeedbackEnabled(enabled)
+                            }
+                        },
+                        onRippleColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRippleColor(color)
+                            }
+                        },
                         onTrailTypeChange = { type ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setFloatingPointerTrailType(type)
@@ -1111,6 +1121,11 @@ class MainActivity : ComponentActivity() {
                         onEnabledChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setFloatingPointerRadialMenuEnabled(enabled)
+                            }
+                        },
+                        onAlwaysVisibleChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRadialAlwaysVisible(enabled)
                             }
                         },
                         onLongPressMsChange = { ms ->

@@ -137,6 +137,8 @@ class SettingsRepository(private val context: Context) {
             floatingPointerRingColorArgb = prefs[FLOATING_POINTER_RING_COLOR] ?: 0xFFFFFFFF.toInt(),
             floatingPointerFillColorArgb = prefs[FLOATING_POINTER_FILL_COLOR] ?: 0x19000000,
             floatingPointerDotColorArgb = prefs[FLOATING_POINTER_DOT_COLOR] ?: 0xFFFFFFFF.toInt(),
+            floatingPointerClickVisualFeedbackEnabled = prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] ?: true,
+            floatingPointerRippleColorArgb = prefs[FLOATING_POINTER_RIPPLE_COLOR] ?: 0xFFFF8A80.toInt(),
             floatingPointerTrailTypeId = prefs[FLOATING_POINTER_TRAIL_TYPE] ?: FloatingPointerTrailType.HIGH_DETAIL.id,
             floatingPointerTrailDurationMs = prefs[FLOATING_POINTER_TRAIL_DURATION] ?: 150,
             floatingPointerTrailColorArgb = prefs[FLOATING_POINTER_TRAIL_COLOR] ?: 0x66FF5252,
@@ -149,6 +151,7 @@ class SettingsRepository(private val context: Context) {
             floatingPointerHideWhenIdle = prefs[FLOATING_POINTER_HIDE_IDLE] ?: true,
             floatingPointerIdleHideDelayMs = prefs[FLOATING_POINTER_IDLE_DELAY] ?: 3000,
             floatingPointerRadialMenuEnabled = prefs[FLOATING_POINTER_RADIAL_ENABLED] ?: true,
+            floatingPointerRadialAlwaysVisible = prefs[FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE] ?: false,
             floatingPointerRadialLongPressMs = prefs[FLOATING_POINTER_RADIAL_LONG_PRESS_MS] ?: 500,
             floatingPointerRadialOuterDiameterPx = prefs[FLOATING_POINTER_RADIAL_OUTER_SIZE] ?: 440f,
             floatingPointerRadialInnerDiameterPx = prefs[FLOATING_POINTER_RADIAL_INNER_SIZE] ?: 192f,
@@ -534,6 +537,14 @@ class SettingsRepository(private val context: Context) {
         it[FLOATING_POINTER_DOT_COLOR] = argb
     }
 
+    suspend fun setFloatingPointerClickVisualFeedbackEnabled(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = enabled
+    }
+
+    suspend fun setFloatingPointerRippleColor(argb: Int) = edit {
+        it[FLOATING_POINTER_RIPPLE_COLOR] = argb
+    }
+
     suspend fun setFloatingPointerTrailType(type: FloatingPointerTrailType) = edit {
         it[FLOATING_POINTER_TRAIL_TYPE] = type.id
     }
@@ -580,6 +591,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFloatingPointerRadialMenuEnabled(enabled: Boolean) = edit {
         it[FLOATING_POINTER_RADIAL_ENABLED] = enabled
+    }
+
+    suspend fun setFloatingPointerRadialAlwaysVisible(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE] = enabled
     }
 
     suspend fun setFloatingPointerRadialLongPressMs(value: Int) = edit {
@@ -687,6 +702,8 @@ class SettingsRepository(private val context: Context) {
         prefs[FLOATING_POINTER_RING_COLOR] = 0xFFFFFFFF.toInt()
         prefs[FLOATING_POINTER_FILL_COLOR] = 0x19000000
         prefs[FLOATING_POINTER_DOT_COLOR] = 0xFFFFFFFF.toInt()
+        prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = true
+        prefs[FLOATING_POINTER_RIPPLE_COLOR] = 0xFFFF8A80.toInt()
         prefs[FLOATING_POINTER_TRAIL_TYPE] = FloatingPointerTrailType.HIGH_DETAIL.id
         prefs[FLOATING_POINTER_TRAIL_DURATION] = 150
         prefs[FLOATING_POINTER_TRAIL_COLOR] = 0x66FF5252
@@ -935,6 +952,9 @@ class SettingsRepository(private val context: Context) {
         private val FLOATING_POINTER_RING_COLOR = intPreferencesKey("floating_pointer_ring_color")
         private val FLOATING_POINTER_FILL_COLOR = intPreferencesKey("floating_pointer_fill_color")
         private val FLOATING_POINTER_DOT_COLOR = intPreferencesKey("floating_pointer_dot_color")
+        private val FLOATING_POINTER_CLICK_VISUAL_FEEDBACK =
+            booleanPreferencesKey("floating_pointer_click_visual_feedback")
+        private val FLOATING_POINTER_RIPPLE_COLOR = intPreferencesKey("floating_pointer_ripple_color")
         private val FLOATING_POINTER_TRAIL_TYPE = intPreferencesKey("floating_pointer_trail_type")
         private val FLOATING_POINTER_TRAIL_DURATION = intPreferencesKey("floating_pointer_trail_duration_ms")
         private val FLOATING_POINTER_TRAIL_COLOR = intPreferencesKey("floating_pointer_trail_color")
@@ -947,6 +967,8 @@ class SettingsRepository(private val context: Context) {
         private val FLOATING_POINTER_HIDE_IDLE = booleanPreferencesKey("floating_pointer_hide_idle")
         private val FLOATING_POINTER_IDLE_DELAY = intPreferencesKey("floating_pointer_idle_delay_ms")
         private val FLOATING_POINTER_RADIAL_ENABLED = booleanPreferencesKey("floating_pointer_radial_enabled")
+        private val FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE =
+            booleanPreferencesKey("floating_pointer_radial_always_visible")
         private val FLOATING_POINTER_RADIAL_LONG_PRESS_MS = intPreferencesKey("floating_pointer_radial_long_press_ms")
         private val FLOATING_POINTER_RADIAL_OUTER_SIZE = floatPreferencesKey("floating_pointer_radial_outer_size_px")
         private val FLOATING_POINTER_RADIAL_INNER_SIZE = floatPreferencesKey("floating_pointer_radial_inner_size_px")
