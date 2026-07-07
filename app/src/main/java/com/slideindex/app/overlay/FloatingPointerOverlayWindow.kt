@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.ComposeView
@@ -101,6 +102,7 @@ object FloatingPointerOverlayWindow {
     private var isPointerSwipeInFlight = false
     /** Edge gesture finger is still down; MOVE/UP are forwarded from edge capture. */
     private var continuedGestureActive = false
+    private var pendingCleanupRunnable: Runnable? = null
 
     private data class PendingPointerTap(
         val rawX: Float,
@@ -374,11 +376,38 @@ object FloatingPointerOverlayWindow {
         anchorRawY: Float? = null,
         continueTouch: Boolean = false,
     ) {
-        if (isShowing && isVisible) {
-            dismiss()
-        } else {
-            show(context, settings, anchorRawX, anchorRawY, continueTouch)
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { toggle(context, settings, anchorRawX, anchorRawY, continueTouch) }
+            return
         }
+        if (isShowing && isVisible) {
+            if (anchorRawX != null && anchorRawY != null) {
+                resummonAtAnchor(context, settings, anchorRawX, anchorRawY, continueTouch)
+            } else {
+                dismiss()
+            }
+            return
+        }
+        show(context, settings, anchorRawX, anchorRawY, continueTouch)
+    }
+
+    private fun resummonAtAnchor(
+        context: Context,
+        settings: AppSettings,
+        anchorRawX: Float,
+        anchorRawY: Float,
+        continueTouch: Boolean,
+    ) {
+        cancelPendingCleanup()
+        idleHideRunnable?.let { mainHandler.removeCallbacks(it) }
+        idleHideRunnable = null
+        continuedGestureActive = false
+        outsideDismissSuppressed = false
+        outsideDismissGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+        outsideDismissGraceRunnable = null
+        visibleState?.value = false
+        cleanup()
+        show(context, settings, anchorRawX, anchorRawY, continueTouch)
     }
 
     fun dismiss() {
@@ -400,7 +429,22 @@ object FloatingPointerOverlayWindow {
             )
         }
         visible.value = false
-        mainHandler.postDelayed({ cleanup() }, FLOATING_POINTER_PRESENCE_ANIMATION_MS)
+        scheduleCleanup()
+    }
+
+    private fun scheduleCleanup() {
+        cancelPendingCleanup()
+        val runnable = Runnable {
+            pendingCleanupRunnable = null
+            cleanup()
+        }
+        pendingCleanupRunnable = runnable
+        mainHandler.postDelayed(runnable, FLOATING_POINTER_PRESENCE_ANIMATION_MS)
+    }
+
+    private fun cancelPendingCleanup() {
+        pendingCleanupRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingCleanupRunnable = null
     }
 
     private fun collapseTouchCapture(
@@ -539,7 +583,7 @@ object FloatingPointerOverlayWindow {
         session?.clearTrail()
         setTouchOverlayPassthrough(true)
         visible.value = false
-        mainHandler.postDelayed({ cleanup() }, QUICK_SWIPE_CLEANUP_DELAY_MS)
+        scheduleCleanup()
     }
 
     private fun runOutsideDismissPrepare() {
@@ -552,7 +596,7 @@ object FloatingPointerOverlayWindow {
         session?.clearTrail()
         setTouchOverlayPassthrough(true)
         visible.value = false
-        mainHandler.postDelayed({ cleanup() }, OUTSIDE_DISMISS_CLEANUP_DELAY_MS)
+        scheduleCleanup()
     }
 
     private fun runPointerTap(rawX: Float, rawY: Float) {
@@ -692,6 +736,7 @@ object FloatingPointerOverlayWindow {
     }
 
     private fun cleanup() {
+        cancelPendingCleanup()
         settingsCollectJob?.cancel()
         settingsCollectJob = null
         idleHideRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -733,8 +778,6 @@ object FloatingPointerOverlayWindow {
     private const val POINTER_TAP_OUTSIDE_SUPPRESS_MS = 500L
     /** ACTION_OUTSIDE can arrive after dispatchGesture/onFinished returns. */
     private const val POINTER_TAP_OUTSIDE_ECHO_AFTER_COMPLETE_MS = 350L
-    private const val QUICK_SWIPE_CLEANUP_DELAY_MS = FLOATING_POINTER_PRESENCE_ANIMATION_MS
-    private const val OUTSIDE_DISMISS_CLEANUP_DELAY_MS = FLOATING_POINTER_PRESENCE_ANIMATION_MS
     private const val RADIAL_ACTION_INJECT_DELAY_MS = 120L
 
     /**
@@ -766,6 +809,7 @@ private data class OverlayScreenBounds(
 )
 
 private const val FLOATING_POINTER_PRESENCE_ANIMATION_MS = 280L
+private const val FLOATING_POINTER_RADIAL_MENU_ANIMATION_MS = 220L
 
 internal class FloatingPointerSession(
     val density: Float,
@@ -1224,6 +1268,22 @@ private fun FloatingPointerDisplay(
         val radialMenuActive by session.radialMenuActive
         val radialHighlightedSlot by session.radialHighlightedSlot
         val rippleActive by session.rippleActive
+        val radialMenuAlwaysShown = settings.floatingPointerRadialMenuEnabled &&
+            settings.floatingPointerRadialAlwaysVisible &&
+            !session.awaitingPlacement
+        val radialMenuTargetProgress = when {
+            radialMenuActive -> 1f
+            radialMenuAlwaysShown -> 1f
+            else -> 0f
+        }
+        val radialMenuProgress by animateFloatAsState(
+            targetValue = radialMenuTargetProgress,
+            animationSpec = tween(
+                durationMillis = FLOATING_POINTER_RADIAL_MENU_ANIMATION_MS.toInt(),
+                easing = FastOutSlowInEasing,
+            ),
+            label = "radialMenuProgress",
+        )
         val showPointer = (!settings.floatingPointerHideWhenJoystickReleased || pointerVisible) &&
             !session.awaitingPlacement
         val presenceScale = 0.72f + 0.28f * presence
@@ -1237,7 +1297,8 @@ private fun FloatingPointerDisplay(
                     session.pruneExpiredTrailPoints(now)
                     if (session.hasActiveTrail(now) ||
                         session.rippleActive.value ||
-                        presence < 0.999f
+                        presence < 0.999f ||
+                        radialMenuProgress < 0.999f
                     ) {
                         animationTick = frameTime
                     }
@@ -1297,24 +1358,27 @@ private fun FloatingPointerDisplay(
                         pressed = joystickActive && !radialMenuActive,
                     )
                 }
-                if (radialMenuActive) {
-                    drawFloatingPointerRadialMenu(
-                        center = Offset(session.radialMenuCenterX, session.radialMenuCenterY),
-                        settings = settings,
-                        slots = settings.floatingPointerRadialSlotActions,
-                        highlightedSlot = radialHighlightedSlot,
-                    )
-                } else if (
-                    settings.floatingPointerRadialMenuEnabled &&
-                    settings.floatingPointerRadialAlwaysVisible &&
-                    !session.awaitingPlacement
-                ) {
-                    drawFloatingPointerRadialMenu(
-                        center = Offset(joystickX, joystickY),
-                        settings = settings,
-                        slots = settings.floatingPointerRadialSlotActions,
-                        highlightedSlot = -1,
-                    )
+                if (radialMenuProgress > 0.01f && settings.floatingPointerRadialMenuEnabled) {
+                    val radialCenter = if (radialMenuActive) {
+                        Offset(session.radialMenuCenterX, session.radialMenuCenterY)
+                    } else {
+                        Offset(joystickX, joystickY)
+                    }
+                    val highlightedSlot = if (radialMenuActive) radialHighlightedSlot else -1
+                    val radialScale = 0.68f + 0.32f * radialMenuProgress
+                    withTransform({
+                        translate(radialCenter.x, radialCenter.y)
+                        scale(radialScale, radialScale, pivot = Offset.Zero)
+                        translate(-radialCenter.x, -radialCenter.y)
+                    }) {
+                        drawFloatingPointerRadialMenu(
+                            center = radialCenter,
+                            settings = settings,
+                            slots = settings.floatingPointerRadialSlotActions,
+                            highlightedSlot = highlightedSlot,
+                            visibilityProgress = radialMenuProgress,
+                        )
+                    }
                 }
             }
         }

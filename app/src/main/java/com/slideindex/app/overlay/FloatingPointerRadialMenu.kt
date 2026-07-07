@@ -61,15 +61,19 @@ internal fun DrawScope.drawFloatingPointerRadialMenu(
     settings: AppSettings,
     slots: List<GestureAction>,
     highlightedSlot: Int,
+    visibilityProgress: Float = 1f,
 ) {
+    val alphaScale = visibilityProgress.coerceIn(0f, 1f)
+    if (alphaScale <= 0.01f) return
+
     val outerRadius = settings.floatingPointerRadialOuterDiameterPx / 2f
     val innerRadius = settings.floatingPointerRadialInnerDiameterPx / 2f
     if (outerRadius <= innerRadius || outerRadius <= 0f) return
 
     val sweep = 360f / FloatingPointerRadialMenu.SLOT_COUNT
-    val outerColor = Color(settings.floatingPointerRadialOuterColorArgb)
-    val innerColor = Color(settings.floatingPointerRadialInnerColorArgb)
-    val dividerColor = Color(settings.floatingPointerRadialDividerColorArgb)
+    val outerColor = Color(settings.floatingPointerRadialOuterColorArgb).scaledAlpha(alphaScale)
+    val innerColor = Color(settings.floatingPointerRadialInnerColorArgb).scaledAlpha(alphaScale)
+    val dividerColor = Color(settings.floatingPointerRadialDividerColorArgb).scaledAlpha(alphaScale)
     val dividerWidth = settings.floatingPointerRadialDividerThicknessPx.coerceAtLeast(1f)
     val highlightColor = outerColor.copy(alpha = (outerColor.alpha + 0.25f).coerceAtMost(1f))
     val iconSizePx = (
@@ -105,6 +109,9 @@ internal fun DrawScope.drawFloatingPointerRadialMenu(
 
     drawIntoCanvas { canvas ->
         val androidCanvas = canvas.nativeCanvas
+        val iconPaint = android.graphics.Paint().apply {
+            alpha = (255f * alphaScale).toInt().coerceIn(0, 255)
+        }
         for (slot in 0 until FloatingPointerRadialMenu.SLOT_COUNT) {
             val action = slots.getOrElse(slot) { GestureAction.None }
             if (action is GestureAction.None) continue
@@ -117,10 +124,12 @@ internal fun DrawScope.drawFloatingPointerRadialMenu(
             val bitmap = GestureActionIconBitmap.get(action, iconSizePx, iconTint)
             val left = iconCenter.x - bitmap.width / 2f
             val top = iconCenter.y - bitmap.height / 2f
-            androidCanvas.drawBitmap(bitmap, left, top, null)
+            androidCanvas.drawBitmap(bitmap, left, top, iconPaint)
         }
     }
 }
+
+private fun Color.scaledAlpha(scale: Float): Color = copy(alpha = alpha * scale.coerceIn(0f, 1f))
 
 private fun DrawScope.drawRingSector(
     center: Offset,
