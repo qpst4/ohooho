@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
@@ -58,6 +59,7 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.SHELL_COMMAND_PANEL -> Icons.Default.Code
     GestureActionType.QUICK_TOOLS_OVERLAY -> OhoPanelIcons.QuickToolsGrid
     GestureActionType.WIDGET_POPUP_OVERLAY -> Icons.Default.Widgets
+    GestureActionType.FLOATING_POINTER -> Icons.Default.MyLocation
     GestureActionType.BACK -> Icons.AutoMirrored.Filled.ArrowBack
     GestureActionType.HOME -> Icons.Default.Home
     GestureActionType.RECENTS -> Icons.Default.Layers

@@ -2,6 +2,7 @@ package com.slideindex.app.ui
 
 enum class SettingsDestination {
     Main,
+    NotificationHub,
     AppKeepAlive,
     Layout,
     HiddenApps,
@@ -16,6 +17,15 @@ enum class SettingsDestination {
     QuickLauncher,
     ShellCommands,
     WidgetPanel,
+    NotificationHistory,
+    OtpHub,
+    OtpSettings,
+    OtpRecords,
+    OtpRulesList,
+    OtpAutoInput,
+    FloatingPointer,
+    FloatingPointerPointer,
+    FloatingPointerJoystick,
     GestureAngle,
     AnimationStyleSelect,
     WaveAnimationStyle,

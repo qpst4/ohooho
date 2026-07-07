@@ -18,8 +18,10 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.otp.OtpAutoFillController
 import com.slideindex.app.overlay.EdgeOverlayHost
 import com.slideindex.app.overlay.LayoutPreviewContent
+import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.util.TriggerEnvironmentState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,7 +57,19 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> handleWindowStateChanged(event)
             AccessibilityEvent.TYPE_WINDOWS_CHANGED -> handleWindowsChanged()
+            AccessibilityEvent.TYPE_VIEW_FOCUSED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            -> maybeAutoFillOtp()
         }
+    }
+
+    private fun maybeAutoFillOtp() {
+        if (OtpAutoFillController.isFillingActive()) return
+        val app = applicationContext as? SlideIndexApp ?: return
+        val settings = app.settingsRepository.readSnapshot()
+        if (!settings.otpAutoInputEnabled || !OtpAutoFillController.hasPendingCode()) return
+        OtpAutoFillController.scheduleAutoFill(this, settings)
     }
 
     private fun handleWindowStateChanged(event: AccessibilityEvent) {
@@ -128,12 +142,44 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         }
 
         /**
+         * Floating-pointer tap: gesture first (real DOWN/UP for press ripple), node click fallback.
+         */
+        fun dispatchPointerTap(
+            rawX: Float,
+            rawY: Float,
+            onFinished: (Boolean) -> Unit,
+        ) {
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                mainHandler.post { dispatchPointerTap(rawX, rawY, onFinished) }
+                return
+            }
+            val service = instance
+            if (service == null) {
+                Log.w(TAG, "dispatchPointerTap($rawX, $rawY): service instance is null")
+                onFinished(false)
+                return
+            }
+            dispatchGestureTap(service, rawX, rawY, POINTER_TAP_DURATION_MS) { gestureOk ->
+                if (gestureOk) {
+                    onFinished(true)
+                    return@dispatchGestureTap
+                }
+                onFinished(clickNodeAt(service, rawX, rawY))
+            }
+        }
+
+        /**
          * Inject tap at screen coordinates (async – safe to call from any thread).
          * Gesture first, then node ACTION_CLICK fallback.
          */
-        fun dispatchTap(rawX: Float, rawY: Float, onFinished: (Boolean) -> Unit) {
+        fun dispatchTap(
+            rawX: Float,
+            rawY: Float,
+            onFinished: (Boolean) -> Unit,
+            durationMs: Long = TAP_DURATION_MS,
+        ) {
             if (Looper.myLooper() != Looper.getMainLooper()) {
-                mainHandler.post { dispatchTap(rawX, rawY, onFinished) }
+                mainHandler.post { dispatchTap(rawX, rawY, onFinished, durationMs) }
                 return
             }
             val service = instance
@@ -142,8 +188,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
                 onFinished(false)
                 return
             }
-            Log.i(TAG, "dispatchTap start ($rawX, $rawY)")
-            dispatchGestureTap(service, rawX, rawY) { gestureOk ->
+            Log.i(TAG, "dispatchTap start ($rawX, $rawY) duration=${durationMs}ms")
+            dispatchGestureTap(service, rawX, rawY, durationMs) { gestureOk ->
                 if (gestureOk) {
                     Log.i(TAG, "dispatchTap($rawX, $rawY): gesture completed")
                     onFinished(true)
@@ -167,10 +213,10 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             }
             var result = false
             val latch = java.util.concurrent.CountDownLatch(1)
-            dispatchTap(rawX, rawY) { ok ->
+            dispatchTap(rawX, rawY, onFinished = { ok ->
                 result = ok
                 latch.countDown()
-            }
+            })
             latch.await(GESTURE_TIMEOUT_MS + 200, java.util.concurrent.TimeUnit.MILLISECONDS)
             return result
         }
@@ -179,6 +225,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             service: AccessibilityService,
             rawX: Float,
             rawY: Float,
+            durationMs: Long,
             onFinished: (Boolean) -> Unit,
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
@@ -191,7 +238,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
                 lineTo(rawX + 2f, rawY + 2f)
             }
             val gesture = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, TAP_DURATION_MS))
+                .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
                 .build()
             val accepted = service.dispatchGesture(
                 gesture,
@@ -343,7 +390,11 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         }
 
         private const val TAG = "SlideIndexA11y"
-        private const val TAP_DURATION_MS = 120L
+        const val TAP_DURATION_MS = 120L
+        /** Long enough for list-item pressed state / ripple; still snappy on release. */
+        const val POINTER_TAP_DURATION_MS = 80L
+        /** Minimum gap between chained pointer injects (Android allows one gesture at a time). */
+        const val POINTER_TAP_CHAIN_GAP_MS = 12L
         private const val GESTURE_TIMEOUT_MS = 600L
         private const val SCREENSHOT_DELAY_MS = 500L
         private const val SCROLL_GESTURE_DELAY_MS = 180L
@@ -366,6 +417,14 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         /** Context for [TYPE_ACCESSIBILITY_OVERLAY] windows; null when the service is not connected. */
         fun overlayHostContext(): Context? = instance
+
+        fun scheduleOtpAutoFill() {
+            val service = instance ?: return
+            val app = service.applicationContext as? SlideIndexApp ?: return
+            val settings = app.settingsRepository.readSnapshot()
+            if (!settings.otpAutoInputEnabled) return
+            OtpAutoFillController.scheduleAutoFill(service, settings)
+        }
     }
 
     override fun onServiceConnected() {

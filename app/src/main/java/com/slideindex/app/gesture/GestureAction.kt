@@ -38,6 +38,7 @@ enum class GestureActionType(val id: Int) {
     TOGGLE_MOBILE_DATA(35),
     SWITCH_INPUT_METHOD(36),
     WIDGET_POPUP_OVERLAY(37),
+    FLOATING_POINTER(38),
     ;
 
     companion object {
@@ -256,6 +257,12 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    /** Virtual joystick + on-screen pointer; tap joystick to click at pointer via accessibility. */
+    data object FloatingPointer : GestureAction() {
+        override val type = GestureActionType.FLOATING_POINTER
+        override val payload = ""
+    }
+
     data object ToggleDnd : GestureAction() {
         override val type = GestureActionType.TOGGLE_DND
         override val payload = ""
@@ -295,6 +302,7 @@ sealed class GestureAction {
             ShellCommandPanel,
             AdjustVolume,
             AdjustBrightness,
+            FloatingPointer,
         )
 
         fun from(type: GestureActionType, payload: String): GestureAction {
@@ -330,6 +338,7 @@ sealed class GestureAction {
                 GestureActionType.SHELL_COMMAND_PANEL -> ShellCommandPanel
                 GestureActionType.QUICK_TOOLS_OVERLAY -> QuickToolsOverlay
                 GestureActionType.WIDGET_POPUP_OVERLAY -> WidgetPopupOverlay
+                GestureActionType.FLOATING_POINTER -> FloatingPointer
                 GestureActionType.TOGGLE_DND -> ToggleDnd
                 GestureActionType.SCREEN_RECORD -> ScreenRecord
                 GestureActionType.TOGGLE_WIFI -> ToggleWifi

@@ -64,6 +64,45 @@ data class AppSettings(
     val widgetPanelHeightFraction: Float = 0.55f,
     val widgetPanelTopFraction: Float = 0.15f,
     val widgetPanelBlurEnabled: Boolean = true,
+    /** Joystick effective movement area width in px; maps to horizontal pointer travel (full screen). */
+    val floatingPointerJoystickAreaWidthPx: Float = 360f,
+    /** Joystick effective movement area height in px; maps to vertical pointer travel (full screen). */
+    val floatingPointerJoystickAreaHeightPx: Float = 560f,
+    /** Scales the joystick movement area (0.1–1). */
+    val floatingPointerJoystickAreaZoomFraction: Float = 0.33f,
+    /** When true, joystick area height is derived from width to match screen aspect ratio. */
+    val floatingPointerMatchJoystickToScreenAspect: Boolean = false,
+    /** Virtual joystick diameter in screen pixels (QC default 275). */
+    val floatingPointerJoystickDiameterPx: Float = 275f,
+    /** Ring pointer outer diameter in screen pixels. */
+    val floatingPointerPointerDiameterPx: Float = 110f,
+    /** Ring pointer band thickness in screen pixels. */
+    val floatingPointerRingThicknessPx: Float = 12f,
+    /** Ring pointer center dot diameter in screen pixels. */
+    val floatingPointerDotDiameterPx: Float = 24f,
+    val floatingPointerRingColorArgb: Int = 0xFFFFFFFF.toInt(),
+    val floatingPointerFillColorArgb: Int = 0x19000000,
+    val floatingPointerDotColorArgb: Int = 0xFFFFFFFF.toInt(),
+    val floatingPointerTrailTypeId: Int = FloatingPointerTrailType.HIGH_DETAIL.id,
+    val floatingPointerTrailDurationMs: Int = 150,
+    val floatingPointerTrailColorArgb: Int = 0x66FF5252,
+    val floatingPointerHideWhenJoystickReleased: Boolean = false,
+    val floatingPointerJoystickInnerColorArgb: Int = 0x80FFFFFF.toInt(),
+    val floatingPointerJoystickOuterColorArgb: Int = 0x80C0C0C0.toInt(),
+    val floatingPointerJoystickGradientRadiusFraction: Float = 1f,
+    val floatingPointerHideOnOutsideClick: Boolean = true,
+    val floatingPointerHideOnQuickSwipe: Boolean = true,
+    val floatingPointerHideWhenIdle: Boolean = true,
+    val floatingPointerIdleHideDelayMs: Int = 3000,
+    val otpCopyToClipboard: Boolean = false,
+    val otpKeywordsRegex: String = com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX,
+    val otpUserMatchRules: List<com.slideindex.app.otp.OtpMatchRule> = emptyList(),
+    val otpDisabledOfficialRuleIds: Set<String> = emptySet(),
+    val otpAccessibilityAssistEnabled: Boolean = false,
+    val otpAutoInputEnabled: Boolean = false,
+    val otpAutoConfirmEnabled: Boolean = false,
+    val otpAutoInputDelayMs: Int = 0,
+    val otpAutoInputIntervalMs: Int = 0,
 )
 
 fun AppSettings.edgeTriggerWidthDp(side: PanelSide): Float = when (side) {

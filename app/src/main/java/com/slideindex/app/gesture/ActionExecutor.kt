@@ -10,6 +10,7 @@ import com.slideindex.app.data.AppRepository
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
+import com.slideindex.app.overlay.FloatingPointerOverlayWindow
 import com.slideindex.app.overlay.OhoQuickToolsOverlayWindow
 import com.slideindex.app.overlay.WidgetPopupOverlayWindow
 import com.slideindex.app.overlay.PanelSide
@@ -110,7 +111,9 @@ class ActionExecutor(
         action: GestureAction,
         settings: AppSettings,
         longPressArmed: Boolean = false,
+        anchorRawX: Float? = null,
         anchorRawY: Float? = null,
+        continueTouch: Boolean = false,
     ) {
         when (action) {
             GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.TaskSwitcher,
@@ -119,6 +122,13 @@ class ActionExecutor(
             GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
             GestureAction.QuickToolsOverlay -> OhoQuickToolsOverlayWindow.show(context, settings, side, anchorRawY)
             GestureAction.WidgetPopupOverlay -> WidgetPopupOverlayWindow.show(context, settings, side, anchorRawY)
+            GestureAction.FloatingPointer -> FloatingPointerOverlayWindow.toggle(
+                context,
+                settings,
+                anchorRawX,
+                anchorRawY,
+                continueTouch,
+            )
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
             is GestureAction.LaunchShortcut -> launchGestureShortcut(action, settings, longPressArmed)
             GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {

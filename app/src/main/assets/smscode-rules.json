@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "hsbc-china",
+      "name": "汇丰银行中国",
+      "keyword": "验证码",
+      "regex": "验证码[：:\\s为]?(\\d{4,8})"
+    },
+    {
+      "id": "generic-cn-verification",
+      "name": "通用中文验证码",
+      "keyword": "验证码",
+      "regex": "验证码[：:\\s为]?(\\d{4,8})"
+    },
+    {
+      "id": "cmcc-cloud-prize",
+      "name": "中国移动云盘",
+      "keyword": "领奖验证码",
+      "regex": "(?<=领奖验证码[：: ])\\d{4,8}"
+    },
+    {
+      "id": "cmcc-cloud-password",
+      "name": "中国移动云盘",
+      "keyword": "验证密码",
+      "regex": "\\d{4,8}"
+    },
+    {
+      "id": "sdp-portal",
+      "name": "SDP统一门户",
+      "keyword": "登录验证码",
+      "regex": "(?:(?<=登录验证码[：: ])|(?<=登录验证码为[：: ]))\\d{4,8}"
+    }
+  ]
+}

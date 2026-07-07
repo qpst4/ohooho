@@ -342,6 +342,7 @@ private fun QuickLauncherEditorActionsTab(
             GestureAction.ShellCommandPanel,
             GestureAction.QuickToolsOverlay,
             GestureAction.WidgetPopupOverlay,
+            GestureAction.FloatingPointer,
             GestureAction.Back,
             GestureAction.Home,
             GestureAction.Recents,

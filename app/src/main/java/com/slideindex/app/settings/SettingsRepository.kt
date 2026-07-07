@@ -36,12 +36,15 @@ import com.slideindex.app.gesture.withTriggerAlignOppositeSide
 import com.slideindex.app.gesture.withUpdatedTriggerHandle
 import com.slideindex.app.gesture.withUpdatedTriggerHandleDistances
 import com.slideindex.app.launcher.QuickLauncherItemCodec
+import com.slideindex.app.otp.OtpMatchRuleCodec
 import com.slideindex.app.widget.WidgetPanelCodec
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.shell.ShellCommandCodec
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
 import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "slide_index_settings")
@@ -123,8 +126,41 @@ class SettingsRepository(private val context: Context) {
             widgetPanelHeightFraction = prefs[WIDGET_PANEL_HEIGHT] ?: 0.55f,
             widgetPanelTopFraction = prefs[WIDGET_PANEL_TOP] ?: 0.15f,
             widgetPanelBlurEnabled = prefs[WIDGET_PANEL_BLUR] ?: true,
+            floatingPointerJoystickAreaWidthPx = prefs[FLOATING_POINTER_JOYSTICK_AREA_WIDTH] ?: 360f,
+            floatingPointerJoystickAreaHeightPx = prefs[FLOATING_POINTER_JOYSTICK_AREA_HEIGHT] ?: 560f,
+            floatingPointerJoystickAreaZoomFraction = prefs[FLOATING_POINTER_JOYSTICK_AREA_ZOOM] ?: 0.33f,
+            floatingPointerMatchJoystickToScreenAspect = prefs[FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] ?: false,
+            floatingPointerJoystickDiameterPx = prefs[FLOATING_POINTER_JOYSTICK_SIZE] ?: 275f,
+            floatingPointerPointerDiameterPx = prefs[FLOATING_POINTER_POINTER_SIZE] ?: 110f,
+            floatingPointerRingThicknessPx = prefs[FLOATING_POINTER_RING_THICKNESS] ?: 12f,
+            floatingPointerDotDiameterPx = prefs[FLOATING_POINTER_DOT_DIAMETER] ?: 24f,
+            floatingPointerRingColorArgb = prefs[FLOATING_POINTER_RING_COLOR] ?: 0xFFFFFFFF.toInt(),
+            floatingPointerFillColorArgb = prefs[FLOATING_POINTER_FILL_COLOR] ?: 0x19000000,
+            floatingPointerDotColorArgb = prefs[FLOATING_POINTER_DOT_COLOR] ?: 0xFFFFFFFF.toInt(),
+            floatingPointerTrailTypeId = prefs[FLOATING_POINTER_TRAIL_TYPE] ?: FloatingPointerTrailType.HIGH_DETAIL.id,
+            floatingPointerTrailDurationMs = prefs[FLOATING_POINTER_TRAIL_DURATION] ?: 150,
+            floatingPointerTrailColorArgb = prefs[FLOATING_POINTER_TRAIL_COLOR] ?: 0x66FF5252,
+            floatingPointerHideWhenJoystickReleased = prefs[FLOATING_POINTER_HIDE_ON_RELEASE] ?: false,
+            floatingPointerJoystickInnerColorArgb = prefs[FLOATING_POINTER_JOYSTICK_INNER_COLOR] ?: 0x80FFFFFF.toInt(),
+            floatingPointerJoystickOuterColorArgb = prefs[FLOATING_POINTER_JOYSTICK_OUTER_COLOR] ?: 0x80C0C0C0.toInt(),
+            floatingPointerJoystickGradientRadiusFraction = prefs[FLOATING_POINTER_JOYSTICK_GRADIENT] ?: 1f,
+            floatingPointerHideOnOutsideClick = prefs[FLOATING_POINTER_HIDE_OUTSIDE_CLICK] ?: true,
+            floatingPointerHideOnQuickSwipe = prefs[FLOATING_POINTER_HIDE_QUICK_SWIPE] ?: true,
+            floatingPointerHideWhenIdle = prefs[FLOATING_POINTER_HIDE_IDLE] ?: true,
+            floatingPointerIdleHideDelayMs = prefs[FLOATING_POINTER_IDLE_DELAY] ?: 3000,
+            otpCopyToClipboard = prefs[OTP_COPY_TO_CLIPBOARD] ?: false,
+            otpKeywordsRegex = resolveOtpKeywordsRegex(prefs[OTP_KEYWORDS_REGEX]),
+            otpUserMatchRules = OtpMatchRuleCodec.decodeAll(prefs[OTP_USER_MATCH_RULES] ?: emptySet()),
+            otpDisabledOfficialRuleIds = prefs[OTP_DISABLED_OFFICIAL_RULE_IDS] ?: emptySet(),
+            otpAccessibilityAssistEnabled = prefs[OTP_ACCESSIBILITY_ASSIST] ?: false,
+            otpAutoInputEnabled = prefs[OTP_AUTO_INPUT_ENABLED] ?: false,
+            otpAutoConfirmEnabled = prefs[OTP_AUTO_CONFIRM_ENABLED] ?: false,
+            otpAutoInputDelayMs = prefs[OTP_AUTO_INPUT_DELAY_MS] ?: 0,
+            otpAutoInputIntervalMs = prefs[OTP_AUTO_INPUT_INTERVAL_MS] ?: 0,
         )
     }
+
+    fun readSnapshot(): AppSettings = runBlocking { settings.first() }
 
     suspend fun setServiceEnabled(enabled: Boolean) = edit { it[SERVICE_ENABLED] = enabled }
     suspend fun setLeftEdgeEnabled(enabled: Boolean) = edit { it[LEFT_EDGE_ENABLED] = enabled }
@@ -441,6 +477,163 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDynamicColorEnabled(enabled: Boolean) =
         edit { it[DYNAMIC_COLOR_ENABLED] = enabled }
 
+    suspend fun setFloatingPointerJoystickAreaWidthPx(value: Float) = edit {
+        it[FLOATING_POINTER_JOYSTICK_AREA_WIDTH] = value.coerceIn(120f, 800f)
+    }
+
+    suspend fun setFloatingPointerJoystickAreaHeightPx(value: Float) = edit {
+        it[FLOATING_POINTER_JOYSTICK_AREA_HEIGHT] = value.coerceIn(120f, 1400f)
+    }
+
+    suspend fun setFloatingPointerJoystickAreaZoomFraction(value: Float) = edit {
+        it[FLOATING_POINTER_JOYSTICK_AREA_ZOOM] = value.coerceIn(0.1f, 1f)
+    }
+
+    suspend fun setFloatingPointerMatchJoystickToScreenAspect(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] = enabled
+    }
+
+    suspend fun setFloatingPointerJoystickDiameterPx(value: Float) = edit {
+        it[FLOATING_POINTER_JOYSTICK_SIZE] = value.coerceIn(180f, 360f)
+    }
+
+    suspend fun setFloatingPointerPointerDiameterPx(value: Float) = edit {
+        it[FLOATING_POINTER_POINTER_SIZE] = value.coerceIn(48f, 120f)
+    }
+
+    suspend fun setFloatingPointerRingThicknessPx(value: Float) = edit {
+        it[FLOATING_POINTER_RING_THICKNESS] = value.coerceIn(4f, 24f)
+    }
+
+    suspend fun setFloatingPointerDotDiameterPx(value: Float) = edit {
+        it[FLOATING_POINTER_DOT_DIAMETER] = value.coerceIn(2f, 24f)
+    }
+
+    suspend fun setFloatingPointerRingColor(argb: Int) = edit {
+        it[FLOATING_POINTER_RING_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerFillColor(argb: Int) = edit {
+        it[FLOATING_POINTER_FILL_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerDotColor(argb: Int) = edit {
+        it[FLOATING_POINTER_DOT_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerTrailType(type: FloatingPointerTrailType) = edit {
+        it[FLOATING_POINTER_TRAIL_TYPE] = type.id
+    }
+
+    suspend fun setFloatingPointerTrailDurationMs(value: Int) = edit {
+        it[FLOATING_POINTER_TRAIL_DURATION] = value.coerceIn(50, 500)
+    }
+
+    suspend fun setFloatingPointerTrailColor(argb: Int) = edit {
+        it[FLOATING_POINTER_TRAIL_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerHideWhenJoystickReleased(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_HIDE_ON_RELEASE] = enabled
+    }
+
+    suspend fun setFloatingPointerJoystickInnerColor(argb: Int) = edit {
+        it[FLOATING_POINTER_JOYSTICK_INNER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerJoystickOuterColor(argb: Int) = edit {
+        it[FLOATING_POINTER_JOYSTICK_OUTER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerJoystickGradientRadiusFraction(value: Float) = edit {
+        it[FLOATING_POINTER_JOYSTICK_GRADIENT] = value.coerceIn(0.5f, 1f)
+    }
+
+    suspend fun setFloatingPointerHideOnOutsideClick(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_HIDE_OUTSIDE_CLICK] = enabled
+    }
+
+    suspend fun setFloatingPointerHideOnQuickSwipe(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_HIDE_QUICK_SWIPE] = enabled
+    }
+
+    suspend fun setFloatingPointerHideWhenIdle(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_HIDE_IDLE] = enabled
+    }
+
+    suspend fun setFloatingPointerIdleHideDelayMs(value: Int) = edit {
+        it[FLOATING_POINTER_IDLE_DELAY] = value.coerceIn(1000, 10000)
+    }
+
+    suspend fun setOtpCopyToClipboard(enabled: Boolean) = edit { it[OTP_COPY_TO_CLIPBOARD] = enabled }
+
+    suspend fun setOtpKeywordsRegex(value: String) = edit {
+        it[OTP_KEYWORDS_REGEX] = value.ifBlank {
+            com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+        }
+    }
+
+    suspend fun setOtpUserMatchRules(rules: List<com.slideindex.app.otp.OtpMatchRule>) = edit {
+        it[OTP_USER_MATCH_RULES] = OtpMatchRuleCodec.encodeAll(rules)
+    }
+
+    suspend fun setOtpDisabledOfficialRuleIds(ids: Set<String>) = edit {
+        it[OTP_DISABLED_OFFICIAL_RULE_IDS] = ids
+    }
+
+    suspend fun setOtpOfficialRuleEnabled(ruleId: String, enabled: Boolean) = edit { prefs ->
+        val current = prefs[OTP_DISABLED_OFFICIAL_RULE_IDS]?.toMutableSet() ?: mutableSetOf()
+        if (enabled) {
+            current.remove(ruleId)
+        } else {
+            current.add(ruleId)
+        }
+        prefs[OTP_DISABLED_OFFICIAL_RULE_IDS] = current
+    }
+
+    suspend fun setOtpAccessibilityAssistEnabled(enabled: Boolean) = edit {
+        it[OTP_ACCESSIBILITY_ASSIST] = enabled
+    }
+
+    suspend fun setOtpAutoInputEnabled(enabled: Boolean) = edit { it[OTP_AUTO_INPUT_ENABLED] = enabled }
+
+    suspend fun setOtpAutoConfirmEnabled(enabled: Boolean) = edit { it[OTP_AUTO_CONFIRM_ENABLED] = enabled }
+
+    suspend fun setOtpAutoInputDelayMs(value: Int) = edit {
+        it[OTP_AUTO_INPUT_DELAY_MS] = value.coerceIn(0, 5000)
+    }
+
+    suspend fun setOtpAutoInputIntervalMs(value: Int) = edit {
+        it[OTP_AUTO_INPUT_INTERVAL_MS] = value.coerceIn(0, 500)
+    }
+
+    suspend fun resetFloatingPointerVisualDefaults() = edit { prefs ->
+        prefs[FLOATING_POINTER_POINTER_SIZE] = 110f
+        prefs[FLOATING_POINTER_RING_THICKNESS] = 12f
+        prefs[FLOATING_POINTER_DOT_DIAMETER] = 24f
+        prefs[FLOATING_POINTER_RING_COLOR] = 0xFFFFFFFF.toInt()
+        prefs[FLOATING_POINTER_FILL_COLOR] = 0x19000000
+        prefs[FLOATING_POINTER_DOT_COLOR] = 0xFFFFFFFF.toInt()
+        prefs[FLOATING_POINTER_TRAIL_TYPE] = FloatingPointerTrailType.HIGH_DETAIL.id
+        prefs[FLOATING_POINTER_TRAIL_DURATION] = 150
+        prefs[FLOATING_POINTER_TRAIL_COLOR] = 0x66FF5252
+        prefs[FLOATING_POINTER_HIDE_ON_RELEASE] = false
+    }
+
+    suspend fun resetFloatingPointerJoystickVisualDefaults() = edit { prefs ->
+        prefs[FLOATING_POINTER_JOYSTICK_SIZE] = 275f
+        prefs[FLOATING_POINTER_JOYSTICK_INNER_COLOR] = 0x80FFFFFF.toInt()
+        prefs[FLOATING_POINTER_JOYSTICK_OUTER_COLOR] = 0x80C0C0C0.toInt()
+        prefs[FLOATING_POINTER_JOYSTICK_GRADIENT] = 1f
+    }
+
+    suspend fun resetFloatingPointerJoystickBehaviorDefaults() = edit { prefs ->
+        prefs[FLOATING_POINTER_HIDE_OUTSIDE_CLICK] = true
+        prefs[FLOATING_POINTER_HIDE_QUICK_SWIPE] = true
+        prefs[FLOATING_POINTER_HIDE_IDLE] = true
+        prefs[FLOATING_POINTER_IDLE_DELAY] = 3000
+    }
+
     suspend fun upsertGestureRule(rule: GestureRule) = edit { prefs ->
         val current = GestureRuleCodec.decodeAll(prefs[GESTURE_RULES] ?: emptySet())
             .filterNot { it.id == rule.id }
@@ -579,6 +772,16 @@ class SettingsRepository(private val context: Context) {
             downDegrees = prefs[GESTURE_ANGLE_DOWN] ?: GestureAngleConfig.DEFAULT_DOWN,
         ).normalized()
 
+    private fun resolveOtpKeywordsRegex(stored: String?): String {
+        if (stored == null) {
+            return com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+        }
+        if (stored == com.slideindex.app.otp.VerificationCodeExtractor.LEGACY_DEFAULT_KEYWORDS_REGEX) {
+            return com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+        }
+        return stored
+    }
+
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.dataStore.edit { prefs ->
             block(prefs)
@@ -648,5 +851,36 @@ class SettingsRepository(private val context: Context) {
         private val WIDGET_PANEL_HEIGHT = floatPreferencesKey("widget_panel_height_fraction")
         private val WIDGET_PANEL_TOP = floatPreferencesKey("widget_panel_top_fraction")
         private val WIDGET_PANEL_BLUR = booleanPreferencesKey("widget_panel_blur_enabled")
+        private val FLOATING_POINTER_JOYSTICK_AREA_WIDTH = floatPreferencesKey("floating_pointer_joystick_area_width")
+        private val FLOATING_POINTER_JOYSTICK_AREA_HEIGHT = floatPreferencesKey("floating_pointer_joystick_area_height")
+        private val FLOATING_POINTER_JOYSTICK_AREA_ZOOM = floatPreferencesKey("floating_pointer_joystick_area_zoom")
+        private val FLOATING_POINTER_JOYSTICK_MATCH_ASPECT = booleanPreferencesKey("floating_pointer_joystick_match_aspect")
+        private val FLOATING_POINTER_JOYSTICK_SIZE = floatPreferencesKey("floating_pointer_joystick_size_px")
+        private val FLOATING_POINTER_POINTER_SIZE = floatPreferencesKey("floating_pointer_pointer_size_px")
+        private val FLOATING_POINTER_RING_THICKNESS = floatPreferencesKey("floating_pointer_ring_thickness_px")
+        private val FLOATING_POINTER_DOT_DIAMETER = floatPreferencesKey("floating_pointer_dot_diameter_px")
+        private val FLOATING_POINTER_RING_COLOR = intPreferencesKey("floating_pointer_ring_color")
+        private val FLOATING_POINTER_FILL_COLOR = intPreferencesKey("floating_pointer_fill_color")
+        private val FLOATING_POINTER_DOT_COLOR = intPreferencesKey("floating_pointer_dot_color")
+        private val FLOATING_POINTER_TRAIL_TYPE = intPreferencesKey("floating_pointer_trail_type")
+        private val FLOATING_POINTER_TRAIL_DURATION = intPreferencesKey("floating_pointer_trail_duration_ms")
+        private val FLOATING_POINTER_TRAIL_COLOR = intPreferencesKey("floating_pointer_trail_color")
+        private val FLOATING_POINTER_HIDE_ON_RELEASE = booleanPreferencesKey("floating_pointer_hide_on_release")
+        private val FLOATING_POINTER_JOYSTICK_INNER_COLOR = intPreferencesKey("floating_pointer_joystick_inner_color")
+        private val FLOATING_POINTER_JOYSTICK_OUTER_COLOR = intPreferencesKey("floating_pointer_joystick_outer_color")
+        private val FLOATING_POINTER_JOYSTICK_GRADIENT = floatPreferencesKey("floating_pointer_joystick_gradient")
+        private val FLOATING_POINTER_HIDE_OUTSIDE_CLICK = booleanPreferencesKey("floating_pointer_hide_outside_click")
+        private val FLOATING_POINTER_HIDE_QUICK_SWIPE = booleanPreferencesKey("floating_pointer_hide_quick_swipe")
+        private val FLOATING_POINTER_HIDE_IDLE = booleanPreferencesKey("floating_pointer_hide_idle")
+        private val FLOATING_POINTER_IDLE_DELAY = intPreferencesKey("floating_pointer_idle_delay_ms")
+        private val OTP_COPY_TO_CLIPBOARD = booleanPreferencesKey("otp_copy_to_clipboard")
+        private val OTP_KEYWORDS_REGEX = stringPreferencesKey("otp_keywords_regex")
+        private val OTP_USER_MATCH_RULES = stringSetPreferencesKey("otp_user_match_rules")
+        private val OTP_DISABLED_OFFICIAL_RULE_IDS = stringSetPreferencesKey("otp_disabled_official_rule_ids")
+        private val OTP_ACCESSIBILITY_ASSIST = booleanPreferencesKey("otp_accessibility_assist")
+        private val OTP_AUTO_INPUT_ENABLED = booleanPreferencesKey("otp_auto_input_enabled")
+        private val OTP_AUTO_CONFIRM_ENABLED = booleanPreferencesKey("otp_auto_confirm_enabled")
+        private val OTP_AUTO_INPUT_DELAY_MS = intPreferencesKey("otp_auto_input_delay_ms")
+        private val OTP_AUTO_INPUT_INTERVAL_MS = intPreferencesKey("otp_auto_input_interval_ms")
     }
 }

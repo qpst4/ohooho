@@ -1,5 +1,6 @@
 package com.slideindex.app.ui.animationstyle
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +32,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
@@ -59,6 +62,7 @@ fun waveStyleIconPainter(iconType: Int): Painter = when (iconType) {
 fun AnimationStyleColorRow(
     title: String,
     color: Int,
+    subtitle: String? = null,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
@@ -73,9 +77,24 @@ fun AnimationStyleColorRow(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(color))
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                )
+                ) {
+                    ColorSwatchCheckerboard(modifier = Modifier.fillMaxSize())
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(color)),
+                    )
+                }
+            },
+            supportingContent = subtitle?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             },
             content = {
                 Text(title, style = MaterialTheme.typography.titleMedium)
@@ -216,6 +235,26 @@ fun AnimationStyleCard(
                 )
             }
             trailing?.invoke()
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatchCheckerboard(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val cellSize = 5.dp.toPx()
+        val light = Color(0xFFE0E0E0)
+        val dark = Color(0xFFBDBDBD)
+        val cols = (size.width / cellSize).toInt() + 1
+        val rows = (size.height / cellSize).toInt() + 1
+        for (row in 0 until rows) {
+            for (col in 0 until cols) {
+                drawRect(
+                    color = if ((row + col) % 2 == 0) light else dark,
+                    topLeft = Offset(col * cellSize, row * cellSize),
+                    size = Size(cellSize, cellSize),
+                )
+            }
         }
     }
 }

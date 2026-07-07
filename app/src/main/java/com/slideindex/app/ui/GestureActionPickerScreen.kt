@@ -212,6 +212,7 @@ private fun ActionPickerActionsTab(
             add(GestureAction.ShellCommandPanel)
             add(GestureAction.QuickToolsOverlay)
             add(GestureAction.WidgetPopupOverlay)
+            add(GestureAction.FloatingPointer)
             add(GestureAction.Back)
             add(GestureAction.Home)
             add(GestureAction.Recents)
@@ -672,6 +673,7 @@ internal fun gestureActionLabelText(context: Context, action: GestureAction): St
         GestureActionType.SHELL_COMMAND_PANEL -> context.getString(R.string.gesture_action_shell_command_panel)
         GestureActionType.QUICK_TOOLS_OVERLAY -> context.getString(R.string.gesture_action_quick_tools_overlay)
         GestureActionType.WIDGET_POPUP_OVERLAY -> context.getString(R.string.gesture_action_widget_popup_overlay)
+        GestureActionType.FLOATING_POINTER -> context.getString(R.string.gesture_action_floating_pointer)
         GestureActionType.TOGGLE_DND -> context.getString(R.string.gesture_action_toggle_dnd)
         GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
@@ -735,6 +737,7 @@ fun gestureActionLabel(action: GestureAction): String = when (action) {
         GestureActionType.SHELL_COMMAND_PANEL -> stringResource(R.string.gesture_action_shell_command_panel)
         GestureActionType.QUICK_TOOLS_OVERLAY -> stringResource(R.string.gesture_action_quick_tools_overlay)
         GestureActionType.WIDGET_POPUP_OVERLAY -> stringResource(R.string.gesture_action_widget_popup_overlay)
+        GestureActionType.FLOATING_POINTER -> stringResource(R.string.gesture_action_floating_pointer)
         GestureActionType.TOGGLE_DND -> stringResource(R.string.gesture_action_toggle_dnd)
         GestureActionType.SCREEN_RECORD -> stringResource(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> stringResource(R.string.gesture_action_toggle_wifi)
@@ -797,6 +800,10 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
             stringResource(R.string.gesture_action_widget_popup_overlay_permission)
         }
+        GestureActionType.FLOATING_POINTER -> {
+            if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
+            stringResource(R.string.gesture_action_floating_pointer_permission)
+        }
         else -> null
     }
 
@@ -811,6 +818,11 @@ internal fun requestPermissionForAdjustAction(context: Context, action: GestureA
             }
         }
         GestureAction.WidgetPopupOverlay -> {
+            if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+                context.startActivity(PermissionHelper.accessibilitySettingsIntent())
+            }
+        }
+        GestureAction.FloatingPointer -> {
             if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
                 context.startActivity(PermissionHelper.accessibilitySettingsIntent())
             }

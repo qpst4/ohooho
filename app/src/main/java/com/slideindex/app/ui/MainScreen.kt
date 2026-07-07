@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.settings.AppSettings
@@ -64,6 +65,8 @@ fun MainScreen(
     onOpenQuickLauncher: () -> Unit,
     onOpenShellCommands: () -> Unit,
     onOpenWidgetPanel: () -> Unit,
+    onOpenFloatingPointer: () -> Unit,
+    bottomContentPadding: Dp = 0.dp,
     onDynamicColorChange: (Boolean) -> Unit,
     onThemeColorChange: (Int) -> Unit,
 ) {
@@ -199,6 +202,11 @@ fun MainScreen(
                     enabled = gestureActive,
                     onClick = onOpenWidgetPanel,
                 )
+                FloatingPointerEntryCard(
+                    settings = settings,
+                    enabled = gestureActive,
+                    onClick = onOpenFloatingPointer,
+                )
             }
 
             SettingsSectionTitle(stringResource(R.string.settings_section_apps))
@@ -254,7 +262,7 @@ fun MainScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp + bottomContentPadding))
         }
     }
 }

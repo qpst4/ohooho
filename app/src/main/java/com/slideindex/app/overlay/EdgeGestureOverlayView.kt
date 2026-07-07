@@ -547,6 +547,7 @@ class EdgeGestureOverlayView(
                     }
                 }
                 if (gestureSession.onTouchDown(event.rawX, event.rawY, localX, localY)) {
+                    FloatingPointerAreaPreviewOverlay.onEdgeTriggerTouch(event.rawX, event.rawY)
                     edgeCaptureTouchActive = true
                     syncZoneLayout()
                     onGestureTrackingStartCallback()
@@ -559,21 +560,34 @@ class EdgeGestureOverlayView(
             }
             MotionEvent.ACTION_MOVE -> {
                 if (!edgeCaptureTouchActive) return false
-                if (!gestureSession.isActive()) return true
+                if (!gestureSession.isActive()) {
+                    dismissGestureAnimationForFloatingPointerHandoff()
+                    FloatingPointerOverlayWindow.forwardContinuedTouch(event)
+                    return true
+                }
                 forEachGesturePoint(event, localX, localY, includeHistory = true) { rawX, rawY, lx, ly ->
                     gestureSession.onTouchMove(rawX, rawY, lx, ly)
-                    updateGestureAnimationIfNeeded(rawX, rawY)
+                    if (FloatingPointerOverlayWindow.isConsumingEdgeGestureTouch()) {
+                        dismissGestureAnimationForFloatingPointerHandoff()
+                    } else {
+                        updateGestureAnimationIfNeeded(rawX, rawY)
+                    }
+                }
+                if (FloatingPointerOverlayWindow.isConsumingEdgeGestureTouch()) {
+                    dismissGestureAnimationForFloatingPointerHandoff()
+                    FloatingPointerOverlayWindow.forwardContinuedTouch(event)
                 }
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (!gestureSession.isActive()) {
                     val consumed = edgeCaptureTouchActive
+                    val handoff = FloatingPointerOverlayWindow.forwardContinuedTouch(event)
                     if (consumed) {
                         edgeCaptureTouchActive = false
                         finishGestureAnimationIfNeeded()
                     }
-                    return consumed || event.actionMasked == MotionEvent.ACTION_CANCEL
+                    return consumed || handoff || event.actionMasked == MotionEvent.ACTION_CANCEL
                 }
                 edgeCaptureTouchActive = false
                 val canceled = event.actionMasked == MotionEvent.ACTION_CANCEL
@@ -583,6 +597,7 @@ class EdgeGestureOverlayView(
                 }
                 finishGestureAnimationIfNeeded()
                 gestureSession.onTouchUp(event.rawX, event.rawY, localX, localY)
+                FloatingPointerOverlayWindow.forwardContinuedTouch(event)
                 if (canceled) {
                     gestureAnimationOverlay.hide()
                 }
@@ -3830,6 +3845,12 @@ class EdgeGestureOverlayView(
         if (!settings.gestureHintEnabled) return
         gestureAnimationOverlay.animationState?.onDragEnd()
         gestureAnimationOverlay.hideAfterGesture()
+    }
+
+    /** Hides bubble/wave hint once floating pointer owns the ongoing touch stream. */
+    private fun dismissGestureAnimationForFloatingPointerHandoff() {
+        if (!FloatingPointerOverlayWindow.isConsumingEdgeGestureTouch()) return
+        finishGestureAnimationIfNeeded()
     }
 
     private fun drawLetterRail(canvas: Canvas) {

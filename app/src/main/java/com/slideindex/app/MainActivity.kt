@@ -21,15 +21,26 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
+import com.slideindex.app.notification.isNotificationHistoryItemHidden
+import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.overlay.WidgetPickerOverlayWindow
 import com.slideindex.app.service.OverlayService
@@ -43,11 +54,27 @@ import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.AppKeepAliveSettingsScreen
 import com.slideindex.app.ui.ExcludedAppsScreen
 import com.slideindex.app.ui.GestureAngleSettingsScreen
+import com.slideindex.app.ui.FloatingPointerJoystickSettingsScreen
+import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
+import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.FreeWindowPreviewScreen
 import com.slideindex.app.ui.FreeWindowSettingsScreen
 import com.slideindex.app.ui.HiddenAppsScreen
 import com.slideindex.app.ui.LayoutSettingsScreen
+import com.slideindex.app.ui.FloatingBottomNavBar
+import com.slideindex.app.ui.MainBottomNavDestination
+import com.slideindex.app.ui.MainBottomNavHeight
+import com.slideindex.app.ui.MainBottomNavOuterPadding
+import com.slideindex.app.ui.NotificationHubScreen
 import com.slideindex.app.ui.MainScreen
+import com.slideindex.app.ui.isRootDestination
+import com.slideindex.app.ui.toBottomNavDestination
+import com.slideindex.app.ui.NotificationHistoryScreen
+import com.slideindex.app.ui.OtpAutoInputSettingsScreen
+import com.slideindex.app.ui.OtpHubScreen
+import com.slideindex.app.ui.OtpRecordsScreen
+import com.slideindex.app.ui.OtpRulesListScreen
+import com.slideindex.app.ui.OtpSettingsScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.SettingsDestination
 import com.slideindex.app.ui.ShellCommandPanelScreen
@@ -68,6 +95,7 @@ import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.util.HapticHelper
 import com.slideindex.app.util.KeepAliveHelper
+import com.slideindex.app.util.MediaSessionHelper
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.SecureSettingsHelper
 import com.slideindex.app.util.TaskManagerUtil
@@ -82,6 +110,7 @@ class MainActivity : ComponentActivity() {
     private var accessibilityGranted by mutableStateOf(false)
     private var batteryOptimizationExempt by mutableStateOf(false)
     private var writeSecureSettingsGranted by mutableStateOf(false)
+    private var notificationListenerEnabled by mutableStateOf(false)
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         shizukuGranted = grantResult == PackageManager.PERMISSION_GRANTED
@@ -108,19 +137,49 @@ class MainActivity : ComponentActivity() {
             val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = AppSettings(),
             )
-            var destination by remember { mutableStateOf(SettingsDestination.Main) }
+            val notificationHistory by app.notificationHistoryRepository.items.collectAsStateWithLifecycle()
+            val notificationFilterRules by app.notificationFilterRepository.rules.collectAsStateWithLifecycle()
+            var savedBottomNavTab by rememberSaveable {
+                mutableStateOf(MainBottomNavDestination.Gesture.name)
+            }
+            var destination by remember {
+                mutableStateOf(
+                    if (savedBottomNavTab == MainBottomNavDestination.Notification.name) {
+                        SettingsDestination.NotificationHub
+                    } else {
+                        SettingsDestination.Main
+                    },
+                )
+            }
+            var otpRecordsBackDestination by remember { mutableStateOf(SettingsDestination.NotificationHub) }
             var sideGestureHandleId by remember { mutableStateOf(TriggerHandle.DEFAULT_ID) }
             var appearanceParentSide by remember { mutableStateOf(PanelSide.LEFT) }
             var designParentSide by remember { mutableStateOf(PanelSide.LEFT) }
+            val rootBottomContentPadding = MainBottomNavHeight + MainBottomNavOuterPadding
+            val visibleNotificationHistoryCount = notificationHistory.count {
+                !isNotificationHistoryItemHidden(it, notificationFilterRules)
+            }
             LaunchedEffect(settings.hideFromRecents) {
                 applyHideFromRecents(settings.hideFromRecents)
+            }
+            LaunchedEffect(destination, accessibilityGranted) {
+                if (destination == SettingsDestination.FloatingPointer && accessibilityGranted) {
+                    FloatingPointerAreaPreviewOverlay.show(this@MainActivity)
+                } else if (FloatingPointerAreaPreviewOverlay.isShowing) {
+                    FloatingPointerAreaPreviewOverlay.hide()
+                }
+            }
+            DisposableEffect(Unit) {
+                onDispose { FloatingPointerAreaPreviewOverlay.hide() }
             }
             SlideIndexTheme(
                 seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
                 dynamicColor = settings.dynamicColorEnabled,
             ) {
                 val motionScheme = MaterialTheme.motionScheme
+                Box(modifier = Modifier.fillMaxSize()) {
                 AnimatedContent(
+                    modifier = Modifier.fillMaxSize(),
                     targetState = destination,
                     transitionSpec = {
                         val spatialSpec = motionScheme.defaultSpatialSpec<IntOffset>()
@@ -229,6 +288,14 @@ class MainActivity : ComponentActivity() {
                         onOpenWidgetPanel = {
                             destination = SettingsDestination.WidgetPanel
                         },
+                        onOpenFloatingPointer = {
+                            destination = SettingsDestination.FloatingPointer
+                        },
+                        bottomContentPadding = if (destination.isRootDestination()) {
+                            rootBottomContentPadding
+                        } else {
+                            0.dp
+                        },
                         onDynamicColorChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setDynamicColorEnabled(enabled)
@@ -237,6 +304,22 @@ class MainActivity : ComponentActivity() {
                         onThemeColorChange = { color ->
                             lifecycleScope.launch { app.settingsRepository.setThemeColor(color) }
                         },
+                    )
+
+                    SettingsDestination.NotificationHub -> NotificationHubScreen(
+                        notificationListenerEnabled = notificationListenerEnabled,
+                        notificationHistoryCount = visibleNotificationHistoryCount,
+                        onOpenNotificationHistory = {
+                            destination = SettingsDestination.NotificationHistory
+                        },
+                        onOpenOtpSettings = {
+                            destination = SettingsDestination.OtpHub
+                        },
+                        onOpenOtpRecords = {
+                            otpRecordsBackDestination = SettingsDestination.NotificationHub
+                            destination = SettingsDestination.OtpRecords
+                        },
+                        bottomContentPadding = rootBottomContentPadding,
                     )
 
                     SettingsDestination.AppKeepAlive -> AppKeepAliveSettingsScreen(
@@ -710,6 +793,331 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                     )
+
+                    SettingsDestination.NotificationHistory -> NotificationHistoryScreen(
+                        listenerEnabled = notificationListenerEnabled,
+                        onBack = { destination = SettingsDestination.NotificationHub },
+                        onOpenOtpSettings = { destination = SettingsDestination.OtpHub },
+                        onRequestListenerAccess = {
+                            startActivity(MediaSessionHelper.notificationListenerSettingsIntent())
+                        },
+                    )
+
+                    SettingsDestination.OtpHub -> {
+                        var officialRules by remember {
+                            mutableStateOf(app.otpOfficialRulesLoader.getRules())
+                        }
+                        OtpHubScreen(
+                            settings = settings,
+                            officialRules = officialRules,
+                            accessibilityGranted = accessibilityGranted,
+                            onExit = { destination = SettingsDestination.NotificationHub },
+                            onCopyToClipboardChange = { enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpCopyToClipboard(enabled)
+                                }
+                            },
+                            onKeywordsRegexChange = { value ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpKeywordsRegex(value)
+                                }
+                            },
+                            onRefreshOfficialRules = {
+                                officialRules = app.otpOfficialRulesLoader.refresh()
+                            },
+                            onOfficialRuleEnabledChange = { ruleId, enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpOfficialRuleEnabled(ruleId, enabled)
+                                }
+                            },
+                            onUserRulesChange = { rules ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpUserMatchRules(rules)
+                                }
+                            },
+                            onAutoInputChange = { enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpAutoInputEnabled(enabled)
+                                }
+                            },
+                            onAutoConfirmChange = { enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpAutoConfirmEnabled(enabled)
+                                }
+                            },
+                            onAccessibilityAssistChange = { enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpAccessibilityAssistEnabled(enabled)
+                                }
+                            },
+                            onDelayChange = { value ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpAutoInputDelayMs(value)
+                                }
+                            },
+                            onIntervalChange = { value ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpAutoInputIntervalMs(value)
+                                }
+                            },
+                            onRequestAccessibility = {
+                                startActivity(PermissionHelper.accessibilitySettingsIntent())
+                            },
+                        )
+                    }
+
+                    SettingsDestination.OtpRecords -> OtpRecordsScreen(
+                        onBack = { destination = otpRecordsBackDestination },
+                        onOpenTestFlow = { destination = SettingsDestination.OtpHub },
+                    )
+
+                    SettingsDestination.OtpSettings -> {
+                        val officialRules = remember { app.otpOfficialRulesLoader.getRules() }
+                        OtpSettingsScreen(
+                            settings = settings,
+                            officialRules = officialRules,
+                            onBack = { destination = SettingsDestination.NotificationHub },
+                            onOpenAutoInput = { destination = SettingsDestination.OtpAutoInput },
+                            onOpenMatchRules = { destination = SettingsDestination.OtpRulesList },
+                            onOpenRecords = {
+                                otpRecordsBackDestination = SettingsDestination.OtpSettings
+                                destination = SettingsDestination.OtpRecords
+                            },
+                            onCopyToClipboardChange = { enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpCopyToClipboard(enabled)
+                                }
+                            },
+                            onKeywordsRegexChange = { value ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpKeywordsRegex(value)
+                                }
+                            },
+                        )
+                    }
+
+                    SettingsDestination.OtpRulesList -> {
+                        var officialRules by remember {
+                            mutableStateOf(app.otpOfficialRulesLoader.getRules())
+                        }
+                        OtpRulesListScreen(
+                            officialRules = officialRules,
+                            userRules = settings.otpUserMatchRules,
+                            disabledOfficialRuleIds = settings.otpDisabledOfficialRuleIds,
+                            onBack = { destination = SettingsDestination.OtpSettings },
+                            onRefreshOfficialRules = {
+                                officialRules = app.otpOfficialRulesLoader.refresh()
+                            },
+                            onOfficialRuleEnabledChange = { ruleId, enabled ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpOfficialRuleEnabled(ruleId, enabled)
+                                }
+                            },
+                            onUserRulesChange = { rules ->
+                                lifecycleScope.launch {
+                                    app.settingsRepository.setOtpUserMatchRules(rules)
+                                }
+                            },
+                        )
+                    }
+
+                    SettingsDestination.OtpAutoInput -> OtpAutoInputSettingsScreen(
+                        settings = settings,
+                        accessibilityGranted = accessibilityGranted,
+                        onBack = { destination = SettingsDestination.OtpSettings },
+                        onRequestAccessibility = {
+                            startActivity(PermissionHelper.accessibilitySettingsIntent())
+                        },
+                        onAccessibilityAssistChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setOtpAccessibilityAssistEnabled(enabled)
+                            }
+                        },
+                        onAutoInputChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setOtpAutoInputEnabled(enabled)
+                            }
+                        },
+                        onAutoConfirmChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setOtpAutoConfirmEnabled(enabled)
+                            }
+                        },
+                        onDelayChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setOtpAutoInputDelayMs(value)
+                            }
+                        },
+                        onIntervalChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setOtpAutoInputIntervalMs(value)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.FloatingPointer -> FloatingPointerSettingsScreen(
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.Main },
+                        onOpenPointerSettings = {
+                            destination = SettingsDestination.FloatingPointerPointer
+                        },
+                        onOpenJoystickSettings = {
+                            destination = SettingsDestination.FloatingPointerJoystick
+                        },
+                        onJoystickAreaZoomChange = { zoom ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickAreaZoomFraction(zoom)
+                            }
+                        },
+                        onJoystickAreaWidthChange = { width ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickAreaWidthPx(width)
+                            }
+                        },
+                        onJoystickAreaHeightChange = { height ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickAreaHeightPx(height)
+                            }
+                        },
+                        onMatchJoystickToScreenAspectChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerMatchJoystickToScreenAspect(enabled)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.FloatingPointerPointer -> FloatingPointerPointerSettingsScreen(
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.FloatingPointer },
+                        onPointerDiameterChange = { size ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerPointerDiameterPx(size)
+                            }
+                        },
+                        onRingThicknessChange = { thickness ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRingThicknessPx(thickness)
+                            }
+                        },
+                        onDotDiameterChange = { diameter ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerDotDiameterPx(diameter)
+                            }
+                        },
+                        onRingColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRingColor(color)
+                            }
+                        },
+                        onFillColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerFillColor(color)
+                            }
+                        },
+                        onDotColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerDotColor(color)
+                            }
+                        },
+                        onTrailTypeChange = { type ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerTrailType(type)
+                            }
+                        },
+                        onTrailDurationChange = { duration ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerTrailDurationMs(duration)
+                            }
+                        },
+                        onTrailColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerTrailColor(color)
+                            }
+                        },
+                        onHideWhenReleasedChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerHideWhenJoystickReleased(enabled)
+                            }
+                        },
+                        onResetVisualDefaults = {
+                            lifecycleScope.launch {
+                                app.settingsRepository.resetFloatingPointerVisualDefaults()
+                            }
+                        },
+                    )
+
+                    SettingsDestination.FloatingPointerJoystick -> FloatingPointerJoystickSettingsScreen(
+                        settings = settings,
+                        onBack = { destination = SettingsDestination.FloatingPointer },
+                        onJoystickDiameterChange = { size ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickDiameterPx(size)
+                            }
+                        },
+                        onInnerColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickInnerColor(color)
+                            }
+                        },
+                        onOuterColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickOuterColor(color)
+                            }
+                        },
+                        onGradientRadiusChange = { fraction ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerJoystickGradientRadiusFraction(fraction)
+                            }
+                        },
+                        onHideOnOutsideClickChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerHideOnOutsideClick(enabled)
+                            }
+                        },
+                        onHideOnQuickSwipeChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerHideOnQuickSwipe(enabled)
+                            }
+                        },
+                        onHideWhenIdleChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerHideWhenIdle(enabled)
+                            }
+                        },
+                        onIdleDelayChange = { delayMs ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerIdleHideDelayMs(delayMs)
+                            }
+                        },
+                        onResetVisualDefaults = {
+                            lifecycleScope.launch {
+                                app.settingsRepository.resetFloatingPointerJoystickVisualDefaults()
+                            }
+                        },
+                        onResetBehaviorDefaults = {
+                            lifecycleScope.launch {
+                                app.settingsRepository.resetFloatingPointerJoystickBehaviorDefaults()
+                            }
+                        },
+                    )
+                    }
+                }
+                    if (destination.isRootDestination()) {
+                        FloatingBottomNavBar(
+                            selected = destination.toBottomNavDestination(),
+                            onDestinationSelected = { tab ->
+                                savedBottomNavTab = tab.name
+                                destination = when (tab) {
+                                    MainBottomNavDestination.Gesture -> SettingsDestination.Main
+                                    MainBottomNavDestination.Notification -> SettingsDestination.NotificationHub
+                                }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding()
+                                .padding(horizontal = 24.dp)
+                                .padding(bottom = MainBottomNavOuterPadding),
+                        )
                     }
                 }
             }
@@ -744,6 +1152,7 @@ class MainActivity : ComponentActivity() {
             !ShellCommandResultTrampoline.isActive()
         ) {
             sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+            FloatingPointerAreaPreviewOverlay.hide()
         }
         super.onPause()
     }
@@ -766,6 +1175,7 @@ class MainActivity : ComponentActivity() {
         accessibilityGranted = PermissionHelper.isAccessibilityServiceEnabled(this)
         batteryOptimizationExempt = PermissionHelper.isBatteryOptimizationExempt(this)
         writeSecureSettingsGranted = SecureSettingsHelper.hasWriteSecureSettings(this)
+        notificationListenerEnabled = MediaSessionHelper.isNotificationListenerEnabled(this)
         if (shizukuGranted) {
             TaskManagerUtil.warmUp()
         }

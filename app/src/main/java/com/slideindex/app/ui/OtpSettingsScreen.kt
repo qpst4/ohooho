@@ -1,0 +1,252 @@
+package com.slideindex.app.ui
+
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Password
+import androidx.compose.material.icons.automirrored.filled.Rule
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.slideindex.app.R
+import com.slideindex.app.SlideIndexApp
+import com.slideindex.app.otp.OtpExtractionConfig
+import com.slideindex.app.otp.OtpMatchRule
+import com.slideindex.app.otp.VerificationCodeExtractor
+import com.slideindex.app.settings.AppSettings
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun OtpSettingsScreen(
+    settings: AppSettings,
+    officialRules: List<OtpMatchRule>,
+    onBack: (() -> Unit)?,
+    onOpenAutoInput: () -> Unit,
+    onOpenMatchRules: () -> Unit,
+    onOpenRecords: (() -> Unit)? = null,
+    onCopyToClipboardChange: (Boolean) -> Unit,
+    onKeywordsRegexChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var keywordsText by remember(settings.otpKeywordsRegex) { mutableStateOf(settings.otpKeywordsRegex) }
+    var showTestDialog by remember { mutableStateOf(false) }
+
+    val extractionConfig = remember(settings, officialRules, keywordsText) {
+        OtpExtractionConfig.build(
+            keywordsRegex = keywordsText,
+            officialRules = officialRules,
+            userRules = settings.otpUserMatchRules,
+            disabledOfficialRuleIds = settings.otpDisabledOfficialRuleIds,
+        )
+    }
+
+    SettingsScreenScaffold(
+        title = stringResource(R.string.otp_settings_title),
+        subtitle = stringResource(R.string.otp_settings_desc),
+        onBack = onBack,
+        modifier = modifier,
+    ) {
+        SettingsCard {
+            SettingSwitchRow(
+                title = stringResource(R.string.otp_copy_to_clipboard_title),
+                subtitle = stringResource(R.string.otp_copy_to_clipboard_desc),
+                icon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                checked = settings.otpCopyToClipboard,
+                enabled = true,
+                onCheckedChange = onCopyToClipboardChange,
+            )
+            if (onOpenRecords != null) {
+                SettingNavigationRow(
+                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                    title = stringResource(R.string.otp_records_entry_title),
+                    subtitle = stringResource(R.string.otp_records_entry_desc),
+                    onClick = onOpenRecords,
+                )
+            }
+            SettingNavigationRow(
+                icon = { Icon(Icons.Default.Password, contentDescription = null) },
+                title = stringResource(R.string.otp_auto_input_entry_title),
+                subtitle = stringResource(R.string.otp_auto_input_entry_desc),
+                onClick = onOpenAutoInput,
+            )
+            SettingNavigationRow(
+                icon = { Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = null) },
+                title = stringResource(R.string.otp_match_rules_entry_title),
+                subtitle = stringResource(R.string.otp_match_rules_entry_desc),
+                onClick = onOpenMatchRules,
+            )
+        }
+
+        SettingsSectionTitle(stringResource(R.string.otp_keywords_section))
+        SettingsCard {
+            OutlinedTextField(
+                value = keywordsText,
+                onValueChange = { keywordsText = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                label = { Text(stringResource(R.string.otp_keywords_regex_label)) },
+                supportingText = { Text(stringResource(R.string.otp_keywords_regex_hint)) },
+                minLines = 2,
+            )
+            SettingLinkRow(
+                title = stringResource(R.string.otp_keywords_save),
+                subtitle = stringResource(R.string.otp_keywords_save_desc),
+                onClick = { onKeywordsRegexChange(keywordsText) },
+            )
+            SettingLinkRow(
+                title = stringResource(R.string.otp_keywords_reset),
+                subtitle = stringResource(R.string.otp_keywords_reset_desc),
+                onClick = {
+                    keywordsText = VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+                    onKeywordsRegexChange(keywordsText)
+                },
+            )
+        }
+
+        SettingsSectionTitle(stringResource(R.string.otp_test_section))
+        SettingsCard {
+            SettingLinkRow(
+                title = stringResource(R.string.otp_test_title),
+                subtitle = stringResource(R.string.otp_test_desc),
+                onClick = { showTestDialog = true },
+            )
+        }
+    }
+
+    if (showTestDialog) {
+        OtpTestDialogHost(
+            settings = settings,
+            officialRules = officialRules,
+            keywordsRegex = keywordsText,
+            onDismiss = { showTestDialog = false },
+        )
+    }
+}
+
+@Composable
+fun OtpTestDialogHost(
+    settings: AppSettings,
+    officialRules: List<OtpMatchRule>,
+    keywordsRegex: String = settings.otpKeywordsRegex,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val app = remember { context.applicationContext as SlideIndexApp }
+    val extractionConfig = remember(settings, officialRules, keywordsRegex) {
+        OtpExtractionConfig.build(
+            keywordsRegex = keywordsRegex,
+            officialRules = officialRules,
+            userRules = settings.otpUserMatchRules,
+            disabledOfficialRuleIds = settings.otpDisabledOfficialRuleIds,
+        )
+    }
+    OtpTestDialog(
+        config = extractionConfig,
+        onDismiss = onDismiss,
+        onRecord = { code, sampleText, ruleName ->
+            app.otpRecordsRepository.record(
+                code = code,
+                packageName = "com.test.sms",
+                title = "",
+                text = sampleText,
+                ruleName = ruleName,
+                isTest = true,
+            )
+        },
+    )
+}
+
+@Composable
+private fun OtpTestDialog(
+    config: OtpExtractionConfig,
+    onDismiss: () -> Unit,
+    onRecord: (code: String, sampleText: String, ruleName: String?) -> Unit = { _, _, _ -> },
+) {
+    var sampleText by remember { mutableStateOf("") }
+    val result = remember(sampleText, config) {
+        if (sampleText.isBlank()) {
+            null
+        } else {
+            VerificationCodeExtractor.extract(
+                packageName = "com.test.sms",
+                title = "",
+                text = sampleText,
+                config = config,
+            )
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.otp_test_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = sampleText,
+                    onValueChange = { sampleText = it },
+                    label = { Text(stringResource(R.string.otp_test_input_label)) },
+                    placeholder = { Text(stringResource(R.string.otp_test_input_placeholder)) },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                when {
+                    sampleText.isBlank() -> Unit
+                    result?.code != null -> {
+                        Text(
+                            text = stringResource(R.string.otp_test_result_success, result.code),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    result?.attempted == true -> {
+                        Text(
+                            text = stringResource(R.string.otp_test_result_failed),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    result?.code?.let { code ->
+                        onRecord(code, sampleText, result.ruleName)
+                    }
+                    onDismiss()
+                },
+            ) {
+                Text(stringResource(R.string.shell_panel_close))
+            }
+        },
+    )
+}
+
+@Composable
+fun OtpSettingsEntryCard(onClick: () -> Unit) {
+    SettingNavigationRow(
+        icon = { Icon(Icons.Default.Password, contentDescription = null) },
+        title = stringResource(R.string.otp_settings_entry_title),
+        subtitle = stringResource(R.string.otp_settings_entry_desc),
+        onClick = onClick,
+    )
+}

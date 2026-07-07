@@ -622,6 +622,24 @@ class GestureSession(
 
             GestureAction.AdjustBrightness -> enterAdjustMode(ContinuousAdjustController.Mode.BRIGHTNESS, rawY)
 
+            GestureAction.FloatingPointer -> {
+                if (!moveTimeActionFired &&
+                    pathRecognizer.hasMetThreshold(classification.trigger, rawX, rawY)
+                ) {
+                    moveTimeActionFired = true
+                    callbacks.cancelDelayed(longPressCheckRunnable)
+                    pathRecognizer.disqualifyLongPress()
+                    callbacks.hapticConfirmLaunch()
+                    actionExecutor.execute(
+                        GestureAction.FloatingPointer,
+                        settings,
+                        anchorRawX = rawX,
+                        anchorRawY = rawY,
+                        continueTouch = true,
+                    )
+                }
+            }
+
             else -> Unit
 
         }
@@ -803,9 +821,16 @@ class GestureSession(
             GestureAction.ScrollToBottom,
             GestureAction.QuickToolsOverlay,
             GestureAction.WidgetPopupOverlay,
+            GestureAction.FloatingPointer,
             -> {
                 callbacks.hapticConfirmLaunch()
-                actionExecutor.execute(action, settings, anchorRawY = rawY)
+                actionExecutor.execute(
+                    action,
+                    settings,
+                    anchorRawX = rawX,
+                    anchorRawY = rawY,
+                    continueTouch = moveTimeActionFired,
+                )
                 endSession()
             }
 
