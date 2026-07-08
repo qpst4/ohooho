@@ -9,6 +9,23 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# --- 编译与产物过滤 ---
 *.apk
 *.ap_
 *.aab
+.apk-analysis/
+
+# --- IDE与本地临时任务 ---
+.vscode/
+.tasks/
+test-regex.kts
+
+# --- JVM 崩溃与回放日志 ---
+hs_err_pid*.log
+replay_pid*.log
+
+# --- 签名密钥（切勿提交） ---
+keystore.properties
+*.jks
+*.keystore

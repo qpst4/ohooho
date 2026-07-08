@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ cloud backup and device-to-device transfer rules.
+  Sensitive local data (OTP records, notification history) is excluded.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="otp_records.json" />
+        <exclude domain="file" path="notification_history.json" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="otp_records.json" />
+        <exclude domain="file" path="notification_history.json" />
+    </device-transfer>
+</data-extraction-rules>

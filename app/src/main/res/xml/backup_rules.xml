@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Legacy full-backup rules (Android 11 and below).
+  OTP records and notification history are excluded from cloud / adb backup.
+-->
+<full-backup-content>
+    <exclude domain="file" path="otp_records.json" />
+    <exclude domain="file" path="notification_history.json" />
+</full-backup-content>
