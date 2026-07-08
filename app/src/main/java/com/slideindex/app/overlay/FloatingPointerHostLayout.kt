@@ -245,14 +245,18 @@ internal class FloatingPointerHostLayout(
 
     private fun performPointerClick() {
         cancelLongPressJob()
-        onHaptic()
         val clickX = session.pointerX.floatValue
         val clickY = session.pointerY.floatValue
         val settings = settingsProvider()
+        if (settings.floatingPointerClickHapticEnabled) {
+            onHaptic()
+        }
         if (settings.floatingPointerClickVisualFeedbackEnabled) {
             session.triggerRipple(clickX, clickY)
+            mainHandler.post { onPointerClick(clickX, clickY) }
+        } else {
+            onPointerClick(clickX, clickY)
         }
-        onPointerClick(clickX, clickY)
     }
 
     private fun scheduleLongPress() {

@@ -20,13 +20,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,7 +41,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,9 +58,7 @@ import com.slideindex.app.R
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.notification.ActiveNotificationEntry
-import com.slideindex.app.notification.NotificationFilterPreferences
 import com.slideindex.app.notification.NotificationFilterRule
-import com.slideindex.app.notification.NotificationFilterSettings
 import com.slideindex.app.notification.NotificationHistoryItem
 import com.slideindex.app.notification.NotificationReplayResult
 import com.slideindex.app.notification.NotificationRestoreResult
@@ -76,13 +67,14 @@ import com.slideindex.app.notification.isNotificationHistoryItemHidden
 import com.slideindex.app.otp.OtpClipboardHelper
 import java.text.DateFormat
 import java.util.Date
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 private enum class NotificationFilterTab {
     ACTIVE,
     HISTORY,
+    RULES,
     HIDDEN,
+    SETTINGS,
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -144,10 +136,14 @@ fun NotificationHistoryScreen(
             return
         }
         activeNotifications = app.notificationHistoryRepository.getActiveNotifications(items)
+            .filter { entry ->
+                val item = entry.historyItem ?: entry.toHistoryItem()
+                !isNotificationHistoryItemHidden(item, filterRules)
+            }
         activeKeys = app.notificationHistoryRepository.getActiveNotificationKeys()
     }
 
-    LaunchedEffect(listenerEnabled, items, selectedTab) {
+    LaunchedEffect(listenerEnabled, items, filterRules, selectedTab) {
         refreshActiveNotifications()
     }
 
@@ -165,13 +161,13 @@ fun NotificationHistoryScreen(
             onRequestListenerAccess()
             return
         }
-        val hiddenFromShade = app.notificationFilterRepository.addRuleFromItem(item)
+        val hiddenFromShade = app.notificationFilterRepository.hideItemFromShade(item)
         historyId?.let { app.notificationHistoryRepository.markHidden(it, true) }
         onRefreshActive()
         val messageRes = when {
-            hiddenFromShade -> R.string.notification_filter_rule_added
+            hiddenFromShade -> R.string.notification_hidden_success
             item.notificationKey != null -> R.string.notification_hide_failed
-            else -> R.string.notification_filter_rule_added
+            else -> R.string.notification_hidden_success
         }
         Toast.makeText(context, messageRes, Toast.LENGTH_SHORT).show()
     }
@@ -243,9 +239,19 @@ fun NotificationHistoryScreen(
                     text = { Text(stringResource(R.string.notification_filter_tab_history)) },
                 )
                 Tab(
+                    selected = selectedTab == NotificationFilterTab.RULES.ordinal,
+                    onClick = { selectedTab = NotificationFilterTab.RULES.ordinal },
+                    text = { Text(stringResource(R.string.notification_filter_tab_rules)) },
+                )
+                Tab(
                     selected = selectedTab == NotificationFilterTab.HIDDEN.ordinal,
                     onClick = { selectedTab = NotificationFilterTab.HIDDEN.ordinal },
                     text = { Text(stringResource(R.string.notification_filter_tab_hidden)) },
+                )
+                Tab(
+                    selected = selectedTab == NotificationFilterTab.SETTINGS.ordinal,
+                    onClick = { selectedTab = NotificationFilterTab.SETTINGS.ordinal },
+                    text = { Text(stringResource(R.string.notification_filter_tab_settings)) },
                 )
             }
             when (NotificationFilterTab.entries[selectedTab]) {
@@ -279,6 +285,16 @@ fun NotificationHistoryScreen(
                     scope = scope,
                     onReplayResult = onReplayResult,
                 )
+                NotificationFilterTab.RULES -> NotificationRulesTab(
+                    rules = filterRules.filter { it.userCreated },
+                    app = app,
+                    modifier = listModifier,
+                    onUpsertRule = { rule -> app.notificationFilterRepository.upsertRule(rule) },
+                    onRemoveRule = { id -> app.notificationFilterRepository.removeRule(id) },
+                    onSetRuleEnabled = { id, enabled ->
+                        app.notificationFilterRepository.setRuleEnabled(id, enabled)
+                    },
+                )
                 NotificationFilterTab.HIDDEN -> HiddenNotificationsTab(
                     listModifier = listModifier,
                     hiddenItems = hiddenItems,
@@ -294,6 +310,12 @@ fun NotificationHistoryScreen(
                     onDelete = { pendingDeleteItem = it },
                     scope = scope,
                     onReplayResult = onReplayResult,
+                )
+                NotificationFilterTab.SETTINGS -> NotificationSettingsTab(
+                    app = app,
+                    listenerEnabled = listenerEnabled,
+                    onRequestListenerAccess = onRequestListenerAccess,
+                    modifier = listModifier,
                 )
             }
         }
@@ -422,8 +444,6 @@ private fun ActiveNotificationsTab(
                     showHiddenBadge = historyItem?.let { isNotificationHistoryItemHidden(it, filterRules) } == true,
                     showRestoreAction = historyItem?.let { isNotificationHistoryItemHidden(it, filterRules) } == true,
                     showDeleteAction = historyItem != null,
-                    enableSwipeHide = historyItem?.let { !isNotificationHistoryItemHidden(it, filterRules) } != false &&
-                        findMatchingNotificationFilterRule(filterRules, displayItem) == null,
                     onOpen = {
                         scope.launch {
                             when (val result = app.notificationHistoryRepository.replayActive(entry)) {
@@ -473,59 +493,11 @@ private fun HistoryNotificationsTab(
     onReplayResult: (NotificationReplayResult) -> Unit,
 ) {
     val context = LocalContext.current
-    val filterSettings by app.notificationFilterPreferences.settings.collectAsStateWithLifecycle(
-        initialValue = NotificationFilterSettings(),
-    )
-    val maxCountRange = NotificationFilterPreferences.MIN_NOTIFICATION_HISTORY_MAX_COUNT.toFloat()..
-        NotificationFilterPreferences.MAX_NOTIFICATION_HISTORY_MAX_COUNT.toFloat()
-    val maxCountSteps = (
-        (NotificationFilterPreferences.MAX_NOTIFICATION_HISTORY_MAX_COUNT -
-            NotificationFilterPreferences.MIN_NOTIFICATION_HISTORY_MAX_COUNT) /
-            NotificationFilterPreferences.NOTIFICATION_HISTORY_MAX_COUNT_STEP
-        ) - 1
-    val snapMaxCount: (Float) -> Float = { value ->
-        val step = NotificationFilterPreferences.NOTIFICATION_HISTORY_MAX_COUNT_STEP
-        val snapped = ((value / step).roundToInt() * step)
-            .coerceIn(
-                NotificationFilterPreferences.MIN_NOTIFICATION_HISTORY_MAX_COUNT,
-                NotificationFilterPreferences.MAX_NOTIFICATION_HISTORY_MAX_COUNT,
-            )
-        snapped.toFloat()
-    }
-    val formatMaxCountLabel = remember(context) {
-        { value: Float ->
-            context.getString(
-                R.string.notification_history_max_count_value,
-                value.roundToInt(),
-            )
-        }
-    }
     LazyColumn(
         modifier = listModifier
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item(key = "history_max_count") {
-            SettingsCard {
-                SettingsSliderRow(
-                    title = stringResource(R.string.notification_history_max_count_title),
-                    value = filterSettings.notificationHistoryMaxCount.toFloat(),
-                    valueRange = maxCountRange,
-                    steps = maxCountSteps,
-                    enabled = true,
-                    label = formatMaxCountLabel(filterSettings.notificationHistoryMaxCount.toFloat()),
-                    formatLabel = formatMaxCountLabel,
-                    snapValue = snapMaxCount,
-                    onValueChange = { value ->
-                        val count = snapMaxCount(value).roundToInt()
-                        scope.launch {
-                            app.notificationFilterPreferences.setNotificationHistoryMaxCount(count)
-                            app.notificationHistoryRepository.applyMaxCountLimit(count)
-                        }
-                    },
-                )
-            }
-        }
         if (items.isEmpty()) {
             item(key = "history_empty") {
                 Text(
@@ -562,7 +534,6 @@ private fun HistoryNotificationsTab(
                         matchingRule = findMatchingNotificationFilterRule(filterRules, item),
                         showHiddenBadge = isNotificationHistoryItemHidden(item, filterRules),
                         showRestoreAction = isNotificationHistoryItemHidden(item, filterRules),
-                        enableSwipeHide = !isNotificationHistoryItemHidden(item, filterRules),
                         onOpen = {
                             scope.launch {
                                 when (val result = app.notificationHistoryRepository.replay(item)) {
@@ -730,7 +701,6 @@ private fun NotificationHistoryRow(
     showHiddenBadge: Boolean = item.hidden,
     showDeleteAction: Boolean = true,
     showRestoreAction: Boolean = false,
-    enableSwipeHide: Boolean = false,
     onOpen: () -> Unit,
     onHide: () -> Unit,
     onUnhide: () -> Unit,
@@ -738,52 +708,12 @@ private fun NotificationHistoryRow(
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    val density = LocalDensity.current
-    val swipeThresholdPx = with(density) { 96.dp.toPx() }
-    val onHideState = rememberUpdatedState(onHide)
     val displayTitle = item.title.ifBlank { appInfo?.label ?: item.packageName }
 
     Box {
-        if (enableSwipeHide && offsetX < 0f) {
-            Row(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(end = 16.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.VisibilityOff,
-                    contentDescription = stringResource(R.string.notification_filter_hide),
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .then(
-                    if (enableSwipeHide) {
-                        Modifier.pointerInput(item.id) {
-                            detectHorizontalDragGestures(
-                                onDragEnd = {
-                                    if (offsetX <= -swipeThresholdPx) {
-                                        onHideState.value()
-                                    }
-                                    offsetX = 0f
-                                },
-                                onDragCancel = { offsetX = 0f },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    offsetX = (offsetX + dragAmount).coerceAtMost(0f)
-                                },
-                            )
-                        }
-                    } else {
-                        Modifier
-                    },
-                )
                 .combinedClickable(
                     onClick = onOpen,
                     onLongClick = { showMenu = true },

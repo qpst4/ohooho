@@ -396,44 +396,33 @@ private fun DrawScope.drawTrailDot(
 
 internal fun DrawScope.drawFloatingPointerRipple(
     center: Offset,
-    elapsedMs: Long,
+    progress: Float,
     rippleColor: Color,
     pointerDiameterPx: Float,
-    durationMs: Long = FLOATING_POINTER_RIPPLE_DURATION_MS,
 ) {
-    if (elapsedMs < 0L || elapsedMs > durationMs) return
-    val progress = (elapsedMs.toFloat() / durationMs).coerceIn(0f, 1f)
-    val maxRadius = pointerDiameterPx * 2.4f
+    val t = progress.coerceIn(0f, 1f)
+    if (t <= 0.001f || t >= 0.999f) return
 
-    val fillRadius = maxRadius * progress.pow(0.82f)
-    val fillAlpha = (1f - progress).pow(2.2f) * 0.42f
+    val maxRadius = pointerDiameterPx * 3.6f
+    val expand = 1f - (1f - t).pow(2.4f)
+    val radius = pointerDiameterPx * 0.06f + (maxRadius - pointerDiameterPx * 0.06f) * expand
+    val fade = (1f - t).pow(1.15f)
+    val baseAlpha = rippleColor.alpha.coerceIn(0f, 1f)
+
     drawCircle(
-        color = rippleColor.copy(alpha = fillAlpha * rippleColor.alpha),
-        radius = fillRadius,
-        center = center,
-    )
-
-    val ringProgress = (progress * 1.05f).coerceIn(0f, 1f)
-    val ringRadius = maxRadius * 0.9f * ringProgress
-    val ringAlpha = (1f - ringProgress).pow(1.6f) * 0.85f
-    drawCircle(
-        color = rippleColor.copy(alpha = ringAlpha * rippleColor.alpha),
-        radius = ringRadius,
-        center = center,
-        style = Stroke(width = (4f - progress * 2f).coerceAtLeast(1.5f)),
-    )
-
-    if (progress > 0.12f) {
-        val secondaryProgress = ((progress - 0.12f) / 0.88f).coerceIn(0f, 1f)
-        val secondaryRadius = maxRadius * 0.65f * secondaryProgress
-        val secondaryAlpha = (1f - secondaryProgress).pow(2f) * 0.45f
-        drawCircle(
-            color = rippleColor.copy(alpha = secondaryAlpha * rippleColor.alpha),
-            radius = secondaryRadius,
+        brush = Brush.radialGradient(
+            colorStops = arrayOf(
+                0f to rippleColor.copy(alpha = fade * 0.26f * baseAlpha),
+                0.45f to rippleColor.copy(alpha = fade * 0.10f * baseAlpha),
+                0.78f to rippleColor.copy(alpha = fade * 0.03f * baseAlpha),
+                1f to Color.Transparent,
+            ),
             center = center,
-            style = Stroke(width = 2f),
-        )
-    }
+            radius = radius.coerceAtLeast(1f),
+        ),
+        radius = radius.coerceAtLeast(1f),
+        center = center,
+    )
 }
 
-internal const val FLOATING_POINTER_RIPPLE_DURATION_MS = 380L
+internal const val FLOATING_POINTER_RIPPLE_DURATION_MS = 520L

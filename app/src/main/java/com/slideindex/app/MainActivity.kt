@@ -156,6 +156,7 @@ class MainActivity : ComponentActivity() {
             var sideGestureHandleId by remember { mutableStateOf(TriggerHandle.DEFAULT_ID) }
             var appearanceParentSide by remember { mutableStateOf(PanelSide.LEFT) }
             var designParentSide by remember { mutableStateOf(PanelSide.LEFT) }
+            var floatingPointerAreaPreviewEnabled by rememberSaveable { mutableStateOf(false) }
             val rootBottomContentPadding = MainBottomNavHeight + MainBottomNavOuterPadding
             val visibleNotificationHistoryCount = notificationHistory.count {
                 !isNotificationHistoryItemHidden(it, notificationFilterRules)
@@ -163,8 +164,11 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(settings.hideFromRecents) {
                 applyHideFromRecents(settings.hideFromRecents)
             }
-            LaunchedEffect(destination, accessibilityGranted) {
-                if (destination == SettingsDestination.FloatingPointer && accessibilityGranted) {
+            LaunchedEffect(destination, accessibilityGranted, floatingPointerAreaPreviewEnabled) {
+                if (destination == SettingsDestination.FloatingPointer &&
+                    accessibilityGranted &&
+                    floatingPointerAreaPreviewEnabled
+                ) {
                     FloatingPointerAreaPreviewOverlay.show(this@MainActivity)
                 } else if (FloatingPointerAreaPreviewOverlay.isShowing) {
                     FloatingPointerAreaPreviewOverlay.hide()
@@ -958,6 +962,9 @@ class MainActivity : ComponentActivity() {
 
                     SettingsDestination.FloatingPointer -> FloatingPointerSettingsScreen(
                         settings = settings,
+                        areaPreviewEnabled = floatingPointerAreaPreviewEnabled,
+                        previewAccessibilityGranted = accessibilityGranted,
+                        onAreaPreviewEnabledChange = { floatingPointerAreaPreviewEnabled = it },
                         onBack = { destination = SettingsDestination.Main },
                         onOpenPointerSettings = {
                             destination = SettingsDestination.FloatingPointerPointer
@@ -1026,6 +1033,11 @@ class MainActivity : ComponentActivity() {
                         onClickVisualFeedbackChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setFloatingPointerClickVisualFeedbackEnabled(enabled)
+                            }
+                        },
+                        onClickHapticChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerClickHapticEnabled(enabled)
                             }
                         },
                         onRippleColorChange = { color ->

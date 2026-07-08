@@ -27,37 +27,23 @@ object NotificationHistoryRecorder {
         notifications.forEach { onPosted(context, listener, it) }
     }
 
-    fun applyAutoHideToActive(context: Context) {
-        val app = context.applicationContext as? SlideIndexApp ?: return
-        val listener = MediaNotificationListener.instance ?: return
-        val filterSettings = app.notificationFilterPreferences.readSnapshot()
-        if (!filterSettings.autoHideOngoingEnabled &&
-            app.notificationFilterRepository.rules.value.isEmpty()
-        ) {
-            return
-        }
-        val notifications = runCatching { listener.activeNotifications?.toList() }.getOrNull() ?: return
-        Log.d(TAG, "applyAutoHideToActive: scanning ${notifications.size} active notifications")
-        notifications.forEach { sbn -> onPosted(context, listener, sbn) }
-    }
-
     fun onPosted(
         context: Context,
         listener: NotificationListenerService,
         sbn: StatusBarNotification,
-    ) {
-        val notification = sbn.notification ?: return
-        val extras = notification.extras ?: return
+    ): Boolean {
+        val notification = sbn.notification ?: return false
+        val extras = notification.extras ?: return false
         val content = NotificationTextExtractor.extract(extras)
         val title = content.title
         val text = content.text
-        if (title.isBlank() && text.isBlank()) return
+        if (title.isBlank() && text.isBlank()) return false
 
         NotificationSbnCache.cacheActive(sbn)
 
-        val app = context.applicationContext as? SlideIndexApp ?: return
-        val filterSettings = app.notificationFilterPreferences.readSnapshot()
-        val shouldHide = NotificationHider.shouldHide(context, filterSettings, app.notificationFilterRepository, sbn)
+        val app = context.applicationContext as? SlideIndexApp ?: return false
+        val matchingRules = app.notificationFilterRepository.findMatchingRules(sbn)
+        val shouldHide = NotificationHider.shouldHide(context, app.notificationFilterRepository, sbn)
 
         val capturedIntent = NotificationHistoryIntentCapture.capture(sbn, context)
         Log.i(
@@ -119,9 +105,12 @@ object NotificationHistoryRecorder {
         )
         app.notificationHistoryRepository.record(item)
 
-        if (shouldHide) {
-            NotificationHider.hideFromShade(listener, sbn)
+        if (matchingRules.isNotEmpty()) {
+            NotificationRuleExecutor.execute(context, listener, sbn, matchingRules)
         }
+        if (!shouldHide) return false
+        if (matchingRules.any { it.hidesNotification() }) return true
+        return NotificationHider.hideFromShade(listener, sbn)
     }
 
     fun onRemoved(context: Context, sbn: StatusBarNotification, reason: Int) {

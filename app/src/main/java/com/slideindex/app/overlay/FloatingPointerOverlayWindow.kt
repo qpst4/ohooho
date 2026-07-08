@@ -14,6 +14,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -834,6 +835,7 @@ internal class FloatingPointerSession(
     val rippleCenterX = mutableFloatStateOf(0f)
     val rippleCenterY = mutableFloatStateOf(0f)
     val rippleStartTimeMs = mutableStateOf(0L)
+    val rippleGeneration = mutableIntStateOf(0)
     val radialMenuActive = mutableStateOf(false)
     val radialHighlightedSlot = mutableIntStateOf(-1)
     var radialMenuCenterX = 0f
@@ -890,6 +892,7 @@ internal class FloatingPointerSession(
         rippleCenterY.floatValue = y
         rippleStartTimeMs.value = System.currentTimeMillis()
         rippleActive.value = true
+        rippleGeneration.intValue++
     }
 
     fun clearRippleIfExpired(nowMs: Long, durationMs: Long = FLOATING_POINTER_RIPPLE_DURATION_MS) {
@@ -1267,7 +1270,7 @@ private fun FloatingPointerDisplay(
         val pointerVisible by session.pointerVisible
         val radialMenuActive by session.radialMenuActive
         val radialHighlightedSlot by session.radialHighlightedSlot
-        val rippleActive by session.rippleActive
+        val rippleGeneration by session.rippleGeneration
         val radialMenuAlwaysShown = settings.floatingPointerRadialMenuEnabled &&
             settings.floatingPointerRadialAlwaysVisible &&
             !session.awaitingPlacement
@@ -1287,7 +1290,28 @@ private fun FloatingPointerDisplay(
         val showPointer = (!settings.floatingPointerHideWhenJoystickReleased || pointerVisible) &&
             !session.awaitingPlacement
         val presenceScale = 0.72f + 0.28f * presence
+        val rippleProgress = remember { Animatable(0f) }
         var animationTick by remember { mutableLongStateOf(0L) }
+
+        LaunchedEffect(rippleGeneration) {
+            if (rippleGeneration <= 0) return@LaunchedEffect
+            val generation = rippleGeneration
+            rippleProgress.snapTo(0f)
+            try {
+                rippleProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = FLOATING_POINTER_RIPPLE_DURATION_MS.toInt(),
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+            } finally {
+                if (session.rippleGeneration.intValue == generation) {
+                    session.rippleActive.value = false
+                    rippleProgress.snapTo(0f)
+                }
+            }
+        }
 
         LaunchedEffect(Unit) {
             while (true) {
@@ -1296,7 +1320,8 @@ private fun FloatingPointerDisplay(
                     session.clearRippleIfExpired(now)
                     session.pruneExpiredTrailPoints(now)
                     if (session.hasActiveTrail(now) ||
-                        session.rippleActive.value ||
+                        rippleProgress.isRunning ||
+                        rippleProgress.value > 0.001f ||
                         presence < 0.999f ||
                         radialMenuProgress < 0.999f
                     ) {
@@ -1328,6 +1353,14 @@ private fun FloatingPointerDisplay(
             Canvas(Modifier.fillMaxSize()) {
                 val now = System.currentTimeMillis()
                 drawFloatingPointerTrail(session.trailPoints, settings, now)
+                if (settings.floatingPointerClickVisualFeedbackEnabled && rippleProgress.value > 0.001f) {
+                    drawFloatingPointerRipple(
+                        center = Offset(session.rippleCenterX.floatValue, session.rippleCenterY.floatValue),
+                        progress = rippleProgress.value,
+                        rippleColor = Color(settings.floatingPointerRippleColorArgb),
+                        pointerDiameterPx = settings.floatingPointerPointerDiameterPx,
+                    )
+                }
                 if (showPointer) {
                     drawQcRingPointer(
                         center = Offset(pointerX, pointerY),
@@ -1337,15 +1370,6 @@ private fun FloatingPointerDisplay(
                         ringColor = Color(settings.floatingPointerRingColorArgb),
                         fillColor = Color(settings.floatingPointerFillColorArgb),
                         dotColor = Color(settings.floatingPointerDotColorArgb),
-                    )
-                }
-                if (rippleActive && settings.floatingPointerClickVisualFeedbackEnabled) {
-                    val elapsed = now - session.rippleStartTimeMs.value
-                    drawFloatingPointerRipple(
-                        center = Offset(session.rippleCenterX.floatValue, session.rippleCenterY.floatValue),
-                        elapsedMs = elapsed,
-                        rippleColor = Color(settings.floatingPointerRippleColorArgb),
-                        pointerDiameterPx = settings.floatingPointerPointerDiameterPx,
                     )
                 }
                 if (!session.awaitingPlacement || joystickActive || radialMenuActive) {

@@ -43,6 +43,7 @@ fun FloatingPointerPointerSettingsScreen(
     onFillColorChange: (Int) -> Unit,
     onDotColorChange: (Int) -> Unit,
     onClickVisualFeedbackChange: (Boolean) -> Unit,
+    onClickHapticChange: (Boolean) -> Unit,
     onRippleColorChange: (Int) -> Unit,
     onTrailTypeChange: (FloatingPointerTrailType) -> Unit,
     onTrailDurationChange: (Int) -> Unit,
@@ -156,6 +157,13 @@ fun FloatingPointerPointerSettingsScreen(
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_visual_feedback_section))
         SettingsCard {
+            SettingSwitchRow(
+                title = stringResource(R.string.floating_pointer_click_haptic),
+                subtitle = stringResource(R.string.floating_pointer_click_haptic_desc),
+                checked = settings.floatingPointerClickHapticEnabled,
+                enabled = true,
+                onCheckedChange = onClickHapticChange,
+            )
             SettingSwitchRow(
                 title = stringResource(R.string.floating_pointer_click_visual_feedback),
                 subtitle = stringResource(R.string.floating_pointer_click_visual_feedback_desc),

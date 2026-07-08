@@ -84,6 +84,7 @@ data class AppSettings(
     val floatingPointerFillColorArgb: Int = 0x19000000,
     val floatingPointerDotColorArgb: Int = 0xFFFFFFFF.toInt(),
     val floatingPointerClickVisualFeedbackEnabled: Boolean = true,
+    val floatingPointerClickHapticEnabled: Boolean = true,
     val floatingPointerRippleColorArgb: Int = 0xFFFF8A80.toInt(),
     val floatingPointerTrailTypeId: Int = FloatingPointerTrailType.HIGH_DETAIL.id,
     val floatingPointerTrailDurationMs: Int = 150,

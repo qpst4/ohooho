@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -28,7 +30,7 @@ class OverlayService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+        promoteToForeground()
         startAccessibilityWatchdog()
     }
 
@@ -48,6 +50,8 @@ class OverlayService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        // startForegroundService() requires startForeground() on every delivery, not only in onCreate().
+        promoteToForeground()
         when (intent?.action) {
             ACTION_RELOAD_APPS -> SlideIndexAccessibilityService.reloadApps()
             ACTION_PREVIEW_START -> {
@@ -62,6 +66,19 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onBind(intent: Intent): IBinder? = super.onBind(intent)
+
+    private fun promoteToForeground() {
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
 
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)

@@ -17,6 +17,9 @@ import kotlin.math.roundToInt
 @Composable
 fun FloatingPointerSettingsScreen(
     settings: AppSettings,
+    areaPreviewEnabled: Boolean,
+    previewAccessibilityGranted: Boolean,
+    onAreaPreviewEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onOpenPointerSettings: () -> Unit,
     onOpenJoystickSettings: () -> Unit,
@@ -31,9 +34,25 @@ fun FloatingPointerSettingsScreen(
         onBack = onBack,
     ) {
         SettingsHintText(stringResource(R.string.floating_pointer_settings_desc))
-        SettingsHintText(stringResource(R.string.floating_pointer_preview_drag_hint))
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_joystick_area_section))
+        SettingsCard {
+            SettingSwitchRow(
+                title = stringResource(R.string.floating_pointer_area_preview_title),
+                subtitle = if (previewAccessibilityGranted) {
+                    stringResource(R.string.floating_pointer_area_preview_desc)
+                } else {
+                    stringResource(R.string.gesture_action_floating_pointer_permission)
+                },
+                checked = areaPreviewEnabled,
+                enabled = previewAccessibilityGranted,
+                onCheckedChange = onAreaPreviewEnabledChange,
+            )
+        }
+        if (areaPreviewEnabled) {
+            SettingsHintText(stringResource(R.string.floating_pointer_preview_drag_hint))
+        }
+
         SettingsCard {
             SettingsSliderRow(
                 title = stringResource(R.string.floating_pointer_joystick_area_zoom),

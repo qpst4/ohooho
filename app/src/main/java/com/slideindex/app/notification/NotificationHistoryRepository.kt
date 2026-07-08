@@ -136,9 +136,7 @@ class NotificationHistoryRepository(
     fun getActiveNotificationKeys(): Set<String> {
         val listener = MediaNotificationListener.instance ?: return emptySet()
         return runCatching {
-            val active = listener.activeNotifications?.map { it.key }.orEmpty()
-            val snoozed = listener.snoozedNotifications?.map { it.key }.orEmpty()
-            (active + snoozed).toSet()
+            listener.activeNotifications?.map { it.key }.orEmpty().toSet()
         }.getOrDefault(emptySet())
     }
 
@@ -146,12 +144,10 @@ class NotificationHistoryRepository(
         val listener = MediaNotificationListener.instance ?: return emptyList()
         val selfPackage = appContext.packageName
         val active = runCatching { listener.activeNotifications?.toList() }.getOrNull().orEmpty()
-        val snoozed = runCatching { listener.snoozedNotifications?.toList() }.getOrNull().orEmpty()
-        val notifications = (active + snoozed).distinctBy { it.key }
         val historyByKey = historyItems.mapNotNull { item ->
             item.notificationKey?.let { key -> key to item }
         }.toMap()
-        return notifications
+        return active
             .asSequence()
             .filter { it.packageName != selfPackage }
             .mapNotNull { sbn -> toActiveNotificationEntry(sbn, historyByKey[sbn.key]) }
@@ -176,7 +172,28 @@ class NotificationHistoryRepository(
         return NotificationHider.hideNotification(key)
     }
 
-    fun hideAllOngoing(): Int = NotificationHider.hideAllOngoing(appContext.packageName)
+    fun restoreAllSnoozed(): Int {
+        val restoredKeys = NotificationHider.restoreAllSnoozed(appContext.packageName)
+        if (restoredKeys.isEmpty()) return 0
+        scope.launch {
+            mutex.withLock {
+                val current = readFromDisk()
+                val restoredKeySet = restoredKeys.toSet()
+                val next = current.map { item ->
+                    if (item.notificationKey in restoredKeySet && item.hidden) {
+                        item.copy(hidden = false)
+                    } else {
+                        item
+                    }
+                }
+                if (next != current) {
+                    writeToDisk(next)
+                    _items.value = next
+                }
+            }
+        }
+        return restoredKeys.size
+    }
 
     fun markHidden(id: String, hidden: Boolean) {
         scope.launch {
@@ -301,6 +318,7 @@ class NotificationHistoryRepository(
             extrasBase64 = incoming.extrasBase64 ?: existing.extrasBase64,
             extractedCode = incoming.extractedCode ?: existing.extractedCode,
             extractionAttempted = incoming.extractionAttempted || existing.extractionAttempted,
+            hidden = incoming.hidden || existing.hidden,
         )
     }
 

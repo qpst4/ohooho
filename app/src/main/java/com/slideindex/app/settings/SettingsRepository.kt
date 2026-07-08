@@ -138,6 +138,7 @@ class SettingsRepository(private val context: Context) {
             floatingPointerFillColorArgb = prefs[FLOATING_POINTER_FILL_COLOR] ?: 0x19000000,
             floatingPointerDotColorArgb = prefs[FLOATING_POINTER_DOT_COLOR] ?: 0xFFFFFFFF.toInt(),
             floatingPointerClickVisualFeedbackEnabled = prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] ?: true,
+            floatingPointerClickHapticEnabled = prefs[FLOATING_POINTER_CLICK_HAPTIC] ?: true,
             floatingPointerRippleColorArgb = prefs[FLOATING_POINTER_RIPPLE_COLOR] ?: 0xFFFF8A80.toInt(),
             floatingPointerTrailTypeId = prefs[FLOATING_POINTER_TRAIL_TYPE] ?: FloatingPointerTrailType.HIGH_DETAIL.id,
             floatingPointerTrailDurationMs = prefs[FLOATING_POINTER_TRAIL_DURATION] ?: 150,
@@ -541,6 +542,10 @@ class SettingsRepository(private val context: Context) {
         it[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = enabled
     }
 
+    suspend fun setFloatingPointerClickHapticEnabled(enabled: Boolean) = edit {
+        it[FLOATING_POINTER_CLICK_HAPTIC] = enabled
+    }
+
     suspend fun setFloatingPointerRippleColor(argb: Int) = edit {
         it[FLOATING_POINTER_RIPPLE_COLOR] = argb
     }
@@ -703,6 +708,7 @@ class SettingsRepository(private val context: Context) {
         prefs[FLOATING_POINTER_FILL_COLOR] = 0x19000000
         prefs[FLOATING_POINTER_DOT_COLOR] = 0xFFFFFFFF.toInt()
         prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = true
+        prefs[FLOATING_POINTER_CLICK_HAPTIC] = true
         prefs[FLOATING_POINTER_RIPPLE_COLOR] = 0xFFFF8A80.toInt()
         prefs[FLOATING_POINTER_TRAIL_TYPE] = FloatingPointerTrailType.HIGH_DETAIL.id
         prefs[FLOATING_POINTER_TRAIL_DURATION] = 150
@@ -954,6 +960,7 @@ class SettingsRepository(private val context: Context) {
         private val FLOATING_POINTER_DOT_COLOR = intPreferencesKey("floating_pointer_dot_color")
         private val FLOATING_POINTER_CLICK_VISUAL_FEEDBACK =
             booleanPreferencesKey("floating_pointer_click_visual_feedback")
+        private val FLOATING_POINTER_CLICK_HAPTIC = booleanPreferencesKey("floating_pointer_click_haptic")
         private val FLOATING_POINTER_RIPPLE_COLOR = intPreferencesKey("floating_pointer_ripple_color")
         private val FLOATING_POINTER_TRAIL_TYPE = intPreferencesKey("floating_pointer_trail_type")
         private val FLOATING_POINTER_TRAIL_DURATION = intPreferencesKey("floating_pointer_trail_duration_ms")
