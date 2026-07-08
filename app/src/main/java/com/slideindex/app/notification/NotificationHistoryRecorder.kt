@@ -24,7 +24,6 @@ object NotificationHistoryRecorder {
         notifications: Array<StatusBarNotification>,
     ) {
         NotificationSbnCache.refreshActive(notifications.toList())
-        notifications.forEach { onPosted(context, listener, it) }
     }
 
     fun onPosted(

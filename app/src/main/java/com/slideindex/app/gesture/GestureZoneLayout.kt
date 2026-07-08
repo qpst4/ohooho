@@ -97,6 +97,13 @@ class GestureZoneLayout(
             .coerceAtLeast(dp(16f).toInt())
     }
 
+    /** Edge strip width wide enough to render the full halo glow (preview / capture windows). */
+    fun glowAwareEdgeWidthPx(): Int = computeGlowAwareEdgeWidthPx(
+        edgeTriggerWidthDp = settings.edgeTriggerWidthDp(side),
+        handles = settings.triggerHandles(side),
+        density = density,
+    )
+
     fun interceptZoneRect(): RectF {
         if (!settings.interceptSystemBackGesture) return triggerZoneUnionRect()
         val trigger = triggerZoneUnionRect()
@@ -225,10 +232,26 @@ class GestureZoneLayout(
     private fun dp(value: Float): Float = value * density
 
     companion object {
-        private fun captureWidthPx(settings: AppSettings, side: PanelSide, density: Float): Int =
-            (settings.edgeTriggerWidthDp(side) * density)
+        private fun computeGlowAwareEdgeWidthPx(
+            edgeTriggerWidthDp: Float,
+            handles: List<TriggerHandle>,
+            density: Float,
+        ): Int {
+            val edgeWidthPx = (edgeTriggerWidthDp * density)
                 .toInt()
                 .coerceAtLeast((16f * density).toInt().coerceAtLeast(1))
+            val maxHaloWidthPx = handles.maxOfOrNull { handle ->
+                (handle.design.haloSizeDp * 2f * density).toInt()
+            } ?: 0
+            return edgeWidthPx.coerceAtLeast(maxHaloWidthPx)
+        }
+
+        private fun captureWidthPx(settings: AppSettings, side: PanelSide, density: Float): Int =
+            computeGlowAwareEdgeWidthPx(
+                edgeTriggerWidthDp = settings.edgeTriggerWidthDp(side),
+                handles = settings.triggerHandles(side),
+                density = density,
+            )
 
         private fun exclusionWidthPx(settings: AppSettings, side: PanelSide, density: Float): Int =
             (settings.interceptWindowWidthDp(side) * density)

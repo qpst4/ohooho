@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
+import com.slideindex.app.gesture.TriggerCornerMode
 import com.slideindex.app.gesture.TriggerDesignKind
 import com.slideindex.app.gesture.TriggerDesignPreset
 import com.slideindex.app.gesture.TriggerHandleDesign
@@ -55,6 +56,7 @@ fun TriggerDesignSettingsScreen(
     onBack: () -> Unit,
     onDesignChange: (TriggerHandleDesign) -> Unit,
     onPresetApply: (TriggerDesignPreset) -> Unit,
+    onResetDefaults: () -> Unit,
 ) {
     val pairIndex = settings.triggerCollectionEntries().indexOfFirst { it.handleId == handleId }.let {
         if (it >= 0) it + 1 else 1
@@ -67,6 +69,7 @@ fun TriggerDesignSettingsScreen(
 
     var pickingKind by remember { mutableStateOf(false) }
     var pickingPreset by remember { mutableStateOf(false) }
+    var pickingCornerMode by remember { mutableStateOf(false) }
     var colorTarget by remember { mutableStateOf<TriggerDesignColorTarget?>(null) }
     var pickerInitialColor by remember { mutableIntStateOf(0) }
 
@@ -108,6 +111,17 @@ fun TriggerDesignSettingsScreen(
         )
     }
 
+    if (pickingCornerMode) {
+        TriggerDesignCornerModeDialog(
+            current = design.cornerMode,
+            onDismiss = { pickingCornerMode = false },
+            onSelect = { mode ->
+                onDesignChange(design.copy(cornerMode = mode))
+                pickingCornerMode = false
+            },
+        )
+    }
+
     SettingsScreenScaffold(
         title = stringResource(R.string.trigger_design_title),
         subtitle = stringResource(R.string.trigger_design_desc) + pairSuffix,
@@ -131,8 +145,30 @@ fun TriggerDesignSettingsScreen(
                     value = design.sizeDp,
                     valueRange = 0f..48f,
                     enabled = serviceEnabled,
-                    label = "${design.sizeDp.roundToInt()} px",
+                    label = "${design.sizeDp.roundToInt()} dp",
                     onValueChange = { onDesignChange(design.copy(sizeDp = it)) },
+                )
+                SettingsSliderRow(
+                    title = stringResource(R.string.trigger_design_margin),
+                    value = design.marginDp,
+                    valueRange = 0f..24f,
+                    enabled = serviceEnabled,
+                    label = "${design.marginDp.roundToInt()} dp",
+                    onValueChange = { onDesignChange(design.copy(marginDp = it)) },
+                )
+                SettingsSliderRow(
+                    title = stringResource(R.string.trigger_design_corner_radius),
+                    value = design.cornerRadiusDp,
+                    valueRange = 0f..32f,
+                    enabled = serviceEnabled,
+                    label = "${design.cornerRadiusDp.roundToInt()} dp",
+                    onValueChange = { onDesignChange(design.copy(cornerRadiusDp = it)) },
+                )
+                SettingLinkRow(
+                    title = stringResource(R.string.trigger_design_corner_mode),
+                    subtitle = triggerDesignCornerModeLabel(design.cornerMode),
+                    enabled = serviceEnabled,
+                    onClick = { pickingCornerMode = true },
                 )
                 AnimationStyleColorRow(
                     title = stringResource(R.string.trigger_design_background_color),
@@ -148,7 +184,7 @@ fun TriggerDesignSettingsScreen(
                     value = design.borderSizeDp,
                     valueRange = 0f..8f,
                     enabled = serviceEnabled,
-                    label = "${design.borderSizeDp.roundToInt()} px",
+                    label = "${design.borderSizeDp.roundToInt()} dp",
                     onValueChange = { onDesignChange(design.copy(borderSizeDp = it)) },
                 )
                 AnimationStyleColorRow(
@@ -165,7 +201,7 @@ fun TriggerDesignSettingsScreen(
                     value = design.haloSizeDp,
                     valueRange = 0f..48f,
                     enabled = serviceEnabled,
-                    label = "${design.haloSizeDp.roundToInt()} px",
+                    label = "${design.haloSizeDp.roundToInt()} dp",
                     onValueChange = { onDesignChange(design.copy(haloSizeDp = it)) },
                 )
                 AnimationStyleColorRow(
@@ -183,6 +219,13 @@ fun TriggerDesignSettingsScreen(
         if (design.kind == TriggerDesignKind.CUSTOM_IMAGE) {
             SettingsHintText(stringResource(R.string.trigger_design_custom_image_hint))
         }
+
+        SettingLinkRow(
+            title = stringResource(R.string.trigger_design_reset),
+            subtitle = stringResource(R.string.trigger_design_reset_desc),
+            enabled = serviceEnabled,
+            onClick = onResetDefaults,
+        )
     }
 }
 
@@ -322,6 +365,48 @@ private fun TriggerDesignPresetDialog(
 }
 
 @Composable
+private fun TriggerDesignCornerModeDialog(
+    current: TriggerCornerMode,
+    onDismiss: () -> Unit,
+    onSelect: (TriggerCornerMode) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(R.string.trigger_design_corner_mode))
+        },
+        text = {
+            Column {
+                TriggerCornerMode.entries.forEach { mode ->
+                    Text(
+                        text = triggerDesignCornerModeLabel(mode),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (mode == current) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(mode) }
+                            .padding(vertical = 12.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = stringResource(R.string.cancel),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        },
+    )
+}
+
+@Composable
 internal fun triggerDesignSummary(design: TriggerHandleDesign): String = when (design.kind) {
     TriggerDesignKind.HIDE -> stringResource(R.string.trigger_design_kind_hide)
     TriggerDesignKind.CONFIGURABLE_RECTANGLE -> stringResource(R.string.trigger_design_kind_rectangle)
@@ -333,6 +418,12 @@ private fun triggerDesignKindLabel(kind: TriggerDesignKind): String = when (kind
     TriggerDesignKind.HIDE -> stringResource(R.string.trigger_design_kind_hide)
     TriggerDesignKind.CONFIGURABLE_RECTANGLE -> stringResource(R.string.trigger_design_kind_rectangle)
     TriggerDesignKind.CUSTOM_IMAGE -> stringResource(R.string.trigger_design_kind_custom_image)
+}
+
+@Composable
+private fun triggerDesignCornerModeLabel(mode: TriggerCornerMode): String = when (mode) {
+    TriggerCornerMode.ALL -> stringResource(R.string.trigger_design_corner_mode_all)
+    TriggerCornerMode.OUTER -> stringResource(R.string.trigger_design_corner_mode_outer)
 }
 
 @Composable

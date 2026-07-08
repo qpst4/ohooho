@@ -16,8 +16,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
-import com.slideindex.app.overlay.FloatingPointerRingPreview
+import com.slideindex.app.overlay.FloatingPointerDesignPreview
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.FloatingPointerDesign
 import com.slideindex.app.settings.FloatingPointerTrailType
 import com.slideindex.app.ui.animationstyle.AnimationStyleColorPickerDialog
 import com.slideindex.app.ui.animationstyle.AnimationStyleColorRow
@@ -45,15 +46,20 @@ fun FloatingPointerPointerSettingsScreen(
     onClickVisualFeedbackChange: (Boolean) -> Unit,
     onClickHapticChange: (Boolean) -> Unit,
     onRippleColorChange: (Int) -> Unit,
+    onRippleSizeChange: (Float) -> Unit,
+    onRippleDurationChange: (Int) -> Unit,
     onTrailTypeChange: (FloatingPointerTrailType) -> Unit,
     onTrailDurationChange: (Int) -> Unit,
     onTrailColorChange: (Int) -> Unit,
     onHideWhenReleasedChange: (Boolean) -> Unit,
+    onPointerDesignChange: (FloatingPointerDesign) -> Unit,
     onResetVisualDefaults: () -> Unit,
 ) {
     var colorTarget by remember { mutableStateOf<PointerColorTarget?>(null) }
     var pickerInitialColor by remember { mutableIntStateOf(0) }
+    var pickingDesign by remember { mutableStateOf(false) }
     val density = LocalDensity.current.density
+    val selectedDesign = FloatingPointerDesign.fromId(settings.floatingPointerDesignId)
 
     @Composable
     fun pxDpLabel(px: Float): String = stringResource(
@@ -80,6 +86,18 @@ fun FloatingPointerPointerSettingsScreen(
         )
     }
 
+    if (pickingDesign) {
+        PointerDesignPickerDialog(
+            settings = settings,
+            selected = selectedDesign,
+            onDismiss = { pickingDesign = false },
+            onSelect = { design ->
+                onPointerDesignChange(design)
+                pickingDesign = false
+            },
+        )
+    }
+
     SettingsScreenScaffold(
         title = stringResource(R.string.floating_pointer_pointer_settings_title),
         onBack = onBack,
@@ -90,7 +108,16 @@ fun FloatingPointerPointerSettingsScreen(
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
-            FloatingPointerRingPreview(settings = settings)
+            FloatingPointerDesignPreview(settings = settings)
+        }
+
+        SettingsSectionTitle(stringResource(R.string.floating_pointer_design_section))
+        SettingsCard {
+            SettingLinkRow(
+                title = stringResource(R.string.floating_pointer_design_section),
+                subtitle = stringResource(selectedDesign.labelResId),
+                onClick = { pickingDesign = true },
+            )
         }
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_settings_section_pointer))
@@ -107,52 +134,54 @@ fun FloatingPointerPointerSettingsScreen(
                 ),
                 onValueChange = onPointerDiameterChange,
             )
-            SettingsSliderRow(
-                title = stringResource(R.string.floating_pointer_ring_thickness),
-                value = settings.floatingPointerRingThicknessPx,
-                valueRange = 4f..24f,
-                steps = 19,
-                enabled = true,
-                label = pxDpLabel(settings.floatingPointerRingThicknessPx),
-                onValueChange = onRingThicknessChange,
-            )
-            SettingsSliderRow(
-                title = stringResource(R.string.floating_pointer_dot_diameter),
-                value = settings.floatingPointerDotDiameterPx,
-                valueRange = 2f..24f,
-                steps = 21,
-                enabled = true,
-                label = pxDpLabel(settings.floatingPointerDotDiameterPx),
-                onValueChange = onDotDiameterChange,
-            )
-            AnimationStyleColorRow(
-                title = stringResource(R.string.floating_pointer_ring_color),
-                color = settings.floatingPointerRingColorArgb,
-                enabled = true,
-                onClick = {
-                    pickerInitialColor = settings.floatingPointerRingColorArgb
-                    colorTarget = PointerColorTarget.Ring
-                },
-            )
-            AnimationStyleColorRow(
-                title = stringResource(R.string.floating_pointer_fill_color),
-                subtitle = stringResource(R.string.floating_pointer_fill_color_desc),
-                color = settings.floatingPointerFillColorArgb,
-                enabled = true,
-                onClick = {
-                    pickerInitialColor = settings.floatingPointerFillColorArgb
-                    colorTarget = PointerColorTarget.Fill
-                },
-            )
-            AnimationStyleColorRow(
-                title = stringResource(R.string.floating_pointer_dot_color),
-                color = settings.floatingPointerDotColorArgb,
-                enabled = true,
-                onClick = {
-                    pickerInitialColor = settings.floatingPointerDotColorArgb
-                    colorTarget = PointerColorTarget.Dot
-                },
-            )
+            if (selectedDesign.isRing) {
+                SettingsSliderRow(
+                    title = stringResource(R.string.floating_pointer_ring_thickness),
+                    value = settings.floatingPointerRingThicknessPx,
+                    valueRange = 4f..24f,
+                    steps = 19,
+                    enabled = true,
+                    label = pxDpLabel(settings.floatingPointerRingThicknessPx),
+                    onValueChange = onRingThicknessChange,
+                )
+                SettingsSliderRow(
+                    title = stringResource(R.string.floating_pointer_dot_diameter),
+                    value = settings.floatingPointerDotDiameterPx,
+                    valueRange = 2f..24f,
+                    steps = 21,
+                    enabled = true,
+                    label = pxDpLabel(settings.floatingPointerDotDiameterPx),
+                    onValueChange = onDotDiameterChange,
+                )
+                AnimationStyleColorRow(
+                    title = stringResource(R.string.floating_pointer_ring_color),
+                    color = settings.floatingPointerRingColorArgb,
+                    enabled = true,
+                    onClick = {
+                        pickerInitialColor = settings.floatingPointerRingColorArgb
+                        colorTarget = PointerColorTarget.Ring
+                    },
+                )
+                AnimationStyleColorRow(
+                    title = stringResource(R.string.floating_pointer_fill_color),
+                    subtitle = stringResource(R.string.floating_pointer_fill_color_desc),
+                    color = settings.floatingPointerFillColorArgb,
+                    enabled = true,
+                    onClick = {
+                        pickerInitialColor = settings.floatingPointerFillColorArgb
+                        colorTarget = PointerColorTarget.Fill
+                    },
+                )
+                AnimationStyleColorRow(
+                    title = stringResource(R.string.floating_pointer_dot_color),
+                    color = settings.floatingPointerDotColorArgb,
+                    enabled = true,
+                    onClick = {
+                        pickerInitialColor = settings.floatingPointerDotColorArgb
+                        colorTarget = PointerColorTarget.Dot
+                    },
+                )
+            }
         }
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_visual_feedback_section))
@@ -172,6 +201,30 @@ fun FloatingPointerPointerSettingsScreen(
                 onCheckedChange = onClickVisualFeedbackChange,
             )
             if (settings.floatingPointerClickVisualFeedbackEnabled) {
+                SettingsSliderRow(
+                    title = stringResource(R.string.floating_pointer_ripple_size),
+                    value = settings.floatingPointerRippleSizeDp,
+                    valueRange = 40f..200f,
+                    steps = 15,
+                    enabled = true,
+                    label = stringResource(
+                        R.string.floating_pointer_ripple_size_value,
+                        settings.floatingPointerRippleSizeDp,
+                    ),
+                    onValueChange = onRippleSizeChange,
+                )
+                SettingsSliderRow(
+                    title = stringResource(R.string.floating_pointer_ripple_duration),
+                    value = settings.floatingPointerRippleDurationMs.toFloat(),
+                    valueRange = 100f..1500f,
+                    steps = 55,
+                    enabled = true,
+                    label = stringResource(
+                        R.string.floating_pointer_ripple_duration_value,
+                        settings.floatingPointerRippleDurationMs,
+                    ),
+                    onValueChange = { onRippleDurationChange(it.roundToInt()) },
+                )
                 AnimationStyleColorRow(
                     title = stringResource(R.string.floating_pointer_ripple_color),
                     subtitle = stringResource(R.string.floating_pointer_ripple_color_desc),

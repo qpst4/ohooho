@@ -106,6 +106,10 @@ class OverlayManager(
             return
         }
 
+        val screenWidth = context.resources.displayMetrics.widthPixels
+        leftController?.updateSettings(currentSettings, screenWidth)
+        rightController?.updateSettings(currentSettings, screenWidth)
+
         leftController?.showEdge()
         rightController?.showEdge()
     }
@@ -133,6 +137,20 @@ class OverlayManager(
     fun reloadApps() {
         leftController?.reloadApps()
         rightController?.reloadApps()
+    }
+
+    fun dispatchExternalGestureAction(
+        action: com.slideindex.app.gesture.GestureAction,
+        anchorRawY: Float,
+    ): Boolean {
+        if (!currentSettings.serviceEnabled) return false
+        refreshTriggerVisibility()
+        val controller = leftController?.takeIf { it.overlayPresentation != null }
+            ?: rightController?.takeIf { it.overlayPresentation != null }
+            ?: return false
+        if (!controller.prepareExternalGestureDispatch()) return false
+        val view = controller.overlayPresentation ?: return false
+        return view.dispatchExternalAction(action, anchorRawY)
     }
 
     private fun onComposeOverlayDialogStateChanged() {

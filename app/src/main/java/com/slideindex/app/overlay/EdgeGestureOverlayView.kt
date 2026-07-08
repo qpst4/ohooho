@@ -27,6 +27,7 @@ import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.Interpolator
@@ -316,6 +317,7 @@ class EdgeGestureOverlayView(
     private var lastTaskSwitcherTouchY = 0f
     private var taskSwitcherLoadGeneration = 0
     private var taskSwitcherAnchorRawY: Float? = null
+    private var taskSwitcherExternalAnchor = false
     private var taskSwitcherFrozenAnchorLocalY: Float? = null
     private var quickLauncherAnchorRawY: Float? = null
     private var quickLauncherFrozenAnchorLocalY: Float? = null
@@ -462,6 +464,54 @@ class EdgeGestureOverlayView(
         gestureAnimationOverlay.applySettings(newSettings)
         syncZoneLayout()
         invalidate()
+    }
+
+    fun dispatchExternalAction(action: GestureAction, anchorRawY: Float): Boolean {
+        applyExpandedOverlayLayout()
+        runAfterLayout {
+            val loc = IntArray(2)
+            getLocationOnScreen(loc)
+            val screenHeight = resources.displayMetrics.heightPixels.toFloat().coerceAtLeast(1f)
+            val viewHeight = if (height > 0) height.toFloat() else screenHeight
+            val localY = (anchorRawY - loc[1]).coerceIn(0f, viewHeight)
+            val screenWidth = resources.displayMetrics.widthPixels.toFloat().coerceAtLeast(1f)
+            val localX = if (width > 0) width / 2f else screenWidth / 2f
+            val anchorRawX = if (width > 0) loc[0] + localX else screenWidth / 2f
+            when (action) {
+                is GestureAction.TaskSwitcher -> {
+                    taskSwitcherExternalAnchor = true
+                    taskSwitcherAnchorRawY = anchorRawY
+                }
+                is GestureAction.QuickLauncher -> quickLauncherAnchorRawY = anchorRawY
+                else -> Unit
+            }
+            gestureSession.openDiscretePanel(action, localX, localY, anchorRawX, anchorRawY)
+            notifyPresentationTouchRequirementChanged()
+            invalidate()
+        }
+        return true
+    }
+
+    private fun runAfterLayout(block: () -> Unit) {
+        if (isAttachedToWindow && width > 0 && height > 0) {
+            block()
+            return
+        }
+        val observer = viewTreeObserver
+        if (!observer.isAlive) {
+            post { runAfterLayout(block) }
+            return
+        }
+        observer.addOnGlobalLayoutListener(
+            object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    if (width <= 0 || height <= 0) return
+                    viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    block()
+                }
+            },
+        )
+        requestLayout()
     }
 
     fun isSessionActive(): Boolean = gestureSession.isActive()
@@ -946,6 +996,9 @@ class EdgeGestureOverlayView(
         adjustIndicatorAnimator?.cancel()
         adjustIndicatorProgress = 0f
         wasAdjustMode = false
+        if (gestureSession.panelMode() == OverlayPanelMode.NONE && !gestureSession.isAdjustMode()) {
+            gestureSession.endSession()
+        }
         onAdjustPanelDismissCallback()
         invalidate()
     }
@@ -1013,7 +1066,8 @@ class EdgeGestureOverlayView(
             updateAdjustIndicatorLayout(anchorRawY, forceFullScreenAnchor = true, mode = mode)
             invalidate()
         } else {
-            post {
+            runAfterLayout {
+                if (adjustPanelState == null) return@runAfterLayout
                 if (fromContinuousGesture && adjustIndicatorProgress > 0f) {
                     continueAdjustPanelEnterAnimation(anchorRawY)
                 } else {
@@ -2780,6 +2834,7 @@ class EdgeGestureOverlayView(
         if (!zoneLayout.containsTrigger(localX, localY)) return false
         val continuousPick = gestureSession.taskSwitcherContinuousPickActive()
         if (!shouldFreezeTaskSwitcherAnchor()) {
+            taskSwitcherExternalAnchor = false
             taskSwitcherAnchorRawY = rawY
             taskSwitcherFrozenAnchorLocalY = null
             taskSwitcherLayout = null
@@ -3204,7 +3259,7 @@ class EdgeGestureOverlayView(
             return
         }
         drawVisibleAdjustIndicator(canvas)
-        if (!gestureSession.isActive()) return
+        if (!gestureSession.isActive() && adjustPanelState == null) return
         when (gestureSession.panelMode()) {
             OverlayPanelMode.INDEX -> {
                 drawWithPanelEnterAnimation(canvas, indexPanelContentRect()) {
@@ -3509,7 +3564,9 @@ class EdgeGestureOverlayView(
             OverlayPanelMode.TASK_SWITCHER -> {
                 panelEnterProgress = 0f
                 taskSwitcherFrozenAnchorLocalY = null
-                taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY()
+                if (taskSwitcherAnchorRawY == null || taskSwitcherAnchorRawY == 0f) {
+                    taskSwitcherAnchorRawY = pathRecognizer.gestureStartRawY().takeIf { it > 0f }
+                }
                 taskSwitcherLayout = null
                 loadTaskSwitcherApps(deferInvalidate = false)
             }
@@ -3535,9 +3592,10 @@ class EdgeGestureOverlayView(
                     warmQuickLauncherShortcutCache()
                     warmQuickLauncherActionIconCache()
                     warmQuickLauncherIconCache()
-                    quickLauncherAnchorRawY = pathRecognizer.lastRawY()
-                        .takeIf { it > 0f }
-                        ?: pathRecognizer.gestureStartRawY()
+                    quickLauncherAnchorRawY = quickLauncherAnchorRawY
+                        ?.takeIf { it > 0f }
+                        ?: pathRecognizer.lastRawY().takeIf { it > 0f }
+                        ?: pathRecognizer.gestureStartRawY().takeIf { it > 0f }
                 }
             }
             OverlayPanelMode.NONE -> {
@@ -3557,8 +3615,8 @@ class EdgeGestureOverlayView(
             }
         }
         if (mode != OverlayPanelMode.NONE) {
-            post {
-                if (gestureSession.panelMode() != mode) return@post
+            runAfterLayout {
+                if (gestureSession.panelMode() != mode) return@runAfterLayout
                 syncZoneLayout()
                 if (mode == OverlayPanelMode.TASK_SWITCHER) {
                     taskSwitcherLayout = null
@@ -3629,6 +3687,7 @@ class EdgeGestureOverlayView(
         taskSwitcherLayout = null
         clearTaskSwitcherPickHighlights()
         taskSwitcherAnchorRawY = null
+        taskSwitcherExternalAnchor = false
         taskSwitcherFrozenAnchorLocalY = null
         quickLauncherAnchorRawY = null
         quickLauncherFrozenAnchorLocalY = null
@@ -3769,14 +3828,19 @@ class EdgeGestureOverlayView(
         zoneLayout.triggerZoneRects().forEach { (handleId, zone) ->
             val handle = settings.triggerHandle(side, handleId) ?: settings.primaryTriggerHandle(side)
             if (handle.design.isVisible) {
+                val glowWidth = zoneLayout.glowAwareEdgeWidthPx()
                 canvas.save()
-                canvas.translate(zone.left, zone.top)
+                val drawLeft = when (side) {
+                    PanelSide.LEFT -> 0f
+                    PanelSide.RIGHT -> zone.right - glowWidth
+                }
+                canvas.translate(drawLeft, zone.top)
                 TriggerHandleRenderer.draw(
                     canvas = canvas,
                     side = side,
                     design = handle.design,
                     density = resources.displayMetrics.density,
-                    widthPx = zone.width().toInt().coerceAtLeast(1),
+                    widthPx = glowWidth,
                     heightPx = zone.height().toInt().coerceAtLeast(1),
                 )
                 canvas.restore()
@@ -5038,6 +5102,11 @@ class EdgeGestureOverlayView(
         val loc = IntArray(2)
         getLocationOnScreen(loc)
         val anchorY = rawY - loc[1]
+        if (taskSwitcherExternalAnchor) {
+            val minY = dp(16f)
+            val maxY = (height - dp(16f)).coerceAtLeast(minY)
+            return anchorY.coerceIn(minY, maxY)
+        }
         val trigger = activeTriggerZoneRect()
         return anchorY.coerceIn(trigger.top, trigger.bottom)
     }

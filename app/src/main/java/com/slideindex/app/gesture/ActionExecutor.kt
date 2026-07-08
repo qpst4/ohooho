@@ -16,7 +16,9 @@ import com.slideindex.app.overlay.WidgetPopupOverlayWindow
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
+import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.OverlayService
+import com.slideindex.app.service.ShellCommandPanelTrampoline
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.shouldLaunchFullscreen
@@ -37,6 +39,7 @@ import com.slideindex.app.util.ScreenRecordHelper
 import com.slideindex.app.util.SystemGestureActions
 import com.slideindex.app.util.VolumeControlHelper
 import android.view.KeyEvent
+import kotlinx.coroutines.launch
 
 class ActionExecutor(
     private val context: Context,
@@ -114,44 +117,72 @@ class ActionExecutor(
         anchorRawX: Float? = null,
         anchorRawY: Float? = null,
         continueTouch: Boolean = false,
-    ) {
-        when (action) {
-            GestureAction.OpenIndex, GestureAction.QuickLauncher, GestureAction.TaskSwitcher,
-            GestureAction.ShellCommandPanel,
-            GestureAction.None, GestureAction.ClickPassthrough,
-            GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> Unit
+    ): Boolean {
+        return when (action) {
+            GestureAction.OpenIndex,
+            GestureAction.QuickLauncher,
+            GestureAction.TaskSwitcher,
+            -> showEdgeHostedPanel(action, anchorRawY)
+            GestureAction.ShellCommandPanel -> openShellCommandPanelStandalone()
+            GestureAction.None, GestureAction.ClickPassthrough -> false
+            GestureAction.AdjustVolume -> showEdgeHostedPanel(GestureAction.AdjustVolume, anchorRawY)
+            GestureAction.AdjustBrightness -> showEdgeHostedPanel(GestureAction.AdjustBrightness, anchorRawY)
             is GestureAction.SimulatePointerSwipe -> {
-                val x = anchorRawX ?: return
-                val y = anchorRawY ?: return
+                val x = anchorRawX ?: return false
+                val y = anchorRawY ?: return false
                 if (FloatingPointerOverlayWindow.isVisible) {
                     FloatingPointerOverlayWindow.schedulePointerSwipe(x, y, action.config)
                 } else {
                     InputTapUtil.dispatchPointerSwipeAsync(x, y, action.config)
                 }
+                true
             }
-            GestureAction.QuickToolsOverlay -> OhoQuickToolsOverlayWindow.show(context, settings, side, anchorRawY)
-            GestureAction.WidgetPopupOverlay -> WidgetPopupOverlayWindow.show(context, settings, side, anchorRawY)
-            GestureAction.FloatingPointer -> FloatingPointerOverlayWindow.toggle(
-                context,
-                settings,
-                anchorRawX,
-                anchorRawY,
-                continueTouch,
-            )
+            GestureAction.QuickToolsOverlay ->
+                showStandaloneOverlay(anchorRawY) { y ->
+                    OhoQuickToolsOverlayWindow.show(context, settings, side, y)
+                }
+            GestureAction.WidgetPopupOverlay ->
+                showStandaloneOverlay(anchorRawY) { y ->
+                    WidgetPopupOverlayWindow.show(context, settings, side, y)
+                }
+            GestureAction.FloatingPointer -> {
+                FloatingPointerOverlayWindow.toggle(
+                    context,
+                    settings,
+                    anchorRawX,
+                    anchorRawY,
+                    continueTouch,
+                )
+                true
+            }
             is GestureAction.LaunchApp -> launchApp(action.packageName, settings, longPressArmed)
-            is GestureAction.LaunchShortcut -> launchGestureShortcut(action, settings, longPressArmed)
-            GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {
-                SlideIndexAccessibilityService.perform(action)
+            is GestureAction.LaunchShortcut -> {
+                launchGestureShortcut(action, settings, longPressArmed)
+                true
             }
-            GestureAction.CloseCurrentApp -> closeCurrentApp()
-            GestureAction.FreeWindowCurrentApp -> freeWindowForegroundApp(settings)
+            GestureAction.Back, GestureAction.Home, GestureAction.Recents ->
+                SlideIndexAccessibilityService.perform(action)
+            GestureAction.CloseCurrentApp -> {
+                closeCurrentApp()
+                true
+            }
+            GestureAction.FreeWindowCurrentApp -> {
+                freeWindowForegroundApp(settings)
+                true
+            }
             GestureAction.Flashlight -> FlashlightHelper.toggle(context)
-            GestureAction.ToggleDnd -> VolumeControlHelper.toggleDnd(context)
-            GestureAction.ScreenRecord -> ScreenRecordHelper.toggle(context)
-            GestureAction.ToggleWifi -> QuickToolsHelper.toggleWifi(context)
-            GestureAction.ToggleMobileData -> QuickToolsHelper.toggleMobileData(context)
+            GestureAction.ToggleDnd -> VolumeControlHelper.toggleDnd(context) != null
+            GestureAction.ScreenRecord -> {
+                ScreenRecordHelper.toggle(context)
+                true
+            }
+            GestureAction.ToggleWifi -> QuickToolsHelper.toggleWifi(context) == true
+            GestureAction.ToggleMobileData -> QuickToolsHelper.toggleMobileData(context) == true
             GestureAction.SwitchInputMethod -> InputMethodHelper.switchInputMethod(context)
-            GestureAction.LaunchAssistant -> AssistantLauncher.launchDefault(context)
+            GestureAction.LaunchAssistant -> {
+                AssistantLauncher.launchDefault(context)
+                true
+            }
             GestureAction.ToggleMute -> SystemGestureActions.toggleMute(context)
             GestureAction.MediaPlayPause -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
             GestureAction.MediaPrevious -> SystemGestureActions.dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
@@ -168,6 +199,39 @@ class ActionExecutor(
             -> SlideIndexAccessibilityService.perform(action)
         }
     }
+
+    /** Edge-gesture overlay panels (index, quick launcher, task switcher, volume/brightness bars). */
+    private fun showEdgeHostedPanel(action: GestureAction, anchorRawY: Float?): Boolean {
+        val y = anchorRawY ?: screenCenterY()
+        return SlideIndexAccessibilityService.dispatchExternalGestureAction(action, y)
+    }
+
+    private fun showStandaloneOverlay(
+        anchorRawY: Float?,
+        show: (anchorY: Float) -> Boolean,
+    ): Boolean = show(anchorRawY ?: screenCenterY())
+
+    private fun openShellCommandPanelStandalone(): Boolean {
+        if (ShellCommandPanelTrampoline.isActive()) return true
+        val app = context.applicationContext as? SlideIndexApp ?: return false
+        return runCatching {
+            ShellCommandPanelTrampoline.launch(
+                context = context,
+                continuousPick = false,
+                onPrepare = {},
+                onDismiss = {},
+                onPersist = { commands ->
+                    app.applicationScope.launch {
+                        app.settingsRepository.setShellCommands(commands)
+                    }
+                },
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun screenCenterY(): Float =
+        context.resources.displayMetrics.heightPixels / 2f
 
     fun launchQuickItem(
         item: QuickLauncherItem,

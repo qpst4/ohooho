@@ -18,12 +18,13 @@ fun HideTriggerSettingsRows(
     onHideOnLockScreenChange: (Boolean) -> Unit,
     onHideOnLauncherChange: (Boolean) -> Unit,
 ) {
+    // "横屏模式" enables edge triggers in landscape; stored as hideTriggerInLandscape (hide when false).
     SettingSwitchRow(
         title = stringResource(R.string.hide_trigger_landscape),
         icon = { Icon(Icons.Default.ScreenRotation, contentDescription = null) },
-        checked = settings.hideTriggerInLandscape,
+        checked = !settings.hideTriggerInLandscape,
         enabled = enabled,
-        onCheckedChange = onHideInLandscapeChange,
+        onCheckedChange = { landscapeModeEnabled -> onHideInLandscapeChange(!landscapeModeEnabled) },
     )
     SettingSwitchRow(
         title = stringResource(R.string.hide_trigger_lock_screen),

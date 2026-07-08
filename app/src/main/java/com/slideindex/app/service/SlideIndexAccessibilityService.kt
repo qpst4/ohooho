@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -20,6 +21,7 @@ import android.view.accessibility.AccessibilityWindowInfo
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
 import com.slideindex.app.gesture.PointerSwipeDirection
+import com.slideindex.app.message.MessageReminderController
 import com.slideindex.app.otp.OtpAutoFillController
 import com.slideindex.app.overlay.EdgeOverlayHost
 import com.slideindex.app.overlay.LayoutPreviewContent
@@ -38,12 +40,17 @@ class SlideIndexAccessibilityService : AccessibilityService() {
     private var prevPackageName: String? = null
     private var currPackageName: String? = null
     private var screenLockReceiverRegistered = false
+    private var lastOtpCheckUptime = 0L
 
     private val screenLockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
                     TriggerEnvironmentState.lockScreenActive = true
+                    edgeOverlayHost?.refreshTriggerVisibility()
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    syncLockScreenState()
                     edgeOverlayHost?.refreshTriggerVisibility()
                 }
                 Intent.ACTION_USER_PRESENT -> {
@@ -61,12 +68,14 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOWS_CHANGED -> handleWindowsChanged()
             AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             -> maybeAutoFillOtp()
         }
     }
 
     private fun maybeAutoFillOtp() {
+        val now = SystemClock.uptimeMillis()
+        if (now - lastOtpCheckUptime < 300L) return
+        lastOtpCheckUptime = now
         if (OtpAutoFillController.isFillingActive()) return
         val app = applicationContext as? SlideIndexApp ?: return
         val settings = app.settingsRepository.readSnapshot()
@@ -104,9 +113,34 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         private var pendingScrollRunnable: Runnable? = null
 
-        fun perform(action: GestureAction): Boolean {
+        fun dispatchExternalGestureAction(action: GestureAction, anchorRawY: Float): Boolean {
             val service = instance ?: return false
-            return when (action) {
+            return service.dispatchExternalGestureAction(action, anchorRawY)
+        }
+
+        fun isConnected(): Boolean = instance != null
+
+        fun perform(action: GestureAction): Boolean {
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                var result = false
+                val latch = java.util.concurrent.CountDownLatch(1)
+                mainHandler.post {
+                    result = performOnMain(action)
+                    latch.countDown()
+                }
+                runCatching { latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS) }
+                return result
+            }
+            return performOnMain(action)
+        }
+
+        private fun performOnMain(action: GestureAction): Boolean {
+            val service = instance
+            if (service == null) {
+                Log.w(TAG, "perform($action): accessibility service not connected")
+                return false
+            }
+            val result = when (action) {
                 GestureAction.Back -> service.performGlobalAction(GLOBAL_ACTION_BACK)
                 GestureAction.Home -> service.performGlobalAction(GLOBAL_ACTION_HOME)
                 GestureAction.Recents -> service.performGlobalAction(GLOBAL_ACTION_RECENTS)
@@ -130,6 +164,12 @@ class SlideIndexAccessibilityService : AccessibilityService() {
                 GestureAction.ScrollToBottom -> scheduleFastVerticalScroll(service, toTop = false)
                 else -> false
             }
+            if (result) {
+                Log.i(TAG, "perform($action): ok")
+            } else {
+                Log.w(TAG, "perform($action): returned false")
+            }
+            return result
         }
 
         private fun scheduleFastVerticalScroll(service: SlideIndexAccessibilityService, toTop: Boolean): Boolean {
@@ -642,6 +682,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         /** Context for [TYPE_ACCESSIBILITY_OVERLAY] windows; null when the service is not connected. */
         fun overlayHostContext(): Context? = instance
 
+        fun currentForegroundPackage(): String? = instance?.currPackageName
+
         fun scheduleOtpAutoFill() {
             val service = instance ?: return
             val app = service.applicationContext as? SlideIndexApp ?: return
@@ -654,15 +696,25 @@ class SlideIndexAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        syncLockScreenState()
         edgeOverlayHost = EdgeOverlayHost(this, serviceScope).also { it.start() }
         registerScreenLockReceiver()
         Log.i(TAG, "onServiceConnected: edge overlays attached")
     }
 
+    private fun syncLockScreenState() {
+        val keyguard = getSystemService(KEYGUARD_SERVICE) as? android.app.KeyguardManager
+        TriggerEnvironmentState.lockScreenActive = keyguard?.isKeyguardLocked == true
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        MessageReminderController.onConfigurationChanged(this, newConfig)
         edgeOverlayHost?.refreshTriggerVisibility()
     }
+
+    fun dispatchExternalGestureAction(action: GestureAction, anchorRawY: Float): Boolean =
+        edgeOverlayHost?.dispatchExternalGestureAction(action, anchorRawY) == true
 
     override fun onDestroy() {
         unregisterScreenLockReceiver()
@@ -682,6 +734,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         if (screenLockReceiverRegistered) return
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_USER_PRESENT)
         }
         registerReceiver(screenLockReceiver, filter)

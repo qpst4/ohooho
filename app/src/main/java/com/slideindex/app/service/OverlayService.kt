@@ -15,6 +15,7 @@ import com.slideindex.app.MainActivity
 import com.slideindex.app.R
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.overlay.LayoutPreviewContent
+import com.slideindex.app.shake.ShakeGestureHost
 import com.slideindex.app.util.SecureSettingsHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -27,10 +28,13 @@ import kotlinx.coroutines.launch
  */
 class OverlayService : LifecycleService() {
 
+    private var shakeGestureHost: ShakeGestureHost? = null
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         promoteToForeground()
+        shakeGestureHost = ShakeGestureHost(this, lifecycleScope).also { it.start() }
         startAccessibilityWatchdog()
     }
 
@@ -66,6 +70,12 @@ class OverlayService : LifecycleService() {
     }
 
     override fun onBind(intent: Intent): IBinder? = super.onBind(intent)
+
+    override fun onDestroy() {
+        shakeGestureHost?.stop()
+        shakeGestureHost = null
+        super.onDestroy()
+    }
 
     private fun promoteToForeground() {
         val notification = buildNotification()

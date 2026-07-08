@@ -253,8 +253,10 @@ internal class FloatingPointerHostLayout(
         }
         if (settings.floatingPointerClickVisualFeedbackEnabled) {
             session.triggerRipple(clickX, clickY)
+            session.triggerPointerClick()
             mainHandler.post { onPointerClick(clickX, clickY) }
         } else {
+            session.triggerPointerClick()
             onPointerClick(clickX, clickY)
         }
     }

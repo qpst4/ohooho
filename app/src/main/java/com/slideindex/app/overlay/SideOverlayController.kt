@@ -101,9 +101,15 @@ class SideOverlayController(
     }
 
     fun showEdge() {
-        if (touchCaptureWindows.isNotEmpty()) return
         screenWidthPx = context.resources.displayMetrics.widthPixels
         screenHeightPx = context.resources.displayMetrics.heightPixels
+        if (touchCaptureWindows.isNotEmpty()) {
+            presentationView?.let { presentation ->
+                presentation.applySettings(settings, screenWidthPx)
+                syncCaptureWindows(presentation)
+            }
+            return
+        }
 
         val container = FrameLayout(overlayContext)
         val presentation = EdgeGestureOverlayView(
@@ -283,6 +289,24 @@ class SideOverlayController(
 
     fun reloadApps() {
         preloadApps(force = true)
+    }
+
+    /**
+     * Attaches the full-screen presentation window before shake / other external panel triggers.
+     * Idle edge overlays keep only capture strips; without this, panel commands run on an
+     * in-memory [EdgeGestureOverlayView] that is not on screen.
+     */
+    fun prepareExternalGestureDispatch(): Boolean {
+        if (edgeOverlayDetached) {
+            resumeEdgeOverlay()
+        }
+        val view = presentationView ?: return false
+        view.setPreviewMode(false)
+        view.applyExpandedOverlayLayout()
+        ensurePresentationAttached()
+        syncPresentationTouchState()
+        syncCaptureWindowLayout()
+        return presentationAttached
     }
 
     fun destroy() {

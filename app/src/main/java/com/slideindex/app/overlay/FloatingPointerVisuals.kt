@@ -1,9 +1,11 @@
 package com.slideindex.app.overlay
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -11,16 +13,25 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.FloatingPointerDesign
 import com.slideindex.app.settings.FloatingPointerTrailType
-import kotlin.math.hypot
-import kotlin.math.pow
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 internal data class FloatingPointerTrailPoint(
     val x: Float,
@@ -146,23 +157,149 @@ fun FloatingPointerJoystickPreview(
 fun FloatingPointerRingPreview(
     settings: AppSettings,
     modifier: Modifier = Modifier,
+) = FloatingPointerDesignPreview(settings = settings, modifier = modifier)
+
+@Composable
+fun FloatingPointerDesignPreview(
+    settings: AppSettings,
+    modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val design = FloatingPointerDesign.fromId(settings.floatingPointerDesignId)
+    val bitmap = rememberFloatingPointerDesignBitmap(
+        context = context,
+        design = design,
+        sizePx = settings.floatingPointerPointerDiameterPx.roundToInt().coerceAtLeast(1),
+    )
     Canvas(
         modifier = modifier
             .fillMaxWidth()
             .height(140.dp),
     ) {
         val diameter = settings.floatingPointerPointerDiameterPx.coerceAtMost(size.minDimension - 16f)
-        drawQcRingPointer(
+        drawFloatingPointer(
             center = Offset(size.width / 2f, size.height / 2f),
-            diameterPx = diameter,
+            settings = settings,
+            design = design,
+            bitmap = bitmap,
+            sizePx = diameter,
+        )
+    }
+}
+
+@Composable
+fun rememberFloatingPointerDesignBitmap(
+    context: Context,
+    design: FloatingPointerDesign,
+    sizePx: Int,
+): ImageBitmap? = remember(design.id, sizePx) {
+    if (!design.isBitmap) return@remember null
+    renderFloatingPointerDesignBitmap(context, design, sizePx)
+}
+
+internal fun renderFloatingPointerDesignBitmap(
+    context: Context,
+    design: FloatingPointerDesign,
+    sizePx: Int,
+): ImageBitmap? {
+    if (!design.isBitmap) return null
+    val drawable = ContextCompat.getDrawable(context, design.drawableResId) ?: return null
+    val intrinsicW = drawable.intrinsicWidth.coerceAtLeast(1)
+    val intrinsicH = drawable.intrinsicHeight.coerceAtLeast(1)
+    val aspect = intrinsicW.toFloat() / intrinsicH
+    val (widthPx, heightPx) = floatingPointerBitmapDimensions(aspect, sizePx.toFloat())
+    val width = widthPx.roundToInt().coerceAtLeast(1)
+    val height = heightPx.roundToInt().coerceAtLeast(1)
+    val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    drawable.setBounds(0, 0, width, height)
+    drawable.draw(canvas)
+    return bitmap.asImageBitmap()
+}
+
+internal fun floatingPointerBitmapDimensions(
+    aspectRatio: Float,
+    sizePx: Float,
+): Pair<Float, Float> = if (aspectRatio > 1f) {
+    sizePx to sizePx / aspectRatio
+} else {
+    sizePx * aspectRatio to sizePx
+}
+
+internal fun DrawScope.drawFloatingPointer(
+    center: Offset,
+    settings: AppSettings,
+    design: FloatingPointerDesign = FloatingPointerDesign.fromId(settings.floatingPointerDesignId),
+    bitmap: ImageBitmap? = null,
+    sizePx: Float = settings.floatingPointerPointerDiameterPx,
+    visibilityAlpha: Float = 1f,
+    sizeScale: Float = 1f,
+    clickProgress: Float = 0f,
+) {
+    if (design.isRing) {
+        drawQcRingPointer(
+            center = center,
+            diameterPx = sizePx,
             ringThicknessPx = settings.floatingPointerRingThicknessPx,
             dotDiameterPx = settings.floatingPointerDotDiameterPx,
             ringColor = Color(settings.floatingPointerRingColorArgb),
             fillColor = Color(settings.floatingPointerFillColorArgb),
             dotColor = Color(settings.floatingPointerDotColorArgb),
+            visibilityAlpha = visibilityAlpha,
+            sizeScale = sizeScale,
+            clickProgress = clickProgress,
+        )
+        return
+    }
+    val image = bitmap ?: return
+    val aspect = image.width.toFloat() / image.height.coerceAtLeast(1)
+    val (widthPx, heightPx) = floatingPointerBitmapDimensions(aspect, sizePx * sizeScale)
+    drawQcBitmapPointer(
+        image = image,
+        center = center,
+        widthPx = widthPx,
+        heightPx = heightPx,
+        tipXFraction = design.tipXFraction,
+        tipYFraction = design.tipYFraction,
+        visibilityAlpha = visibilityAlpha,
+    )
+    if (clickProgress > 0.001f) {
+        drawQcPointerClickRing(
+            center = center,
+            outerRadius = max(widthPx, heightPx) / 2f,
+            dotDiameterPx = settings.floatingPointerDotDiameterPx,
+            ringColor = Color(settings.floatingPointerRingColorArgb),
+            highlightColor = Color(settings.floatingPointerDotColorArgb),
+            visibilityAlpha = visibilityAlpha,
+            sizeScale = sizeScale,
+            clickProgress = clickProgress,
         )
     }
+}
+
+fun DrawScope.drawQcBitmapPointer(
+    image: ImageBitmap,
+    center: Offset,
+    widthPx: Float,
+    heightPx: Float,
+    tipXFraction: Float,
+    tipYFraction: Float,
+    visibilityAlpha: Float = 1f,
+) {
+    if (visibilityAlpha <= 0.001f) return
+    val topLeft = Offset(
+        center.x - widthPx * tipXFraction,
+        center.y - heightPx * tipYFraction,
+    )
+    drawImage(
+        image = image,
+        dstOffset = IntOffset(topLeft.x.roundToInt(), topLeft.y.roundToInt()),
+        dstSize = IntSize(
+            widthPx.roundToInt().coerceAtLeast(1),
+            heightPx.roundToInt().coerceAtLeast(1),
+        ),
+        alpha = visibilityAlpha.coerceIn(0f, 1f),
+    )
 }
 
 @Composable
@@ -237,17 +374,24 @@ fun DrawScope.drawQcRingPointer(
     ringColor: Color,
     fillColor: Color,
     dotColor: Color,
+    visibilityAlpha: Float = 1f,
+    sizeScale: Float = 1f,
+    clickProgress: Float = 0f,
 ) {
-    val outerRadius = diameterPx / 2f
-    val dotRadius = dotDiameterPx / 2f
-    val innerRingRadius = (outerRadius - ringThicknessPx).coerceAtLeast(dotRadius)
+    if (visibilityAlpha <= 0.001f || sizeScale <= 0.001f) return
+    val alpha = visibilityAlpha.coerceIn(0f, 1f)
+    val click = clickProgress.coerceIn(0f, 1f)
+
+    val outerRadius = (diameterPx / 2f) * sizeScale
+    val dotRadius = (dotDiameterPx / 2f) * sizeScale
+    val innerRingRadius = (outerRadius - ringThicknessPx * sizeScale).coerceAtLeast(dotRadius)
 
     if (innerRingRadius > dotRadius) {
         drawAnnulus(
             center = center,
             outerRadius = innerRingRadius,
             innerRadius = dotRadius,
-            color = fillColor,
+            color = fillColor.copy(alpha = fillColor.alpha * alpha),
         )
     }
 
@@ -256,26 +400,66 @@ fun DrawScope.drawQcRingPointer(
             center = center,
             outerRadius = outerRadius,
             innerRadius = innerRingRadius,
-            color = ringColor,
+            color = ringColor.copy(alpha = ringColor.alpha * alpha),
         )
     }
 
-    drawCircle(
-        color = ringColor.copy(alpha = ringColor.alpha * 0.9f),
-        radius = outerRadius,
+    // QC keeps the base fill layers visible; thin outline strokes are omitted during click.
+    if (click <= 0.001f) {
+        drawCircle(
+            color = ringColor.copy(alpha = ringColor.alpha * 0.9f * alpha),
+            radius = outerRadius,
+            center = center,
+            style = Stroke(width = 1.4f * sizeScale),
+        )
+        drawCircle(
+            color = ringColor.copy(alpha = ringColor.alpha * 0.75f * alpha),
+            radius = innerRingRadius,
+            center = center,
+            style = Stroke(width = 1.1f * sizeScale),
+        )
+        drawCircle(
+            color = dotColor.copy(alpha = dotColor.alpha * alpha),
+            radius = dotRadius,
+            center = center,
+        )
+    }
+
+    drawQcPointerClickRing(
         center = center,
-        style = Stroke(width = 1.4f),
+        outerRadius = outerRadius,
+        dotDiameterPx = dotDiameterPx,
+        ringColor = ringColor,
+        highlightColor = dotColor,
+        visibilityAlpha = alpha,
+        sizeScale = sizeScale,
+        clickProgress = click,
     )
+}
+
+/** QC click feedback: shrinking stroke ring overlay; base pointer colors stay unchanged underneath. */
+fun DrawScope.drawQcPointerClickRing(
+    center: Offset,
+    outerRadius: Float,
+    dotDiameterPx: Float,
+    ringColor: Color,
+    highlightColor: Color,
+    visibilityAlpha: Float = 1f,
+    sizeScale: Float = 1f,
+    clickProgress: Float = 0f,
+) {
+    val click = clickProgress.coerceIn(0f, 1f)
+    if (click <= 0.001f) return
+    val alpha = visibilityAlpha.coerceIn(0f, 1f)
+    val dotRadius = (dotDiameterPx / 2f) * sizeScale
+    // QC animates clickCircleSize from outer radius to dot diameter, drawn at (size - dotRadius).
+    val clickRingRadius = (outerRadius - dotRadius) * (1f - click) + dotRadius * click
+    val strokeColor = lerp(ringColor, highlightColor, click)
     drawCircle(
-        color = ringColor.copy(alpha = ringColor.alpha * 0.75f),
-        radius = innerRingRadius,
+        color = strokeColor.copy(alpha = strokeColor.alpha * alpha),
+        radius = clickRingRadius,
         center = center,
-        style = Stroke(width = 1.1f),
-    )
-    drawCircle(
-        color = dotColor,
-        radius = dotRadius,
-        center = center,
+        style = Stroke(width = dotDiameterPx * sizeScale),
     )
 }
 
@@ -315,82 +499,52 @@ internal fun DrawScope.drawFloatingPointerTrail(
     val trailType = FloatingPointerTrailType.fromId(settings.floatingPointerTrailTypeId)
     if (trailType == FloatingPointerTrailType.OFF || trailPoints.size < 2) return
 
-    val duration = settings.floatingPointerTrailDurationMs.coerceAtLeast(50)
+    val lifespanMs = settings.floatingPointerTrailDurationMs.coerceAtLeast(50)
     val baseColor = Color(settings.floatingPointerTrailColorArgb)
-    val pointerRadius = settings.floatingPointerPointerDiameterPx / 2f
+    val strokeBasePx = settings.floatingPointerDotDiameterPx.coerceAtLeast(1f)
 
-    val visible = trailPoints.filter { nowMs - it.timeMs <= duration }
+    val visible = trailPoints.filter { nowMs - it.timeMs <= lifespanMs }
     if (visible.size < 2) return
 
-    when (trailType) {
-        FloatingPointerTrailType.SIMPLE -> {
-            visible.forEach { point ->
-                val age = (nowMs - point.timeMs).toFloat() / duration
-                val alpha = trailAlphaForAge(age) * baseColor.alpha
-                val radius = pointerRadius * (0.35f + (1f - age) * 0.2f)
-                drawTrailDot(
-                    center = Offset(point.x, point.y),
-                    radius = radius,
-                    color = baseColor,
-                    alpha = alpha,
-                )
-            }
-        }
-        FloatingPointerTrailType.HIGH_DETAIL -> {
-            for (index in 1 until visible.size) {
-                val prev = visible[index - 1]
-                val next = visible[index]
-                val distance = hypot((next.x - prev.x).toDouble(), (next.y - prev.y).toDouble()).toFloat()
-                val steps = (distance / 3f).toInt().coerceIn(2, 28)
-                repeat(steps) { step ->
-                    val t = step / steps.toFloat()
-                    val x = prev.x + (next.x - prev.x) * t
-                    val y = prev.y + (next.y - prev.y) * t
-                    val sampleTime = prev.timeMs + ((next.timeMs - prev.timeMs) * t).toLong()
-                    val age = (nowMs - sampleTime).toFloat() / duration
-                    if (age > 1f) return@repeat
-                    val alpha = trailAlphaForAge(age) * baseColor.alpha
-                    val headBias = 1f - t * 0.55f
-                    val radius = pointerRadius * (0.08f + headBias * 0.14f)
-                    drawTrailDot(
-                        center = Offset(x, y),
-                        radius = radius,
-                        color = baseColor,
-                        alpha = alpha * (0.55f + headBias * 0.45f),
-                    )
-                }
-            }
-        }
-        FloatingPointerTrailType.OFF -> Unit
+    for (index in 1 until visible.size) {
+        val prev = visible[index - 1]
+        val next = visible[index]
+        val age = (nowMs - next.timeMs).toFloat() / lifespanMs
+        if (age >= 1f) continue
+        drawQcTrailSegment(
+            from = Offset(prev.x, prev.y),
+            to = Offset(next.x, next.y),
+            ageFraction = age,
+            color = baseColor,
+            strokeBasePx = strokeBasePx,
+        )
     }
 }
 
-private fun trailAlphaForAge(age: Float): Float {
-    val clamped = age.coerceIn(0f, 1f)
-    return (1f - clamped).pow(1.6f)
-}
-
-private fun DrawScope.drawTrailDot(
-    center: Offset,
-    radius: Float,
+private fun DrawScope.drawQcTrailSegment(
+    from: Offset,
+    to: Offset,
+    ageFraction: Float,
     color: Color,
-    alpha: Float,
+    strokeBasePx: Float,
 ) {
-    if (alpha <= 0.01f || radius <= 0.5f) return
+    val fade = (1f - ageFraction.coerceIn(0f, 1f))
+    if (fade <= 0.001f) return
+    val strokeWidth = strokeBasePx * fade
+    if (strokeWidth < 0.5f) return
+    val segmentColor = color.copy(alpha = color.alpha * fade)
+    val capRadius = strokeWidth / 2f
     drawCircle(
-        color = color.copy(alpha = alpha * 0.18f),
-        radius = radius * 2.1f,
-        center = center,
+        color = segmentColor,
+        radius = capRadius,
+        center = from,
     )
-    drawCircle(
-        color = color.copy(alpha = alpha * 0.42f),
-        radius = radius * 1.35f,
-        center = center,
-    )
-    drawCircle(
-        color = color.copy(alpha = alpha),
-        radius = radius,
-        center = center,
+    drawLine(
+        color = segmentColor,
+        start = from,
+        end = to,
+        strokeWidth = strokeWidth,
+        cap = StrokeCap.Round,
     )
 }
 
@@ -398,31 +552,43 @@ internal fun DrawScope.drawFloatingPointerRipple(
     center: Offset,
     progress: Float,
     rippleColor: Color,
-    pointerDiameterPx: Float,
+    rippleSizePx: Float,
 ) {
-    val t = progress.coerceIn(0f, 1f)
-    if (t <= 0.001f || t >= 0.999f) return
+    val fraction = progress.coerceIn(0f, 1f)
+    if (fraction <= 0.001f) return
 
-    val maxRadius = pointerDiameterPx * 3.6f
-    val expand = 1f - (1f - t).pow(2.4f)
-    val radius = pointerDiameterPx * 0.06f + (maxRadius - pointerDiameterPx * 0.06f) * expand
-    val fade = (1f - t).pow(1.15f)
+    val animatedRadius = rippleSizePx * fraction
+    val drawRadius = (animatedRadius / 2f).coerceAtLeast(1f)
     val baseAlpha = rippleColor.alpha.coerceIn(0f, 1f)
+    val fadeAlpha = (1f - fraction) * baseAlpha
+    if (fadeAlpha <= 0.001f) return
+
+    val innerAlpha = fadeAlpha / 1.3f
+    val outerAlpha = fadeAlpha
 
     drawCircle(
         brush = Brush.radialGradient(
             colorStops = arrayOf(
-                0f to rippleColor.copy(alpha = fade * 0.26f * baseAlpha),
-                0.45f to rippleColor.copy(alpha = fade * 0.10f * baseAlpha),
-                0.78f to rippleColor.copy(alpha = fade * 0.03f * baseAlpha),
-                1f to Color.Transparent,
+                0f to rippleColor.copy(alpha = innerAlpha),
+                1f to rippleColor.copy(alpha = outerAlpha),
             ),
             center = center,
-            radius = radius.coerceAtLeast(1f),
+            radius = drawRadius,
         ),
-        radius = radius.coerceAtLeast(1f),
+        radius = drawRadius,
         center = center,
     )
 }
 
-internal const val FLOATING_POINTER_RIPPLE_DURATION_MS = 520L
+internal const val FLOATING_POINTER_RIPPLE_DURATION_MS = 500L
+
+/** Quick Cursor click ring shrink duration derived from cursor/ripple sizes. */
+internal fun floatingPointerClickAnimDurationMs(settings: AppSettings, density: Float): Int {
+    val rippleSizePx = settings.floatingPointerRippleSizeDp * density
+    val cursorSizePx = settings.floatingPointerPointerDiameterPx
+    val ratio = (cursorSizePx * 1.3f) / rippleSizePx.coerceAtLeast(1f)
+    return kotlin.math.min(
+        (ratio * settings.floatingPointerRippleDurationMs).toInt(),
+        settings.floatingPointerRippleDurationMs,
+    ).coerceAtLeast(80)
+}

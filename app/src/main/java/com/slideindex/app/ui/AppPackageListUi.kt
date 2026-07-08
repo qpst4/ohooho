@@ -30,6 +30,7 @@ fun AppPackageListRow(
     showAction: Boolean = true,
     title: String? = null,
     subtitle: String? = null,
+    onRowClick: (() -> Unit)? = null,
 ) {
     val displayTitle = when (entry) {
         is AppPackageEntry.Installed -> title ?: entry.app.label
@@ -46,7 +47,7 @@ fun AppPackageListRow(
         title = displayTitle,
         subtitle = displaySubtitle,
         selected = false,
-        onClick = if (showAction) onAction else null,
+        onClick = onRowClick ?: if (showAction) onAction else null,
         modifier = modifier,
         leadingContent = { Md3PickerAppEntryLeading(entry = entry, missingIcon = missingIcon) },
         trailingMode = if (showAction) PickerTrailingMode.Icon else PickerTrailingMode.None,

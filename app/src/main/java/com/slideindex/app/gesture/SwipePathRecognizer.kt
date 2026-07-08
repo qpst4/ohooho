@@ -87,6 +87,20 @@ class SwipePathRecognizer(
 
     fun gestureStartRawY(): Float = startRawY
 
+    fun seedExternalAnchor(rawX: Float, rawY: Float) {
+        startRawX = rawX
+        startRawY = rawY
+        lastRawX = rawX
+        lastRawY = rawY
+        startTime = System.currentTimeMillis()
+        tracking = false
+        longPressTriggered = false
+        movedBeyondLongPressSlop = false
+        peakInward = 0f
+        peakSwipeDistance = 0f
+        peakDy = 0f
+    }
+
     fun gestureDistance(rawX: Float, rawY: Float): Float {
         if (!tracking) return 0f
         return hypot(rawX - startRawX, rawY - startRawY)

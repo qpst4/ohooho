@@ -2,7 +2,18 @@ package com.slideindex.app.ui
 
 enum class SettingsDestination {
     Main,
+    ShakeGestures,
+    ShakeGestureBlacklist,
+    ShakeLockScreenSettings,
+    ShakeIndependentSensitivity,
+    ShakeIndependentAppSettings,
+    ShakePerAppActions,
+    ExtensionHub,
     NotificationHub,
+    MessageReminder,
+    MessageReminderAllowedApps,
+    MessageReminderDndApps,
+    MessageStyle,
     AppKeepAlive,
     Layout,
     HiddenApps,

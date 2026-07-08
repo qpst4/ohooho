@@ -52,7 +52,6 @@ fun MainScreen(
     onOpenAppKeepAliveSettings: () -> Unit,
     onHapticEnabledChange: (Boolean) -> Unit,
     onHapticStrengthChange: (Int) -> Unit,
-    onOpenLayoutSettings: () -> Unit,
     onOpenFreeWindowSettings: () -> Unit,
     onOpenExcludedAppsSettings: () -> Unit,
     onOpenTriggerCollection: () -> Unit,
@@ -62,10 +61,6 @@ fun MainScreen(
     onHideTriggerInLandscapeChange: (Boolean) -> Unit,
     onHideTriggerOnLockScreenChange: (Boolean) -> Unit,
     onHideTriggerOnLauncherChange: (Boolean) -> Unit,
-    onOpenQuickLauncher: () -> Unit,
-    onOpenShellCommands: () -> Unit,
-    onOpenWidgetPanel: () -> Unit,
-    onOpenFloatingPointer: () -> Unit,
     bottomContentPadding: Dp = 0.dp,
     onDynamicColorChange: (Boolean) -> Unit,
     onThemeColorChange: (Int) -> Unit,
@@ -178,34 +173,6 @@ fun MainScreen(
                     enabled = gestureActive,
                     onGestureHintEnabledChange = onGestureHintEnabledChange,
                     onOpenAnimationStyleSelect = onOpenAnimationStyleSelect,
-                )
-            }
-
-            SettingsSectionTitle(stringResource(R.string.settings_section_features))
-            SettingsCard {
-                LayoutSettingsEntryCard(
-                    settings = settings,
-                    enabled = gestureActive,
-                    onClick = onOpenLayoutSettings,
-                )
-                QuickLauncherEntryCard(
-                    settings = settings,
-                    enabled = gestureActive,
-                    onClick = onOpenQuickLauncher,
-                )
-                ShellCommandEntryCard(
-                    commandCount = settings.shellCommands.size,
-                    onClick = onOpenShellCommands,
-                )
-                WidgetPanelEntryCard(
-                    settings = settings,
-                    enabled = gestureActive,
-                    onClick = onOpenWidgetPanel,
-                )
-                FloatingPointerEntryCard(
-                    settings = settings,
-                    enabled = gestureActive,
-                    onClick = onOpenFloatingPointer,
                 )
             }
 

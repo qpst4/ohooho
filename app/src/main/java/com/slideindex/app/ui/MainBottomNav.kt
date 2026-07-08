@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,15 +28,23 @@ import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 
 enum class MainBottomNavDestination {
-    Gesture,
+    Home,
+    Shake,
     Notification,
+    Extension,
 }
 
 val MainBottomNavHeight = 64.dp
 val MainBottomNavOuterPadding = 16.dp
 
-fun SettingsDestination.isRootDestination(): Boolean =
-    this == SettingsDestination.Main || this == SettingsDestination.NotificationHub
+fun SettingsDestination.isRootDestination(): Boolean = when (this) {
+    SettingsDestination.Main,
+    SettingsDestination.ShakeGestures,
+    SettingsDestination.NotificationHub,
+    SettingsDestination.ExtensionHub,
+    -> true
+    else -> false
+}
 
 fun SettingsDestination.isNotificationBranch(): Boolean = when (this) {
     SettingsDestination.NotificationHub,
@@ -49,8 +59,10 @@ fun SettingsDestination.isNotificationBranch(): Boolean = when (this) {
 }
 
 fun SettingsDestination.toBottomNavDestination(): MainBottomNavDestination = when (this) {
+    SettingsDestination.ShakeGestures -> MainBottomNavDestination.Shake
     SettingsDestination.NotificationHub -> MainBottomNavDestination.Notification
-    else -> MainBottomNavDestination.Gesture
+    SettingsDestination.ExtensionHub -> MainBottomNavDestination.Extension
+    else -> MainBottomNavDestination.Home
 }
 
 @Composable
@@ -74,16 +86,28 @@ fun FloatingBottomNavBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             FloatingBottomNavItem(
-                selected = selected == MainBottomNavDestination.Gesture,
-                onClick = { onDestinationSelected(MainBottomNavDestination.Gesture) },
-                icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
-                label = stringResource(R.string.main_nav_gesture),
+                selected = selected == MainBottomNavDestination.Home,
+                onClick = { onDestinationSelected(MainBottomNavDestination.Home) },
+                icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                label = stringResource(R.string.main_nav_home),
+            )
+            FloatingBottomNavItem(
+                selected = selected == MainBottomNavDestination.Shake,
+                onClick = { onDestinationSelected(MainBottomNavDestination.Shake) },
+                icon = { Icon(Icons.Default.ScreenRotation, contentDescription = null) },
+                label = stringResource(R.string.main_nav_shake),
             )
             FloatingBottomNavItem(
                 selected = selected == MainBottomNavDestination.Notification,
                 onClick = { onDestinationSelected(MainBottomNavDestination.Notification) },
                 icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
                 label = stringResource(R.string.main_nav_notification),
+            )
+            FloatingBottomNavItem(
+                selected = selected == MainBottomNavDestination.Extension,
+                onClick = { onDestinationSelected(MainBottomNavDestination.Extension) },
+                icon = { Icon(Icons.Default.Widgets, contentDescription = null) },
+                label = stringResource(R.string.main_nav_extension),
             )
         }
     }

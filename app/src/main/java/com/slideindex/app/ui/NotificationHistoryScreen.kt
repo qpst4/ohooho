@@ -74,6 +74,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -101,9 +102,6 @@ fun NotificationHistoryScreen(
 ) {
     val context = LocalContext.current
     val app = remember { context.applicationContext as SlideIndexApp }
-    val items by app.notificationHistoryRepository.items.collectAsStateWithLifecycle()
-    val filterRules by app.notificationFilterRepository.rules.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableIntStateOf(NotificationFilterTab.ACTIVE.ordinal) }
     var showRulesScreen by remember { mutableStateOf(false) }
     var showSettingsScreen by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -113,6 +111,8 @@ fun NotificationHistoryScreen(
     var pendingDeleteItem by remember { mutableStateOf<NotificationHistoryItem?>(null) }
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var replayOpenAppDialog by remember { mutableStateOf<NotificationReplayResult.Failure?>(null) }
+    var selectedTab by remember { mutableIntStateOf(NotificationFilterTab.ACTIVE.ordinal) }
+    val filterRules by app.notificationFilterRepository.rules.collectAsStateWithLifecycle()
     val visibleHistoryItems = uiState.classification.visibleItems
     val hiddenItems = uiState.classification.hiddenItems
     val filteredHistoryItems = uiState.filteredHistoryItems
@@ -129,13 +129,19 @@ fun NotificationHistoryScreen(
     }
 
     LaunchedEffect(Unit) {
-        snapshotFlow {
+        combine(
+            app.notificationHistoryRepository.items,
+            app.notificationFilterRepository.rules,
+            snapshotFlow {
+                Triple(listenerEnabled, searchQuery, refreshGeneration)
+            },
+        ) { items, rules, (enabled, query, generation) ->
             NotificationHistoryQuery(
                 items = items,
-                rules = filterRules,
-                listenerEnabled = listenerEnabled,
-                searchQuery = searchQuery,
-                refreshGeneration = refreshGeneration,
+                rules = rules,
+                listenerEnabled = enabled,
+                searchQuery = query,
+                refreshGeneration = generation,
             )
         }
             .debounce(250)

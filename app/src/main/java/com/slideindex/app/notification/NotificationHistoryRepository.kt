@@ -11,7 +11,9 @@ import com.slideindex.app.service.LaunchTrampolineActivity
 import com.slideindex.app.service.MediaNotificationListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,28 +42,96 @@ class NotificationHistoryRepository(
     private val historyFile = File(appContext.filesDir, HISTORY_FILE_NAME)
     private val mutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var persistJob: Job? = null
+
+    @Volatile
+    private var isLoaded = false
 
     private val _items = MutableStateFlow<List<NotificationHistoryItem>>(emptyList())
     val items: StateFlow<List<NotificationHistoryItem>> = _items.asStateFlow()
 
+    /** Full payloads (base64 captures) kept in memory; [_items] exposes UI-safe copies only. */
+    private var storageItems: List<NotificationHistoryItem> = emptyList()
+
     init {
-        scope.launch {
-            mutex.withLock {
-                val maxCount = filterPreferences.readSnapshot().notificationHistoryMaxCount
-                val loaded = readFromDisk()
-                val trimmed = loaded.take(maxCount)
-                if (trimmed.size != loaded.size) {
-                    writeToDisk(trimmed)
-                }
-                _items.value = trimmed
+        scope.launch { ensureLoaded() }
+    }
+
+    private suspend fun ensureLoaded() {
+        if (isLoaded) return
+        mutex.withLock {
+            if (isLoaded) return
+            val maxCount = filterPreferences.readSnapshot().notificationHistoryMaxCount
+            val loaded = readFromDisk()
+            val trimmed = loaded.take(maxCount)
+            if (trimmed.size != loaded.size) {
+                writeToDisk(trimmed)
             }
+            publishItems(trimmed)
+            isLoaded = true
+        }
+    }
+
+    private fun publishItems(full: List<NotificationHistoryItem>) {
+        storageItems = full
+        val ui = full.forUiList()
+        if (ui != _items.value) {
+            _items.value = ui
+        }
+    }
+
+    private fun NotificationHistoryItem.forUi(): NotificationHistoryItem {
+        if (intentParcelBase64 == null &&
+            intentExtrasBase64 == null &&
+            pendingIntentBase64 == null &&
+            extrasBase64 == null
+        ) {
+            return this
+        }
+        return copy(
+            intentParcelBase64 = null,
+            intentExtrasBase64 = null,
+            pendingIntentBase64 = null,
+            extrasBase64 = null,
+        )
+    }
+
+    private fun List<NotificationHistoryItem>.forUiList(): List<NotificationHistoryItem> =
+        map { it.forUi() }
+
+    private suspend fun resolveFullItem(item: NotificationHistoryItem): NotificationHistoryItem {
+        ensureLoaded()
+        return mutex.withLock {
+            storageItems.find { it.id == item.id }
+                ?: item.notificationKey?.let { key ->
+                    storageItems.find { it.notificationKey == key }
+                }
+                ?: item
+        }
+    }
+
+    private fun schedulePersist(items: List<NotificationHistoryItem>) {
+        persistJob?.cancel()
+        persistJob = scope.launch {
+            delay(PERSIST_DEBOUNCE_MS)
+            mutex.withLock {
+                writeToDisk(items)
+            }
+        }
+    }
+
+    private suspend fun persistNow(items: List<NotificationHistoryItem>) {
+        persistJob?.cancel()
+        mutex.withLock {
+            writeToDisk(items)
         }
     }
 
     fun record(item: NotificationHistoryItem) {
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                val current = readFromDisk()
+                val current = storageItems
                 val existing = item.notificationKey?.let { key ->
                     current.firstOrNull { it.notificationKey == key }
                 }
@@ -74,16 +144,17 @@ class NotificationHistoryRepository(
                 val next = listOf(merged) + withoutDuplicate
                 val maxCount = filterPreferences.readSnapshot().notificationHistoryMaxCount
                 val trimmed = next.take(maxCount)
-                writeToDisk(trimmed)
-                _items.value = trimmed
+                publishItems(trimmed)
+                schedulePersist(trimmed)
             }
         }
     }
 
     fun updateCapture(notificationKey: String, captured: NotificationHistoryIntentCapture.CapturedIntent) {
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                val current = readFromDisk()
+                val current = storageItems
                 val index = current.indexOfFirst { it.notificationKey == notificationKey }
                 if (index < 0) return@withLock
                 val existing = current[index]
@@ -97,38 +168,41 @@ class NotificationHistoryRepository(
                 if (updated == existing) return@withLock
                 val next = current.toMutableList()
                 next[index] = updated
-                writeToDisk(next)
-                _items.value = next
+                storageItems = next
+                schedulePersist(next)
             }
         }
     }
 
     fun delete(id: String) {
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                val next = readFromDisk().filterNot { it.id == id }
-                writeToDisk(next)
-                _items.value = next
+                val next = storageItems.filterNot { it.id == id }
+                publishItems(next)
+                persistNow(next)
             }
         }
     }
 
     fun clearAll() {
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                writeToDisk(emptyList())
-                _items.value = emptyList()
+                publishItems(emptyList())
+                persistNow(emptyList())
             }
         }
     }
 
     suspend fun applyMaxCountLimit(maxCount: Int) {
+        ensureLoaded()
         mutex.withLock {
-            val current = readFromDisk()
+            val current = storageItems
             val trimmed = current.take(maxCount)
             if (trimmed.size != current.size) {
-                writeToDisk(trimmed)
-                _items.value = trimmed
+                publishItems(trimmed)
+                persistNow(trimmed)
             }
         }
     }
@@ -176,8 +250,9 @@ class NotificationHistoryRepository(
         val restoredKeys = NotificationHider.restoreAllSnoozed(appContext.packageName)
         if (restoredKeys.isEmpty()) return 0
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                val current = readFromDisk()
+                val current = storageItems
                 val restoredKeySet = restoredKeys.toSet()
                 val next = current.map { item ->
                     if (item.notificationKey in restoredKeySet && item.hidden) {
@@ -187,8 +262,8 @@ class NotificationHistoryRepository(
                     }
                 }
                 if (next != current) {
-                    writeToDisk(next)
-                    _items.value = next
+                    publishItems(next)
+                    schedulePersist(next)
                 }
             }
         }
@@ -197,14 +272,15 @@ class NotificationHistoryRepository(
 
     fun markHidden(id: String, hidden: Boolean) {
         scope.launch {
+            ensureLoaded()
             mutex.withLock {
-                val current = readFromDisk()
+                val current = storageItems
                 val index = current.indexOfFirst { it.id == id }
                 if (index < 0) return@withLock
                 val next = current.toMutableList()
                 next[index] = next[index].copy(hidden = hidden)
-                writeToDisk(next)
-                _items.value = next
+                publishItems(next)
+                schedulePersist(next)
             }
         }
     }
@@ -215,14 +291,15 @@ class NotificationHistoryRepository(
     ): NotificationRestoreResult {
         val ruleRemoved = filterRepository.removeRuleForItem(item)
         val unsnoozed = item.notificationKey?.let(NotificationHider::unsnoozeNotification) == true
+        ensureLoaded()
         mutex.withLock {
-            val current = readFromDisk()
+            val current = storageItems
             val index = current.indexOfFirst { it.id == item.id }
             if (index >= 0) {
                 val next = current.toMutableList()
                 next[index] = next[index].copy(hidden = false)
-                writeToDisk(next)
-                _items.value = next
+                publishItems(next)
+                schedulePersist(next)
             }
         }
         return when {
@@ -233,52 +310,53 @@ class NotificationHistoryRepository(
     }
 
     suspend fun replay(item: NotificationHistoryItem): NotificationReplayResult = withContext(Dispatchers.Main) {
-        if (replayFromActiveNotification(item)) {
+        val fullItem = resolveFullItem(item)
+        if (replayFromActiveNotification(fullItem)) {
             Log.i(TAG, "Replayed via active notification PendingIntent: ${item.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromCachedSbn(item)) {
-            Log.i(TAG, "Replayed via in-memory SBN cache: ${item.packageName}")
+        if (replayFromCachedSbn(fullItem)) {
+            Log.i(TAG, "Replayed via in-memory SBN cache: ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromStoredIntent(item)) {
-            Log.i(TAG, "Replayed via stored intent: ${item.packageName}")
+        if (replayFromStoredIntent(fullItem)) {
+            Log.i(TAG, "Replayed via stored intent: ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromNotificationExtras(item)) {
-            Log.i(TAG, "Replayed via notification extras: ${item.packageName}")
+        if (replayFromNotificationExtras(fullItem)) {
+            Log.i(TAG, "Replayed via notification extras: ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromStoredPendingIntentViaTrampoline(item)) {
-            Log.i(TAG, "Replayed via stored PendingIntent trampoline: ${item.packageName}")
+        if (replayFromStoredPendingIntentViaTrampoline(fullItem)) {
+            Log.i(TAG, "Replayed via stored PendingIntent trampoline: ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromStoredPendingIntent(item)) {
-            Log.i(TAG, "Replayed via stored PendingIntent.send(): ${item.packageName}")
+        if (replayFromStoredPendingIntent(fullItem)) {
+            Log.i(TAG, "Replayed via stored PendingIntent.send(): ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        if (replayFromRecreatedPendingIntent(item)) {
-            Log.i(TAG, "Replayed via recreated PendingIntent: ${item.packageName}")
+        if (replayFromRecreatedPendingIntent(fullItem)) {
+            Log.i(TAG, "Replayed via recreated PendingIntent: ${fullItem.packageName}")
             return@withContext NotificationReplayResult.Success
         }
 
-        val reason = buildReplayFailureReason(item)
+        val reason = buildReplayFailureReason(fullItem)
         Log.e(
             TAG,
-            "All replay paths failed for ${item.packageName}; $reason " +
-                "pi=${!item.pendingIntentBase64.isNullOrBlank()} " +
-                "uri=${!item.intentUri.isNullOrBlank()} " +
-                "parcel=${!item.intentParcelBase64.isNullOrBlank()} " +
-                "notificationExtras=${!item.extrasBase64.isNullOrBlank()} " +
-                "cachedSbn=${NotificationSbnCache.find(item.notificationKey.orEmpty(), item.postedAtMs) != null}",
+            "All replay paths failed for ${fullItem.packageName}; $reason " +
+                "pi=${!fullItem.pendingIntentBase64.isNullOrBlank()} " +
+                "uri=${!fullItem.intentUri.isNullOrBlank()} " +
+                "parcel=${!fullItem.intentParcelBase64.isNullOrBlank()} " +
+                "notificationExtras=${!fullItem.extrasBase64.isNullOrBlank()} " +
+                "cachedSbn=${NotificationSbnCache.find(fullItem.notificationKey.orEmpty(), fullItem.postedAtMs) != null}",
         )
-        buildReplayFailure(item, reason)
+        buildReplayFailure(fullItem, reason)
     }
 
     fun openTargetApp(packageName: String): Boolean = NotificationAppLauncher.open(appContext, packageName)
@@ -524,5 +602,6 @@ class NotificationHistoryRepository(
     companion object {
         private const val TAG = "NotifHistoryReplay"
         private const val HISTORY_FILE_NAME = "notification_history.json"
+        private const val PERSIST_DEBOUNCE_MS = 1_500L
     }
 }

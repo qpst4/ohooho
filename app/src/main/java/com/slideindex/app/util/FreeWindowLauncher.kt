@@ -4,6 +4,7 @@ import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.resolvedFreeWindowMode
@@ -21,22 +22,32 @@ object FreeWindowLauncher {
             return
         }
 
-        val options = ActivityOptions.makeBasic()
-        val mode = settings.resolvedFreeWindowMode().windowingMode
-        applyWindowingMode(options, mode)
-
-        val bounds = launchBounds(context, settings)
-        options.setLaunchBounds(bounds)
-
-        val bundle = options.toBundle() ?: Bundle()
-        if (bundle.getInt(KEY_WINDOWING_MODE, -1) == -1) {
-            bundle.putInt(KEY_WINDOWING_MODE, mode)
-        }
+        val bundle = launchOptionsBundle(context, settings) ?: Bundle()
         runCatching {
             context.startActivity(intent, bundle)
         }.onFailure { error ->
             android.util.Log.e("FreeWindowLauncher", "startActivity failed", error)
         }
+    }
+
+    fun launchOptionsBundle(context: Context, settings: AppSettings): Bundle? {
+        if (!settings.freeWindowEnabled) return null
+        val options = ActivityOptions.makeBasic()
+        val mode = settings.resolvedFreeWindowMode().windowingMode
+        applyWindowingMode(options, mode)
+        options.setLaunchBounds(launchBounds(context, settings))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val backgroundStartMode = when {
+                Build.VERSION.SDK_INT >= 36 -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
+                else -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }
+            options.pendingIntentBackgroundActivityStartMode = backgroundStartMode
+        }
+        val bundle = options.toBundle() ?: Bundle()
+        if (bundle.getInt(KEY_WINDOWING_MODE, -1) == -1) {
+            bundle.putInt(KEY_WINDOWING_MODE, mode)
+        }
+        return bundle
     }
 
     fun launchBounds(context: Context, settings: AppSettings): Rect {

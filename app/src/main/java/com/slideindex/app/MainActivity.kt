@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class, kotlinx.coroutines.FlowPreview::class)
 
 package com.slideindex.app
 
@@ -34,11 +34,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
+import com.slideindex.app.gesture.TriggerHandleDesign
 import com.slideindex.app.notification.NotificationHistoryClassification
 import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
 import com.slideindex.app.overlay.LayoutPreviewContent
@@ -66,6 +68,10 @@ import com.slideindex.app.ui.FloatingBottomNavBar
 import com.slideindex.app.ui.MainBottomNavDestination
 import com.slideindex.app.ui.MainBottomNavHeight
 import com.slideindex.app.ui.MainBottomNavOuterPadding
+import com.slideindex.app.ui.MessageReminderAllowedAppsScreen
+import com.slideindex.app.ui.MessageReminderDndAppsScreen
+import com.slideindex.app.ui.MessageReminderSettingsScreen
+import com.slideindex.app.ui.MessageStyleSettingsScreen
 import com.slideindex.app.ui.NotificationHubScreen
 import com.slideindex.app.ui.MainScreen
 import com.slideindex.app.ui.isRootDestination
@@ -81,6 +87,14 @@ import com.slideindex.app.ui.SettingsDestination
 import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.SideGestureSettingsScreen
+import com.slideindex.app.ui.ExtensionHubScreen
+import com.slideindex.app.ui.ShakeGestureBlacklistScreen
+import com.slideindex.app.ui.ShakeGesturesScreen
+import com.slideindex.app.ui.ShakeActionSetSettingsScreen
+import com.slideindex.app.ui.ShakeIndependentAppSettingsScreen
+import com.slideindex.app.ui.ShakeIndependentSensitivityScreen
+import com.slideindex.app.shake.ShakeGestureType
+import com.slideindex.app.shake.ShakeGestureSettings
 import com.slideindex.app.ui.TriggerDesignSettingsScreen
 import com.slideindex.app.ui.TriggerAppearanceSettingsScreen
 import com.slideindex.app.ui.TriggerCollectionScreen
@@ -101,7 +115,9 @@ import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.SecureSettingsHelper
 import com.slideindex.app.util.TaskManagerUtil
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -141,17 +157,16 @@ class MainActivity : ComponentActivity() {
             val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(
                 initialValue = AppSettings(),
             )
-            val notificationHistory by app.notificationHistoryRepository.items.collectAsStateWithLifecycle()
-            val notificationFilterRules by app.notificationFilterRepository.rules.collectAsStateWithLifecycle()
             var savedBottomNavTab by rememberSaveable {
-                mutableStateOf(MainBottomNavDestination.Gesture.name)
+                mutableStateOf(MainBottomNavDestination.Home.name)
             }
             var destination by remember {
                 mutableStateOf(
-                    if (savedBottomNavTab == MainBottomNavDestination.Notification.name) {
-                        SettingsDestination.NotificationHub
-                    } else {
-                        SettingsDestination.Main
+                    when (savedBottomNavTab) {
+                        MainBottomNavDestination.Shake.name -> SettingsDestination.ShakeGestures
+                        MainBottomNavDestination.Notification.name -> SettingsDestination.NotificationHub
+                        MainBottomNavDestination.Extension.name -> SettingsDestination.ExtensionHub
+                        else -> SettingsDestination.Main
                     },
                 )
             }
@@ -160,16 +175,20 @@ class MainActivity : ComponentActivity() {
             var appearanceParentSide by remember { mutableStateOf(PanelSide.LEFT) }
             var designParentSide by remember { mutableStateOf(PanelSide.LEFT) }
             var floatingPointerAreaPreviewEnabled by rememberSaveable { mutableStateOf(false) }
+            var shakePerAppConfigPackage by remember { mutableStateOf<String?>(null) }
             val rootBottomContentPadding = MainBottomNavHeight + MainBottomNavOuterPadding
             var visibleNotificationHistoryCount by remember { mutableStateOf(0) }
-            LaunchedEffect(notificationHistory, notificationFilterRules) {
-                delay(300)
-                visibleNotificationHistoryCount = withContext(Dispatchers.Default) {
-                    NotificationHistoryClassification.classify(
-                        notificationHistory,
-                        notificationFilterRules,
-                    ).visibleItems.size
-                }
+            LaunchedEffect(Unit) {
+                combine(
+                    app.notificationHistoryRepository.items,
+                    app.notificationFilterRepository.rules,
+                ) { items, rules -> items to rules }
+                    .debounce(300)
+                    .collectLatest { (items, rules) ->
+                        visibleNotificationHistoryCount = withContext(Dispatchers.Default) {
+                            NotificationHistoryClassification.classify(items, rules).visibleItems.size
+                        }
+                    }
             }
             LaunchedEffect(settings.hideFromRecents) {
                 applyHideFromRecents(settings.hideFromRecents)
@@ -256,9 +275,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         },
-                        onOpenLayoutSettings = {
-                            destination = SettingsDestination.Layout
-                        },
                         onOpenFreeWindowSettings = {
                             destination = SettingsDestination.FreeWindow
                         },
@@ -294,18 +310,6 @@ class MainActivity : ComponentActivity() {
                                 app.settingsRepository.setHideTriggerOnLauncher(enabled)
                             }
                         },
-                        onOpenQuickLauncher = {
-                            destination = SettingsDestination.QuickLauncher
-                        },
-                        onOpenShellCommands = {
-                            destination = SettingsDestination.ShellCommands
-                        },
-                        onOpenWidgetPanel = {
-                            destination = SettingsDestination.WidgetPanel
-                        },
-                        onOpenFloatingPointer = {
-                            destination = SettingsDestination.FloatingPointer
-                        },
                         bottomContentPadding = if (destination.isRootDestination()) {
                             rootBottomContentPadding
                         } else {
@@ -323,6 +327,8 @@ class MainActivity : ComponentActivity() {
 
                     SettingsDestination.NotificationHub -> NotificationHubScreen(
                         notificationListenerEnabled = notificationListenerEnabled,
+                        messageReminderEnabled = settings.messageReminderSettings.enabled,
+                        messageReminderSettings = settings.messageReminderSettings,
                         notificationHistoryCount = visibleNotificationHistoryCount,
                         onOpenNotificationHistory = {
                             destination = SettingsDestination.NotificationHistory
@@ -330,7 +336,349 @@ class MainActivity : ComponentActivity() {
                         onOpenOtpHub = {
                             destination = SettingsDestination.OtpHub
                         },
+                        onOpenMessageReminder = {
+                            destination = SettingsDestination.MessageReminder
+                        },
                         bottomContentPadding = rootBottomContentPadding,
+                    )
+
+                    SettingsDestination.MessageReminder -> MessageReminderSettingsScreen(
+                        settings = settings.messageReminderSettings,
+                        notificationListenerEnabled = notificationListenerEnabled,
+                        bottomContentPadding = rootBottomContentPadding,
+                        onBack = { destination = SettingsDestination.NotificationHub },
+                        onEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageReminderEnabled(enabled)
+                            }
+                        },
+                        onOpenStyleSettings = {
+                            destination = SettingsDestination.MessageStyle
+                        },
+                        onHideInLandscapeChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageHideInLandscape(enabled)
+                            }
+                        },
+                        onPortraitDanmakuChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessagePortraitDanmaku(enabled)
+                            }
+                        },
+                        onLandscapeDanmakuChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageLandscapeDanmaku(enabled)
+                            }
+                        },
+                        onGestureActionChange = { slot, action ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageGestureAction(slot, action)
+                            }
+                        },
+                        onOpenAllowedApps = {
+                            destination = SettingsDestination.MessageReminderAllowedApps
+                        },
+                        onOpenDndApps = {
+                            destination = SettingsDestination.MessageReminderDndApps
+                        },
+                        onSuppressWhenSystemDndChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageSuppressWhenSystemDnd(enabled)
+                            }
+                        },
+                        onOpenOverlayPermission = {
+                            startActivity(PermissionHelper.overlaySettingsIntent(this@MainActivity))
+                        },
+                        onOpenNotificationListenerPermission = {
+                            startActivity(MediaSessionHelper.notificationListenerSettingsIntent())
+                        },
+                    )
+
+                    SettingsDestination.MessageReminderAllowedApps -> MessageReminderAllowedAppsScreen(
+                        settings = settings.messageReminderSettings,
+                        onBack = { destination = SettingsDestination.MessageReminder },
+                        onAddPackage = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.addMessageEnabledPackage(packageName)
+                            }
+                        },
+                        onRemovePackage = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.removeMessageEnabledPackage(packageName)
+                            }
+                        },
+                        onSaveFilterRule = { rule ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.upsertMessageAppFilterRule(rule)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.MessageReminderDndApps -> MessageReminderDndAppsScreen(
+                        dndPackages = settings.messageReminderSettings.dndPackages,
+                        onBack = { destination = SettingsDestination.MessageReminder },
+                        onAddPackage = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.addMessageDndPackage(packageName)
+                            }
+                        },
+                        onRemovePackage = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.removeMessageDndPackage(packageName)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.MessageStyle -> MessageStyleSettingsScreen(
+                        settings = settings.messageReminderSettings,
+                        bottomContentPadding = rootBottomContentPadding,
+                        onBack = { destination = SettingsDestination.MessageReminder },
+                        onStyleIdChange = { styleId ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageStyleId(styleId)
+                            }
+                        },
+                        onThemeIdChange = { themeId ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageThemeId(themeId)
+                            }
+                        },
+                        onPrimaryStyleEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessagePrimaryStyleEnabled(enabled)
+                            }
+                        },
+                        onDanmakuEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageDanmakuEnabled(enabled)
+                            }
+                        },
+                        onDanmakuThemeIdChange = { themeId ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageDanmakuThemeId(themeId)
+                            }
+                        },
+                        onFloatIconOpacityChange = { opacity ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageFloatIconOpacity(opacity)
+                            }
+                        },
+                        onCardOpacityChange = { opacity ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageCardOpacity(opacity)
+                            }
+                        },
+                        onSideBubbleOpacityChange = { opacity ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageSideBubbleOpacity(opacity)
+                            }
+                        },
+                        onDanmakuOpacityChange = { opacity ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageDanmakuOpacity(opacity)
+                            }
+                        },
+                        onCardMaxLinesChange = { lines ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageCardMaxLines(lines)
+                            }
+                        },
+                        onDanmakuMaxLinesChange = { lines ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageDanmakuMaxLines(lines)
+                            }
+                        },
+                        onSideMaxCountChange = { count ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageSideMaxCount(count)
+                            }
+                        },
+                        onSideMaxWidthDpChange = { width ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageSideMaxWidthDp(width)
+                            }
+                        },
+                        onSideMaxLinesChange = { lines ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageSideMaxLines(lines)
+                            }
+                        },
+                        onAutoDismissSecondsChange = { seconds ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageAutoDismissSeconds(seconds)
+                            }
+                        },
+                        onFloatIconSizeDpChange = { sizeDp ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setMessageFloatIconSizeDp(sizeDp)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.ShakeGestures -> ShakeGesturesScreen(
+                        settings = settings.shakeGestureSettings,
+                        bottomContentPadding = rootBottomContentPadding,
+                        onEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeGesturesEnabled(enabled)
+                            }
+                        },
+                        onBasicActionChange = { type, action ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeGestureAction(type, action)
+                            }
+                        },
+                        onLockScreenShakeEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setLockScreenShakeEnabled(enabled)
+                            }
+                        },
+                        onIndependentAppShakeEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setIndependentAppShakeEnabled(enabled)
+                            }
+                        },
+                        onGlobalSensitivityChange = { value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeGlobalSensitivity(value)
+                            }
+                        },
+                        onIndependentSensitivityEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeIndependentSensitivityEnabled(enabled)
+                            }
+                        },
+                        onOpenIndependentSensitivity = {
+                            destination = SettingsDestination.ShakeIndependentSensitivity
+                        },
+                        onAnimationFeedbackEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeAnimationFeedbackEnabled(enabled)
+                            }
+                        },
+                        onVibrationFeedbackEnabledChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeVibrationFeedbackEnabled(enabled)
+                            }
+                        },
+                        onAnimationColorChange = { color ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeAnimationColor(color)
+                            }
+                        },
+                        onDisableInLandscapeChange = { enabled ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeDisableInLandscape(enabled)
+                            }
+                        },
+                        onOpenLockScreenShakeSettings = {
+                            destination = SettingsDestination.ShakeLockScreenSettings
+                        },
+                        onOpenIndependentAppShakeSettings = {
+                            destination = SettingsDestination.ShakeIndependentAppSettings
+                        },
+                        onOpenAppBlacklist = {
+                            destination = SettingsDestination.ShakeGestureBlacklist
+                        },
+                    )
+
+                    SettingsDestination.ShakeGestureBlacklist -> ShakeGestureBlacklistScreen(
+                        blacklistedPackages = settings.shakeGestureSettings.blacklistedPackages,
+                        onBack = { destination = SettingsDestination.ShakeGestures },
+                        onBlacklistApp = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.addShakeBlacklistedApp(packageName)
+                            }
+                        },
+                        onRemoveBlacklistedApp = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.removeShakeBlacklistedApp(packageName)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.ShakeLockScreenSettings -> ShakeActionSetSettingsScreen(
+                        title = stringResource(R.string.shake_gestures_lock_screen),
+                        subtitle = stringResource(R.string.shake_gestures_lock_screen_settings_desc),
+                        actions = settings.shakeGestureSettings.lockScreenActions,
+                        onBack = { destination = SettingsDestination.ShakeGestures },
+                        onActionChange = { type, action ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setLockScreenShakeAction(type, action)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.ShakeIndependentSensitivity -> ShakeIndependentSensitivityScreen(
+                        globalSensitivity = settings.shakeGestureSettings.globalSensitivity,
+                        perDirectionSensitivity = settings.shakeGestureSettings.perDirectionSensitivity,
+                        onBack = { destination = SettingsDestination.ShakeGestures },
+                        onSensitivityChange = { type, value ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setShakeDirectionSensitivity(type, value)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.ShakeIndependentAppSettings -> ShakeIndependentAppSettingsScreen(
+                        perAppActions = settings.shakeGestureSettings.perAppActions,
+                        onBack = { destination = SettingsDestination.ShakeGestures },
+                        onOpenAppConfig = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.addPerAppShakeConfig(packageName)
+                            }
+                            shakePerAppConfigPackage = packageName
+                            destination = SettingsDestination.ShakePerAppActions
+                        },
+                        onRemoveAppConfig = { packageName ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.removePerAppShakeConfig(packageName)
+                            }
+                        },
+                    )
+
+                    SettingsDestination.ShakePerAppActions -> {
+                        val packageName = shakePerAppConfigPackage
+                        if (packageName == null) {
+                            destination = SettingsDestination.ShakeIndependentAppSettings
+                        } else {
+                            val appLabel = remember(packageName) {
+                                runCatching {
+                                    packageManager.getApplicationLabel(
+                                        packageManager.getApplicationInfo(packageName, 0),
+                                    ).toString()
+                                }.getOrDefault(packageName)
+                            }
+                            ShakeActionSetSettingsScreen(
+                                title = stringResource(
+                                    R.string.shake_gestures_per_app_actions_title,
+                                    appLabel,
+                                ),
+                                subtitle = stringResource(R.string.shake_gestures_independent_app_desc),
+                                actions = settings.shakeGestureSettings.perAppActions[packageName]
+                                    ?: ShakeGestureSettings.defaultBasicActions(),
+                                onBack = {
+                                    shakePerAppConfigPackage = null
+                                    destination = SettingsDestination.ShakeIndependentAppSettings
+                                },
+                                onActionChange = { type, action ->
+                                    lifecycleScope.launch {
+                                        app.settingsRepository.setPerAppShakeAction(packageName, type, action)
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    SettingsDestination.ExtensionHub -> ExtensionHubScreen(
+                        settings = settings,
+                        gestureActive = settings.serviceEnabled && accessibilityGranted && notificationGranted,
+                        bottomContentPadding = rootBottomContentPadding,
+                        onOpenLayoutSettings = { destination = SettingsDestination.Layout },
+                        onOpenQuickLauncher = { destination = SettingsDestination.QuickLauncher },
+                        onOpenShellCommands = { destination = SettingsDestination.ShellCommands },
+                        onOpenWidgetPanel = { destination = SettingsDestination.WidgetPanel },
+                        onOpenFloatingPointer = { destination = SettingsDestination.FloatingPointer },
                     )
 
                     SettingsDestination.AppKeepAlive -> AppKeepAliveSettingsScreen(
@@ -683,6 +1031,15 @@ class MainActivity : ComponentActivity() {
                                     designParentSide,
                                     sideGestureHandleId,
                                     preset,
+                                )
+                            }
+                        },
+                        onResetDefaults = {
+                            lifecycleScope.launch {
+                                app.settingsRepository.setTriggerHandleDesign(
+                                    designParentSide,
+                                    sideGestureHandleId,
+                                    TriggerHandleDesign(),
                                 )
                             }
                         },
@@ -1050,6 +1407,16 @@ class MainActivity : ComponentActivity() {
                                 app.settingsRepository.setFloatingPointerRippleColor(color)
                             }
                         },
+                        onRippleSizeChange = { size ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRippleSizeDp(size)
+                            }
+                        },
+                        onRippleDurationChange = { duration ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerRippleDurationMs(duration)
+                            }
+                        },
                         onTrailTypeChange = { type ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setFloatingPointerTrailType(type)
@@ -1068,6 +1435,11 @@ class MainActivity : ComponentActivity() {
                         onHideWhenReleasedChange = { enabled ->
                             lifecycleScope.launch {
                                 app.settingsRepository.setFloatingPointerHideWhenJoystickReleased(enabled)
+                            }
+                        },
+                        onPointerDesignChange = { design ->
+                            lifecycleScope.launch {
+                                app.settingsRepository.setFloatingPointerDesignId(design.id)
                             }
                         },
                         onResetVisualDefaults = {
@@ -1209,8 +1581,10 @@ class MainActivity : ComponentActivity() {
                             onDestinationSelected = { tab ->
                                 savedBottomNavTab = tab.name
                                 destination = when (tab) {
-                                    MainBottomNavDestination.Gesture -> SettingsDestination.Main
+                                    MainBottomNavDestination.Home -> SettingsDestination.Main
+                                    MainBottomNavDestination.Shake -> SettingsDestination.ShakeGestures
                                     MainBottomNavDestination.Notification -> SettingsDestination.NotificationHub
+                                    MainBottomNavDestination.Extension -> SettingsDestination.ExtensionHub
                                 }
                             },
                             modifier = Modifier

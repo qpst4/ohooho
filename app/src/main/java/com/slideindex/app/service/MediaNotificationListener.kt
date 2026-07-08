@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.slideindex.app.message.MessageReminderController
 import com.slideindex.app.notification.NotificationHider
 import com.slideindex.app.notification.NotificationHistoryRecorder
 import com.slideindex.app.util.MediaSessionTracker
@@ -47,6 +48,7 @@ class MediaNotificationListener : NotificationListenerService() {
         mainHandler.post { MediaSessionTracker.onNotificationsChanged(this) }
         val listener = this
         workerScope.launch {
+            MessageReminderController.onNotificationPosted(applicationContext, listener, sbn)
             NotificationHistoryRecorder.onPosted(applicationContext, listener, sbn)
         }
     }

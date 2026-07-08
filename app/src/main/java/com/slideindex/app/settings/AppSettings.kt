@@ -1,6 +1,8 @@
 package com.slideindex.app.settings
 
 import com.slideindex.app.gesture.GestureAngleConfig
+import com.slideindex.app.message.MessageSettings
+import com.slideindex.app.shake.ShakeGestureSettings
 import com.slideindex.app.gesture.GestureRule
 import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.gesture.primaryTriggerHandle
@@ -75,17 +77,23 @@ data class AppSettings(
     /** Virtual joystick diameter in screen pixels (QC default 275). */
     val floatingPointerJoystickDiameterPx: Float = 275f,
     /** Ring pointer outer diameter in screen pixels. */
-    val floatingPointerPointerDiameterPx: Float = 110f,
+    val floatingPointerPointerDiameterPx: Float = 100f,
+    /** Pointer design id; [FloatingPointerDesign.RING] by default for backward compatibility. */
+    val floatingPointerDesignId: String = FloatingPointerDesign.RING.id,
     /** Ring pointer band thickness in screen pixels. */
     val floatingPointerRingThicknessPx: Float = 12f,
     /** Ring pointer center dot diameter in screen pixels. */
-    val floatingPointerDotDiameterPx: Float = 24f,
+    val floatingPointerDotDiameterPx: Float = 15f,
     val floatingPointerRingColorArgb: Int = 0xFFFFFFFF.toInt(),
     val floatingPointerFillColorArgb: Int = 0x19000000,
     val floatingPointerDotColorArgb: Int = 0xFFFFFFFF.toInt(),
     val floatingPointerClickVisualFeedbackEnabled: Boolean = true,
     val floatingPointerClickHapticEnabled: Boolean = true,
-    val floatingPointerRippleColorArgb: Int = 0xFFFF8A80.toInt(),
+    val floatingPointerRippleColorArgb: Int = 0xFFFD746C.toInt(),
+    /** Click ripple diameter in dp (QC default 80dp). */
+    val floatingPointerRippleSizeDp: Float = 80f,
+    /** Click ripple animation duration in ms (QC default 500). */
+    val floatingPointerRippleDurationMs: Int = 500,
     val floatingPointerTrailTypeId: Int = FloatingPointerTrailType.HIGH_DETAIL.id,
     val floatingPointerTrailDurationMs: Int = 150,
     val floatingPointerTrailColorArgb: Int = 0x66FF5252,
@@ -121,6 +129,8 @@ data class AppSettings(
     val otpAutoConfirmEnabled: Boolean = false,
     val otpAutoInputDelayMs: Int = 0,
     val otpAutoInputIntervalMs: Int = 0,
+    val shakeGestureSettings: ShakeGestureSettings = ShakeGestureSettings(),
+    val messageReminderSettings: MessageSettings = MessageSettings(),
 )
 
 fun AppSettings.edgeTriggerWidthDp(side: PanelSide): Float = when (side) {

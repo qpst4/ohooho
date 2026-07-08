@@ -438,6 +438,48 @@ class GestureSession(
         callbacks.onRequestInvalidate()
     }
 
+    fun openDiscretePanel(
+        action: GestureAction,
+        localX: Float,
+        localY: Float,
+        rawX: Float,
+        rawY: Float,
+    ) {
+        forceReset(notifySessionEnd = false)
+        pathRecognizer.seedExternalAnchor(rawX, rawY)
+        when (action) {
+            is GestureAction.OpenIndex -> {
+                active = true
+                enterIndexMode(localX, localY)
+            }
+            is GestureAction.QuickLauncher -> {
+                quickLauncherContinuousPick = false
+                active = true
+                openPanel(OverlayPanelMode.QUICK_LAUNCHER)
+            }
+            is GestureAction.TaskSwitcher -> {
+                taskSwitcherContinuousPick = false
+                active = true
+                openPanel(OverlayPanelMode.TASK_SWITCHER)
+            }
+            is GestureAction.ShellCommandPanel -> {
+                shellCommandContinuousPick = false
+                callbacks.onOpenShellCommandPanel(continuousPick = false)
+            }
+            GestureAction.AdjustVolume -> {
+                active = true
+                val fraction = actionExecutor.readCurrentAdjustFraction(ContinuousAdjustController.Mode.VOLUME)
+                callbacks.onShowAdjustPanel(ContinuousAdjustController.Mode.VOLUME, fraction, rawY)
+            }
+            GestureAction.AdjustBrightness -> {
+                active = true
+                val fraction = actionExecutor.readCurrentAdjustFraction(ContinuousAdjustController.Mode.BRIGHTNESS)
+                callbacks.onShowAdjustPanel(ContinuousAdjustController.Mode.BRIGHTNESS, fraction, rawY)
+            }
+            else -> Unit
+        }
+    }
+
 
 
     fun endSession() {

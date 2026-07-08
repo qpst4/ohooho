@@ -36,7 +36,16 @@ import com.slideindex.app.gesture.withTriggerAlignOppositeSide
 import com.slideindex.app.gesture.withUpdatedTriggerHandle
 import com.slideindex.app.gesture.withUpdatedTriggerHandleDistances
 import com.slideindex.app.launcher.QuickLauncherItemCodec
+import com.slideindex.app.message.MessageAction
+import com.slideindex.app.message.MessageAppFilterCodec
+import com.slideindex.app.message.MessageAppFilterRule
+import com.slideindex.app.message.MessageSettings
+import com.slideindex.app.message.MessageSettingsCodec
+import com.slideindex.app.message.MessageThemeCatalog
 import com.slideindex.app.otp.OtpMatchRuleCodec
+import com.slideindex.app.shake.ShakeGestureCodec
+import com.slideindex.app.shake.ShakeGestureSettings
+import com.slideindex.app.shake.ShakeGestureType
 import com.slideindex.app.widget.WidgetPanelCodec
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.shell.ShellCommand
@@ -138,15 +147,18 @@ class SettingsRepository(private val context: Context) {
             floatingPointerJoystickAreaZoomFraction = prefs[FLOATING_POINTER_JOYSTICK_AREA_ZOOM] ?: 0.8f,
             floatingPointerMatchJoystickToScreenAspect = prefs[FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] ?: false,
             floatingPointerJoystickDiameterPx = prefs[FLOATING_POINTER_JOYSTICK_SIZE] ?: 275f,
-            floatingPointerPointerDiameterPx = prefs[FLOATING_POINTER_POINTER_SIZE] ?: 110f,
+            floatingPointerPointerDiameterPx = prefs[FLOATING_POINTER_POINTER_SIZE] ?: 100f,
+            floatingPointerDesignId = prefs[FLOATING_POINTER_DESIGN_ID] ?: FloatingPointerDesign.RING.id,
             floatingPointerRingThicknessPx = prefs[FLOATING_POINTER_RING_THICKNESS] ?: 12f,
-            floatingPointerDotDiameterPx = prefs[FLOATING_POINTER_DOT_DIAMETER] ?: 24f,
+            floatingPointerDotDiameterPx = prefs[FLOATING_POINTER_DOT_DIAMETER] ?: 15f,
             floatingPointerRingColorArgb = prefs[FLOATING_POINTER_RING_COLOR] ?: 0xFFFFFFFF.toInt(),
             floatingPointerFillColorArgb = prefs[FLOATING_POINTER_FILL_COLOR] ?: 0x19000000,
             floatingPointerDotColorArgb = prefs[FLOATING_POINTER_DOT_COLOR] ?: 0xFFFFFFFF.toInt(),
             floatingPointerClickVisualFeedbackEnabled = prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] ?: true,
             floatingPointerClickHapticEnabled = prefs[FLOATING_POINTER_CLICK_HAPTIC] ?: true,
-            floatingPointerRippleColorArgb = prefs[FLOATING_POINTER_RIPPLE_COLOR] ?: 0xFFFF8A80.toInt(),
+            floatingPointerRippleColorArgb = prefs[FLOATING_POINTER_RIPPLE_COLOR] ?: 0xFFFD746C.toInt(),
+            floatingPointerRippleSizeDp = prefs[FLOATING_POINTER_RIPPLE_SIZE_DP] ?: 80f,
+            floatingPointerRippleDurationMs = prefs[FLOATING_POINTER_RIPPLE_DURATION_MS] ?: 500,
             floatingPointerTrailTypeId = prefs[FLOATING_POINTER_TRAIL_TYPE] ?: FloatingPointerTrailType.HIGH_DETAIL.id,
             floatingPointerTrailDurationMs = prefs[FLOATING_POINTER_TRAIL_DURATION] ?: 150,
             floatingPointerTrailColorArgb = prefs[FLOATING_POINTER_TRAIL_COLOR] ?: 0x66FF5252,
@@ -181,6 +193,8 @@ class SettingsRepository(private val context: Context) {
             otpAutoConfirmEnabled = prefs[OTP_AUTO_CONFIRM_ENABLED] ?: false,
             otpAutoInputDelayMs = prefs[OTP_AUTO_INPUT_DELAY_MS] ?: 0,
             otpAutoInputIntervalMs = prefs[OTP_AUTO_INPUT_INTERVAL_MS] ?: 0,
+            shakeGestureSettings = readShakeGestureSettings(prefs),
+            messageReminderSettings = readMessageReminderSettings(prefs),
         )
     }
 
@@ -531,6 +545,10 @@ class SettingsRepository(private val context: Context) {
         it[FLOATING_POINTER_POINTER_SIZE] = value.coerceIn(48f, 120f)
     }
 
+    suspend fun setFloatingPointerDesignId(designId: String) = edit {
+        it[FLOATING_POINTER_DESIGN_ID] = FloatingPointerDesign.fromId(designId).id
+    }
+
     suspend fun setFloatingPointerRingThicknessPx(value: Float) = edit {
         it[FLOATING_POINTER_RING_THICKNESS] = value.coerceIn(4f, 24f)
     }
@@ -561,6 +579,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFloatingPointerRippleColor(argb: Int) = edit {
         it[FLOATING_POINTER_RIPPLE_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRippleSizeDp(value: Float) = edit {
+        it[FLOATING_POINTER_RIPPLE_SIZE_DP] = value.coerceIn(40f, 200f)
+    }
+
+    suspend fun setFloatingPointerRippleDurationMs(value: Int) = edit {
+        it[FLOATING_POINTER_RIPPLE_DURATION_MS] = value.coerceIn(100, 1500)
     }
 
     suspend fun setFloatingPointerTrailType(type: FloatingPointerTrailType) = edit {
@@ -713,16 +739,231 @@ class SettingsRepository(private val context: Context) {
         it[OTP_AUTO_INPUT_INTERVAL_MS] = value.coerceIn(0, 500)
     }
 
+    suspend fun setShakeGesturesEnabled(enabled: Boolean) = edit { it[SHAKE_GESTURES_ENABLED] = enabled }
+
+    suspend fun setShakeGestureAction(type: ShakeGestureType, action: GestureAction) = edit { prefs ->
+        val current = readShakeGestureSettings(prefs)
+        val updated = current.basicActions.toMutableMap().apply { put(type, action) }
+        prefs[SHAKE_GESTURE_ACTIONS] = ShakeGestureCodec.encodeAllActions(updated)
+    }
+
+    suspend fun setLockScreenShakeAction(type: ShakeGestureType, action: GestureAction) = edit { prefs ->
+        val current = readShakeGestureSettings(prefs)
+        val updated = current.lockScreenActions.toMutableMap().apply { put(type, action) }
+        prefs[SHAKE_LOCK_SCREEN_ACTIONS] = ShakeGestureCodec.encodeAllActions(updated)
+    }
+
+    suspend fun setPerAppShakeAction(packageName: String, type: ShakeGestureType, action: GestureAction) =
+        edit { prefs ->
+            val current = readShakeGestureSettings(prefs)
+            val perApp = current.perAppActions.toMutableMap()
+            val appActions = perApp[packageName].orEmpty().toMutableMap().apply { put(type, action) }
+            perApp[packageName] = appActions
+            prefs[SHAKE_PER_APP_ACTIONS] = ShakeGestureCodec.encodePerAppActions(perApp)
+        }
+
+    suspend fun addPerAppShakeConfig(packageName: String) = edit { prefs ->
+        val current = readShakeGestureSettings(prefs)
+        if (packageName in current.perAppActions) return@edit
+        val perApp = current.perAppActions.toMutableMap()
+        perApp[packageName] = emptyMap()
+        prefs[SHAKE_PER_APP_ACTIONS] = ShakeGestureCodec.encodePerAppActions(perApp)
+    }
+
+    suspend fun removePerAppShakeConfig(packageName: String) = edit { prefs ->
+        val current = readShakeGestureSettings(prefs)
+        val perApp = current.perAppActions.toMutableMap()
+        perApp.remove(packageName)
+        prefs[SHAKE_PER_APP_ACTIONS] = ShakeGestureCodec.encodePerAppActions(perApp)
+    }
+
+    suspend fun setShakeDirectionSensitivity(type: ShakeGestureType, value: Float) = edit { prefs ->
+        val current = readShakeGestureSettings(prefs)
+        val updated = current.perDirectionSensitivity.toMutableMap().apply {
+            put(type, value.coerceIn(1f, 10f))
+        }
+        prefs[SHAKE_PER_DIRECTION_SENSITIVITY] = ShakeGestureCodec.encodePerDirectionSensitivity(updated)
+    }
+
+    suspend fun setLockScreenShakeEnabled(enabled: Boolean) = edit { it[LOCK_SCREEN_SHAKE_ENABLED] = enabled }
+
+    suspend fun setIndependentAppShakeEnabled(enabled: Boolean) =
+        edit { it[INDEPENDENT_APP_SHAKE_ENABLED] = enabled }
+
+    suspend fun setShakeGlobalSensitivity(value: Float) = edit {
+        it[SHAKE_GLOBAL_SENSITIVITY] = value.coerceIn(1f, 10f)
+    }
+
+    suspend fun setShakeIndependentSensitivityEnabled(enabled: Boolean) =
+        edit { it[SHAKE_INDEPENDENT_SENSITIVITY_ENABLED] = enabled }
+
+    suspend fun setShakeVibrationFeedbackEnabled(enabled: Boolean) =
+        edit { it[SHAKE_VIBRATION_FEEDBACK_ENABLED] = enabled }
+
+    suspend fun setShakeAnimationFeedbackEnabled(enabled: Boolean) =
+        edit { it[SHAKE_ANIMATION_FEEDBACK_ENABLED] = enabled }
+
+    suspend fun setShakeAnimationColor(argb: Int) = edit { it[SHAKE_ANIMATION_COLOR] = argb }
+
+    suspend fun setShakeDisableInLandscape(enabled: Boolean) =
+        edit { it[SHAKE_DISABLE_IN_LANDSCAPE] = enabled }
+
+    suspend fun addShakeBlacklistedApp(packageName: String) = edit {
+        val current = it[SHAKE_BLACKLIST_PACKAGES]?.toMutableSet() ?: mutableSetOf()
+        current.add(packageName)
+        it[SHAKE_BLACKLIST_PACKAGES] = current
+    }
+
+    suspend fun removeShakeBlacklistedApp(packageName: String) = edit {
+        val current = it[SHAKE_BLACKLIST_PACKAGES]?.toMutableSet() ?: return@edit
+        current.remove(packageName)
+        it[SHAKE_BLACKLIST_PACKAGES] = current
+    }
+
+    suspend fun setMessageReminderEnabled(enabled: Boolean) =
+        edit { it[MESSAGE_REMINDER_ENABLED] = enabled }
+
+    suspend fun setMessageStyleId(styleId: String) =
+        edit { it[MESSAGE_STYLE_ID] = styleId }
+
+    suspend fun setMessagePrimaryStyleEnabled(enabled: Boolean) =
+        edit { it[MESSAGE_PRIMARY_STYLE_ENABLED] = enabled }
+
+    suspend fun setMessageDanmakuEnabled(enabled: Boolean) =
+        edit { it[MESSAGE_DANMAKU_ENABLED] = enabled }
+
+    suspend fun setMessageThemeId(themeId: String) =
+        edit { it[MESSAGE_THEME_ID] = themeId }
+
+    suspend fun setMessageDanmakuThemeId(themeId: String) =
+        edit { it[MESSAGE_DANMAKU_THEME_ID] = themeId }
+
+    suspend fun setMessageFloatIconOpacity(opacity: Float) =
+        edit { it[MESSAGE_FLOAT_ICON_OPACITY] = opacity.coerceIn(0f, 1f) }
+
+    suspend fun setMessageCardOpacity(opacity: Float) =
+        edit { it[MESSAGE_CARD_OPACITY] = opacity.coerceIn(0.2f, 1f) }
+
+    suspend fun setMessageSideBubbleOpacity(opacity: Float) =
+        edit { it[MESSAGE_SIDE_BUBBLE_OPACITY] = opacity.coerceIn(0.2f, 1f) }
+
+    suspend fun setMessageFloatIconSizeDp(sizeDp: Float) =
+        edit { it[MESSAGE_FLOAT_ICON_SIZE_DP] = sizeDp.coerceIn(32f, 64f) }
+
+    suspend fun setMessageDanmakuOpacity(opacity: Float) =
+        edit { it[MESSAGE_DANMAKU_OPACITY] = opacity.coerceIn(0.2f, 1f) }
+
+    suspend fun setMessageCardMaxLines(lines: Int) =
+        edit { it[MESSAGE_CARD_MAX_LINES] = lines.coerceIn(1, 3) }
+
+    suspend fun setMessageDanmakuMaxLines(lines: Int) =
+        edit { it[MESSAGE_DANMAKU_MAX_LINES] = lines.coerceIn(1, 3) }
+
+    suspend fun setMessageSideMaxCount(count: Int) =
+        edit { it[MESSAGE_SIDE_MAX_COUNT] = count.coerceIn(1, 5) }
+
+    suspend fun setMessageSideMaxWidthDp(widthDp: Float) =
+        edit { it[MESSAGE_SIDE_MAX_WIDTH_DP] = widthDp.coerceIn(120f, 320f) }
+
+    suspend fun setMessageSideMaxLines(lines: Int) =
+        edit { it[MESSAGE_SIDE_MAX_LINES] = lines.coerceIn(1, 3) }
+
+    suspend fun setMessageAutoDismissSeconds(seconds: Int) =
+        edit { it[MESSAGE_AUTO_DISMISS_SECONDS] = seconds.coerceIn(0, 60) }
+
+    suspend fun setMessageHideInLandscape(enabled: Boolean) =
+        edit { it[MESSAGE_HIDE_IN_LANDSCAPE] = enabled }
+
+    suspend fun setMessagePortraitDanmaku(enabled: Boolean) =
+        edit { it[MESSAGE_PORTRAIT_DANMAKU] = enabled }
+
+    suspend fun setMessageLandscapeDanmaku(enabled: Boolean) =
+        edit { it[MESSAGE_LANDSCAPE_DANMAKU] = enabled }
+
+    suspend fun setMessageGestureAction(slot: String, action: MessageAction) = edit { prefs ->
+        val current = MessageSettingsCodec.decodeGestureActions(
+            prefs[MESSAGE_GESTURE_ACTIONS] ?: emptySet(),
+        ).toMutableMap()
+        current[slot] = action
+        val encoded = current.map { (key, value) ->
+            MessageSettingsCodec.encodeGestureAction(key, value)
+        }.toSet()
+        prefs[MESSAGE_GESTURE_ACTIONS] = encoded
+    }
+
+    suspend fun addMessageEnabledPackage(packageName: String) = edit {
+        val current = it[MESSAGE_ENABLED_PACKAGES]?.toMutableSet() ?: mutableSetOf()
+        current.add(packageName)
+        it[MESSAGE_ENABLED_PACKAGES] = current
+    }
+
+    suspend fun removeMessageEnabledPackage(packageName: String) = edit { prefs ->
+        val current = prefs[MESSAGE_ENABLED_PACKAGES]?.toMutableSet() ?: return@edit
+        current.remove(packageName)
+        prefs[MESSAGE_ENABLED_PACKAGES] = current
+        val rules = MessageAppFilterCodec.decodeAll(prefs[MESSAGE_APP_FILTER_RULES] ?: emptySet())
+            .toMutableMap()
+        rules.remove(packageName)
+        prefs[MESSAGE_APP_FILTER_RULES] = MessageAppFilterCodec.encodeAll(rules.values)
+    }
+
+    suspend fun addMessageDisabledPackage(packageName: String) = edit {
+        val current = it[MESSAGE_DISABLED_PACKAGES]?.toMutableSet() ?: mutableSetOf()
+        current.add(packageName)
+        it[MESSAGE_DISABLED_PACKAGES] = current
+    }
+
+    suspend fun removeMessageDisabledPackage(packageName: String) = edit {
+        val current = it[MESSAGE_DISABLED_PACKAGES]?.toMutableSet() ?: return@edit
+        current.remove(packageName)
+        it[MESSAGE_DISABLED_PACKAGES] = current
+    }
+
+    suspend fun addMessageDndPackage(packageName: String) = edit {
+        val current = it[MESSAGE_DND_PACKAGES]?.toMutableSet() ?: mutableSetOf()
+        current.add(packageName)
+        it[MESSAGE_DND_PACKAGES] = current
+    }
+
+    suspend fun removeMessageDndPackage(packageName: String) = edit {
+        val current = it[MESSAGE_DND_PACKAGES]?.toMutableSet() ?: return@edit
+        current.remove(packageName)
+        it[MESSAGE_DND_PACKAGES] = current
+    }
+
+    suspend fun setMessageSuppressWhenSystemDnd(enabled: Boolean) =
+        edit { it[MESSAGE_SUPPRESS_WHEN_SYSTEM_DND] = enabled }
+
+    suspend fun upsertMessageAppFilterRule(rule: MessageAppFilterRule) = edit { prefs ->
+        val current = MessageAppFilterCodec.decodeAll(prefs[MESSAGE_APP_FILTER_RULES] ?: emptySet())
+            .toMutableMap()
+        if (rule.hasCustomFilter()) {
+            current[rule.packageName] = rule
+        } else {
+            current.remove(rule.packageName)
+        }
+        prefs[MESSAGE_APP_FILTER_RULES] = MessageAppFilterCodec.encodeAll(current.values)
+    }
+
+    suspend fun removeMessageAppFilterRule(packageName: String) = edit { prefs ->
+        val current = MessageAppFilterCodec.decodeAll(prefs[MESSAGE_APP_FILTER_RULES] ?: emptySet())
+            .toMutableMap()
+        current.remove(packageName)
+        prefs[MESSAGE_APP_FILTER_RULES] = MessageAppFilterCodec.encodeAll(current.values)
+    }
+
     suspend fun resetFloatingPointerVisualDefaults() = edit { prefs ->
-        prefs[FLOATING_POINTER_POINTER_SIZE] = 110f
+        prefs[FLOATING_POINTER_POINTER_SIZE] = 100f
         prefs[FLOATING_POINTER_RING_THICKNESS] = 12f
-        prefs[FLOATING_POINTER_DOT_DIAMETER] = 24f
+        prefs[FLOATING_POINTER_DOT_DIAMETER] = 15f
         prefs[FLOATING_POINTER_RING_COLOR] = 0xFFFFFFFF.toInt()
         prefs[FLOATING_POINTER_FILL_COLOR] = 0x19000000
         prefs[FLOATING_POINTER_DOT_COLOR] = 0xFFFFFFFF.toInt()
         prefs[FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = true
         prefs[FLOATING_POINTER_CLICK_HAPTIC] = true
-        prefs[FLOATING_POINTER_RIPPLE_COLOR] = 0xFFFF8A80.toInt()
+        prefs[FLOATING_POINTER_RIPPLE_COLOR] = 0xFFFD746C.toInt()
+        prefs[FLOATING_POINTER_RIPPLE_SIZE_DP] = 80f
+        prefs[FLOATING_POINTER_RIPPLE_DURATION_MS] = 500
         prefs[FLOATING_POINTER_TRAIL_TYPE] = FloatingPointerTrailType.HIGH_DETAIL.id
         prefs[FLOATING_POINTER_TRAIL_DURATION] = 150
         prefs[FLOATING_POINTER_TRAIL_COLOR] = 0x66FF5252
@@ -881,6 +1122,73 @@ class SettingsRepository(private val context: Context) {
             downDegrees = prefs[GESTURE_ANGLE_DOWN] ?: GestureAngleConfig.DEFAULT_DOWN,
         ).normalized()
 
+    private fun readMessageReminderSettings(prefs: Preferences): MessageSettings {
+        val base = MessageSettings()
+        val withGestures = MessageSettingsCodec.applyGestureActions(
+            base,
+            prefs[MESSAGE_GESTURE_ACTIONS] ?: emptySet(),
+        )
+        return withGestures.copy(
+            enabled = prefs[MESSAGE_REMINDER_ENABLED] ?: false,
+            styleId = prefs[MESSAGE_STYLE_ID] ?: base.styleId,
+            primaryStyleEnabled = prefs[MESSAGE_PRIMARY_STYLE_ENABLED] ?: true,
+            danmakuEnabled = prefs[MESSAGE_DANMAKU_ENABLED] ?: true,
+            themeId = MessageThemeCatalog.normalizeThemeId(
+                prefs[MESSAGE_THEME_ID] ?: base.themeId,
+            ),
+            danmakuThemeId = MessageThemeCatalog.normalizeThemeId(
+                prefs[MESSAGE_DANMAKU_THEME_ID] ?: base.danmakuThemeId,
+            ),
+            floatIconOpacity = prefs[MESSAGE_FLOAT_ICON_OPACITY]
+                ?: prefs[MESSAGE_OPACITY]
+                ?: base.floatIconOpacity,
+            cardOpacity = prefs[MESSAGE_CARD_OPACITY]
+                ?: prefs[MESSAGE_OPACITY]
+                ?: base.cardOpacity,
+            sideBubbleOpacity = prefs[MESSAGE_SIDE_BUBBLE_OPACITY]
+                ?: prefs[MESSAGE_OPACITY]
+                ?: base.sideBubbleOpacity,
+            danmakuOpacity = prefs[MESSAGE_DANMAKU_OPACITY] ?: base.danmakuOpacity,
+            cardMaxLines = prefs[MESSAGE_CARD_MAX_LINES] ?: base.cardMaxLines,
+            danmakuMaxLines = prefs[MESSAGE_DANMAKU_MAX_LINES] ?: base.danmakuMaxLines,
+            sideMaxCount = prefs[MESSAGE_SIDE_MAX_COUNT] ?: base.sideMaxCount,
+            sideMaxWidthDp = prefs[MESSAGE_SIDE_MAX_WIDTH_DP] ?: base.sideMaxWidthDp,
+            sideMaxLines = prefs[MESSAGE_SIDE_MAX_LINES] ?: base.sideMaxLines,
+            floatIconSizeDp = prefs[MESSAGE_FLOAT_ICON_SIZE_DP] ?: base.floatIconSizeDp,
+            autoDismissSeconds = prefs[MESSAGE_AUTO_DISMISS_SECONDS] ?: base.autoDismissSeconds,
+            hideInLandscape = prefs[MESSAGE_HIDE_IN_LANDSCAPE] ?: false,
+            portraitDanmaku = prefs[MESSAGE_PORTRAIT_DANMAKU] ?: true,
+            landscapeDanmaku = prefs[MESSAGE_LANDSCAPE_DANMAKU] ?: true,
+            enabledPackages = prefs[MESSAGE_ENABLED_PACKAGES] ?: emptySet(),
+            disabledPackages = prefs[MESSAGE_DISABLED_PACKAGES] ?: emptySet(),
+            dndPackages = prefs[MESSAGE_DND_PACKAGES] ?: emptySet(),
+            suppressWhenSystemDnd = prefs[MESSAGE_SUPPRESS_WHEN_SYSTEM_DND] ?: false,
+            appFilterRules = MessageAppFilterCodec.decodeAll(
+                prefs[MESSAGE_APP_FILTER_RULES] ?: emptySet(),
+            ),
+        )
+    }
+
+    private fun readShakeGestureSettings(prefs: Preferences): ShakeGestureSettings =
+        ShakeGestureSettings(
+            enabled = prefs[SHAKE_GESTURES_ENABLED] ?: true,
+            basicActions = ShakeGestureCodec.decodeAllActions(prefs[SHAKE_GESTURE_ACTIONS] ?: emptySet()),
+            lockScreenShakeEnabled = prefs[LOCK_SCREEN_SHAKE_ENABLED] ?: false,
+            lockScreenActions = ShakeGestureCodec.decodeAllActions(prefs[SHAKE_LOCK_SCREEN_ACTIONS] ?: emptySet()),
+            independentAppShakeEnabled = prefs[INDEPENDENT_APP_SHAKE_ENABLED] ?: false,
+            perAppActions = ShakeGestureCodec.decodePerAppActions(prefs[SHAKE_PER_APP_ACTIONS] ?: emptySet()),
+            globalSensitivity = prefs[SHAKE_GLOBAL_SENSITIVITY] ?: 6.0f,
+            independentSensitivityEnabled = prefs[SHAKE_INDEPENDENT_SENSITIVITY_ENABLED] ?: false,
+            perDirectionSensitivity = ShakeGestureCodec.decodePerDirectionSensitivity(
+                prefs[SHAKE_PER_DIRECTION_SENSITIVITY] ?: emptySet(),
+            ),
+            vibrationFeedbackEnabled = prefs[SHAKE_VIBRATION_FEEDBACK_ENABLED] ?: true,
+            animationFeedbackEnabled = prefs[SHAKE_ANIMATION_FEEDBACK_ENABLED] ?: false,
+            animationColorArgb = prefs[SHAKE_ANIMATION_COLOR] ?: 0xFF424242.toInt(),
+            disableInLandscape = prefs[SHAKE_DISABLE_IN_LANDSCAPE] ?: false,
+            blacklistedPackages = prefs[SHAKE_BLACKLIST_PACKAGES] ?: emptySet(),
+        )
+
     private fun resolveOtpKeywordsRegex(stored: String?): String {
         if (stored == null) {
             return com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
@@ -966,6 +1274,7 @@ class SettingsRepository(private val context: Context) {
         private val FLOATING_POINTER_JOYSTICK_MATCH_ASPECT = booleanPreferencesKey("floating_pointer_joystick_match_aspect")
         private val FLOATING_POINTER_JOYSTICK_SIZE = floatPreferencesKey("floating_pointer_joystick_size_px")
         private val FLOATING_POINTER_POINTER_SIZE = floatPreferencesKey("floating_pointer_pointer_size_px")
+        private val FLOATING_POINTER_DESIGN_ID = stringPreferencesKey("floating_pointer_design_id")
         private val FLOATING_POINTER_RING_THICKNESS = floatPreferencesKey("floating_pointer_ring_thickness_px")
         private val FLOATING_POINTER_DOT_DIAMETER = floatPreferencesKey("floating_pointer_dot_diameter_px")
         private val FLOATING_POINTER_RING_COLOR = intPreferencesKey("floating_pointer_ring_color")
@@ -975,6 +1284,8 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("floating_pointer_click_visual_feedback")
         private val FLOATING_POINTER_CLICK_HAPTIC = booleanPreferencesKey("floating_pointer_click_haptic")
         private val FLOATING_POINTER_RIPPLE_COLOR = intPreferencesKey("floating_pointer_ripple_color")
+        private val FLOATING_POINTER_RIPPLE_SIZE_DP = floatPreferencesKey("floating_pointer_ripple_size_dp")
+        private val FLOATING_POINTER_RIPPLE_DURATION_MS = intPreferencesKey("floating_pointer_ripple_duration_ms")
         private val FLOATING_POINTER_TRAIL_TYPE = intPreferencesKey("floating_pointer_trail_type")
         private val FLOATING_POINTER_TRAIL_DURATION = intPreferencesKey("floating_pointer_trail_duration_ms")
         private val FLOATING_POINTER_TRAIL_COLOR = intPreferencesKey("floating_pointer_trail_color")
@@ -1008,5 +1319,55 @@ class SettingsRepository(private val context: Context) {
         private val OTP_AUTO_CONFIRM_ENABLED = booleanPreferencesKey("otp_auto_confirm_enabled")
         private val OTP_AUTO_INPUT_DELAY_MS = intPreferencesKey("otp_auto_input_delay_ms")
         private val OTP_AUTO_INPUT_INTERVAL_MS = intPreferencesKey("otp_auto_input_interval_ms")
+        private val SHAKE_GESTURES_ENABLED = booleanPreferencesKey("shake_gestures_enabled")
+        private val SHAKE_GESTURE_ACTIONS = stringSetPreferencesKey("shake_gesture_actions")
+        private val SHAKE_MENU_ACTIONS = stringSetPreferencesKey("shake_menu_actions")
+        private val SHAKE_HOLD_SCREEN_ACTIONS = stringSetPreferencesKey("shake_hold_screen_actions")
+        private val SHAKE_HOLD_GESTURE_BAR_ACTIONS = stringSetPreferencesKey("shake_hold_gesture_bar_actions")
+        private val SHAKE_LOCK_SCREEN_ACTIONS = stringSetPreferencesKey("shake_lock_screen_actions")
+        private val SHAKE_PER_APP_ACTIONS = stringSetPreferencesKey("shake_per_app_actions")
+        private val SHAKE_PER_DIRECTION_SENSITIVITY = stringSetPreferencesKey("shake_per_direction_sensitivity")
+        private val SHAKE_MENU_ENABLED = booleanPreferencesKey("shake_menu_enabled")
+        private val HOLD_SHAKE_ENABLED = booleanPreferencesKey("hold_shake_enabled")
+        private val LOCK_SCREEN_SHAKE_ENABLED = booleanPreferencesKey("lock_screen_shake_enabled")
+        private val INDEPENDENT_APP_SHAKE_ENABLED = booleanPreferencesKey("independent_app_shake_enabled")
+        private val SHAKE_GLOBAL_SENSITIVITY = floatPreferencesKey("shake_global_sensitivity")
+        private val SHAKE_INDEPENDENT_SENSITIVITY_ENABLED =
+            booleanPreferencesKey("shake_independent_sensitivity_enabled")
+        private val SHAKE_VIBRATION_FEEDBACK_ENABLED = booleanPreferencesKey("shake_vibration_feedback_enabled")
+        private val SHAKE_VIBRATION_TYPE = intPreferencesKey("shake_vibration_type")
+        private val SHAKE_VIBRATION_INTENSITY = intPreferencesKey("shake_vibration_intensity")
+        private val SHAKE_ANIMATION_FEEDBACK_ENABLED = booleanPreferencesKey("shake_animation_feedback_enabled")
+        private val SHAKE_ANIMATION_COLOR = intPreferencesKey("shake_animation_color")
+        private val SHAKE_DISABLE_IN_LANDSCAPE = booleanPreferencesKey("shake_disable_in_landscape")
+        private val SHAKE_BLACKLIST_PACKAGES = stringSetPreferencesKey("shake_blacklist_packages")
+        private val MESSAGE_REMINDER_ENABLED = booleanPreferencesKey("message_reminder_enabled")
+        private val MESSAGE_STYLE_ID = stringPreferencesKey("message_style_id")
+        private val MESSAGE_PRIMARY_STYLE_ENABLED = booleanPreferencesKey("message_primary_style_enabled")
+        private val MESSAGE_DANMAKU_ENABLED = booleanPreferencesKey("message_danmaku_enabled")
+        private val MESSAGE_THEME_ID = stringPreferencesKey("message_theme_id")
+        private val MESSAGE_DANMAKU_THEME_ID = stringPreferencesKey("message_danmaku_theme_id")
+        private val MESSAGE_OPACITY = floatPreferencesKey("message_opacity")
+        private val MESSAGE_FLOAT_ICON_OPACITY = floatPreferencesKey("message_float_icon_opacity")
+        private val MESSAGE_CARD_OPACITY = floatPreferencesKey("message_card_opacity")
+        private val MESSAGE_SIDE_BUBBLE_OPACITY = floatPreferencesKey("message_side_bubble_opacity")
+        private val MESSAGE_DANMAKU_OPACITY = floatPreferencesKey("message_danmaku_opacity")
+        private val MESSAGE_CARD_MAX_LINES = intPreferencesKey("message_card_max_lines")
+        private val MESSAGE_DANMAKU_MAX_LINES = intPreferencesKey("message_danmaku_max_lines")
+        private val MESSAGE_SIDE_MAX_COUNT = intPreferencesKey("message_side_max_count")
+        private val MESSAGE_SIDE_MAX_WIDTH_DP = floatPreferencesKey("message_side_max_width_dp")
+        private val MESSAGE_SIDE_MAX_LINES = intPreferencesKey("message_side_max_lines")
+        private val MESSAGE_FLOAT_ICON_SIZE_DP = floatPreferencesKey("message_float_icon_size_dp")
+        private val MESSAGE_AUTO_DISMISS_SECONDS = intPreferencesKey("message_auto_dismiss_seconds")
+        private val MESSAGE_HIDE_IN_LANDSCAPE = booleanPreferencesKey("message_hide_in_landscape")
+        private val MESSAGE_PORTRAIT_DANMAKU = booleanPreferencesKey("message_portrait_danmaku")
+        private val MESSAGE_LANDSCAPE_DANMAKU = booleanPreferencesKey("message_landscape_danmaku")
+        private val MESSAGE_GESTURE_ACTIONS = stringSetPreferencesKey("message_gesture_actions")
+        private val MESSAGE_ENABLED_PACKAGES = stringSetPreferencesKey("message_enabled_packages")
+        private val MESSAGE_DISABLED_PACKAGES = stringSetPreferencesKey("message_disabled_packages")
+        private val MESSAGE_DND_PACKAGES = stringSetPreferencesKey("message_dnd_packages")
+        private val MESSAGE_SUPPRESS_WHEN_SYSTEM_DND =
+            booleanPreferencesKey("message_suppress_when_system_dnd")
+        private val MESSAGE_APP_FILTER_RULES = stringSetPreferencesKey("message_app_filter_rules")
     }
 }

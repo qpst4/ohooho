@@ -55,53 +55,59 @@ data class TriggerHandleDesign(
                 (sizeDp > 0f || haloSizeDp > 0f || borderSizeDp > 0f))
 
     companion object {
-        const val DEFAULT_BACKGROUND_COLOR = 0x80FF5252.toInt()
-        const val DEFAULT_BORDER_COLOR = 0xFFFF5252.toInt()
-        const val DEFAULT_HALO_COLOR = 0x80FF5252.toInt()
+        // Quick Cursor defaults: #a6fd746c background, #ccfd746c glow
+        const val DEFAULT_BACKGROUND_COLOR = 0xA6FD746C.toInt()
+        const val DEFAULT_BORDER_COLOR = 0xA6FD746C.toInt()
+        const val DEFAULT_HALO_COLOR = 0xCCFD746C.toInt()
     }
 }
 
 object TriggerDesignPresets {
     fun apply(preset: TriggerDesignPreset): TriggerHandleDesign = when (preset) {
+        // bar: 6dp strip, 3dp all-corner radius
         TriggerDesignPreset.BAR -> TriggerHandleDesign(
             kind = TriggerDesignKind.CONFIGURABLE_RECTANGLE,
-            sizeDp = 28f,
+            sizeDp = 6f,
             marginDp = 0f,
-            cornerRadiusDp = 14f,
-            cornerMode = TriggerCornerMode.OUTER,
+            cornerRadiusDp = 3f,
+            cornerMode = TriggerCornerMode.ALL,
             haloSizeDp = 0f,
         )
+        // line: 1dp edge line
         TriggerDesignPreset.LINE -> TriggerHandleDesign(
             kind = TriggerDesignKind.CONFIGURABLE_RECTANGLE,
-            sizeDp = 3f,
+            sizeDp = 1f,
             marginDp = 0f,
             cornerRadiusDp = 0f,
             cornerMode = TriggerCornerMode.ALL,
             haloSizeDp = 0f,
         )
+        // rounded rectangle: up to 10dp wide, 5dp outer-corner radius
         TriggerDesignPreset.ROUNDED_RECT -> TriggerHandleDesign(
             kind = TriggerDesignKind.CONFIGURABLE_RECTANGLE,
-            sizeDp = 17f,
+            sizeDp = 10f,
             marginDp = 0f,
-            cornerRadiusDp = 8f,
-            cornerMode = TriggerCornerMode.ALL,
+            cornerRadiusDp = 5f,
+            cornerMode = TriggerCornerMode.OUTER,
             haloSizeDp = 0f,
         )
+        // glow: 10dp radial halo, no body
         TriggerDesignPreset.HALO -> TriggerHandleDesign(
             kind = TriggerDesignKind.CONFIGURABLE_RECTANGLE,
             sizeDp = 0f,
             marginDp = 0f,
             cornerRadiusDp = 0f,
             cornerMode = TriggerCornerMode.ALL,
-            haloSizeDp = 28f,
+            haloSizeDp = 10f,
         )
+        // line + glow: 1dp line with 10dp halo
         TriggerDesignPreset.LINE_AND_HALO -> TriggerHandleDesign(
             kind = TriggerDesignKind.CONFIGURABLE_RECTANGLE,
-            sizeDp = 3f,
+            sizeDp = 1f,
             marginDp = 0f,
             cornerRadiusDp = 0f,
             cornerMode = TriggerCornerMode.ALL,
-            haloSizeDp = 28f,
+            haloSizeDp = 10f,
         )
     }
 }

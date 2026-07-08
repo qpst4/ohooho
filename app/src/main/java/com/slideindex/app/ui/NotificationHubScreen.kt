@@ -28,9 +28,12 @@ import com.slideindex.app.R
 @Composable
 fun NotificationHubScreen(
     notificationListenerEnabled: Boolean,
+    messageReminderEnabled: Boolean,
+    messageReminderSettings: com.slideindex.app.message.MessageSettings,
     notificationHistoryCount: Int,
     onOpenNotificationHistory: () -> Unit,
     onOpenOtpHub: () -> Unit,
+    onOpenMessageReminder: () -> Unit,
     bottomContentPadding: Dp = 0.dp,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -60,6 +63,15 @@ fun NotificationHubScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SettingsSectionTitle(stringResource(R.string.message_reminder_title))
+            SettingsCard {
+                MessageReminderEntryCard(
+                    enabled = messageReminderEnabled,
+                    settings = messageReminderSettings,
+                    onClick = onOpenMessageReminder,
+                )
+            }
+
             SettingsSectionTitle(stringResource(R.string.notification_hub_section_tools))
             SettingsCard {
                 NotificationHistoryEntryCard(

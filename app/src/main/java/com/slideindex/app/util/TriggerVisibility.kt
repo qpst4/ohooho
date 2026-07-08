@@ -16,6 +16,11 @@ object TriggerVisibility {
         return pkg in settings.excludedTriggerAppPackages
     }
 
-    fun isLandscape(context: Context): Boolean =
-        context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    fun isLandscape(context: Context): Boolean {
+        val metrics = context.resources.displayMetrics
+        if (metrics.widthPixels > 0 && metrics.heightPixels > 0) {
+            return metrics.widthPixels > metrics.heightPixels
+        }
+        return context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    }
 }

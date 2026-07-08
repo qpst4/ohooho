@@ -74,27 +74,34 @@ object OhoQuickToolsOverlayWindow {
         settings: AppSettings,
         side: PanelSide? = null,
         anchorRawY: Float? = null,
-    ) {
+    ): Boolean {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { show(context, settings, side, anchorRawY) }
-            return
+            var result = false
+            val latch = java.util.concurrent.CountDownLatch(1)
+            mainHandler.post {
+                result = show(context, settings, side, anchorRawY)
+                latch.countDown()
+            }
+            runCatching { latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS) }
+            return result
         }
         if (isShowing) {
-            if (visibleState?.value == true) return
+            if (visibleState?.value == true) return true
             cleanup()
         }
         if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
             Log.w(TAG, "show: accessibility service not enabled")
-            return
+            return false
         }
 
         val hostContext = SlideIndexAccessibilityService.overlayHostContext()
             ?: run {
                 Log.w(TAG, "show: accessibility service not connected")
-                return
+                return false
             }
         val overlayContext = OverlayCompose.themedContext(hostContext)
-        val wm = hostContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+        val wm = hostContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            ?: return false
         val app = hostContext.applicationContext
         val state = OhoQuickToolsPanelState(app)
         val dialogOwner = OverlayComposeOwner()
@@ -124,7 +131,7 @@ object OhoQuickToolsOverlayWindow {
             .isSuccess
         if (!added) {
             dialogOwner.destroy()
-            return
+            return false
         }
 
         windowManager = wm
@@ -146,6 +153,7 @@ object OhoQuickToolsOverlayWindow {
             state.refresh()
             visible.value = true
         }
+        return true
     }
 
     fun dismiss() {
