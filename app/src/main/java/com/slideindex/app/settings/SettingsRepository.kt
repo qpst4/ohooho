@@ -41,15 +41,22 @@ import com.slideindex.app.widget.WidgetPanelCodec
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.shell.ShellCommandCodec
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "slide_index_settings")
 
 class SettingsRepository(private val context: Context) {
+    @Volatile
+    private var cachedSettings: AppSettings = AppSettings()
+
+    private val cacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         val legacyWidth = prefs[EDGE_TRIGGER_WIDTH] ?: 20f
         val legacyTop = prefs[TRIGGER_TOP] ?: 0.30f
@@ -177,7 +184,13 @@ class SettingsRepository(private val context: Context) {
         )
     }
 
-    fun readSnapshot(): AppSettings = runBlocking { settings.first() }
+    init {
+        cacheScope.launch {
+            settings.collect { cachedSettings = it }
+        }
+    }
+
+    fun readSnapshot(): AppSettings = cachedSettings
 
     suspend fun setServiceEnabled(enabled: Boolean) = edit { it[SERVICE_ENABLED] = enabled }
     suspend fun setLeftEdgeEnabled(enabled: Boolean) = edit { it[LEFT_EDGE_ENABLED] = enabled }

@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.gesture.TriggerHandle
-import com.slideindex.app.notification.isNotificationHistoryItemHidden
+import com.slideindex.app.notification.NotificationHistoryClassification
 import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.overlay.WidgetPickerOverlayWindow
@@ -100,8 +100,11 @@ import com.slideindex.app.util.MediaSessionHelper
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.SecureSettingsHelper
 import com.slideindex.app.util.TaskManagerUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {
@@ -158,8 +161,15 @@ class MainActivity : ComponentActivity() {
             var designParentSide by remember { mutableStateOf(PanelSide.LEFT) }
             var floatingPointerAreaPreviewEnabled by rememberSaveable { mutableStateOf(false) }
             val rootBottomContentPadding = MainBottomNavHeight + MainBottomNavOuterPadding
-            val visibleNotificationHistoryCount = notificationHistory.count {
-                !isNotificationHistoryItemHidden(it, notificationFilterRules)
+            var visibleNotificationHistoryCount by remember { mutableStateOf(0) }
+            LaunchedEffect(notificationHistory, notificationFilterRules) {
+                delay(300)
+                visibleNotificationHistoryCount = withContext(Dispatchers.Default) {
+                    NotificationHistoryClassification.classify(
+                        notificationHistory,
+                        notificationFilterRules,
+                    ).visibleItems.size
+                }
             }
             LaunchedEffect(settings.hideFromRecents) {
                 applyHideFromRecents(settings.hideFromRecents)
@@ -317,12 +327,8 @@ class MainActivity : ComponentActivity() {
                         onOpenNotificationHistory = {
                             destination = SettingsDestination.NotificationHistory
                         },
-                        onOpenOtpSettings = {
+                        onOpenOtpHub = {
                             destination = SettingsDestination.OtpHub
-                        },
-                        onOpenOtpRecords = {
-                            otpRecordsBackDestination = SettingsDestination.NotificationHub
-                            destination = SettingsDestination.OtpRecords
                         },
                         bottomContentPadding = rootBottomContentPadding,
                     )
@@ -802,7 +808,6 @@ class MainActivity : ComponentActivity() {
                     SettingsDestination.NotificationHistory -> NotificationHistoryScreen(
                         listenerEnabled = notificationListenerEnabled,
                         onBack = { destination = SettingsDestination.NotificationHub },
-                        onOpenOtpSettings = { destination = SettingsDestination.OtpHub },
                         onRequestListenerAccess = {
                             startActivity(MediaSessionHelper.notificationListenerSettingsIntent())
                         },

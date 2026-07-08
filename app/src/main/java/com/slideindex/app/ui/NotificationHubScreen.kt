@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -32,8 +30,7 @@ fun NotificationHubScreen(
     notificationListenerEnabled: Boolean,
     notificationHistoryCount: Int,
     onOpenNotificationHistory: () -> Unit,
-    onOpenOtpSettings: () -> Unit,
-    onOpenOtpRecords: () -> Unit,
+    onOpenOtpHub: () -> Unit,
     bottomContentPadding: Dp = 0.dp,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -70,13 +67,7 @@ fun NotificationHubScreen(
                     listenerEnabled = notificationListenerEnabled,
                     onClick = onOpenNotificationHistory,
                 )
-                OtpSettingsEntryCard(onClick = onOpenOtpSettings)
-                SettingNavigationRow(
-                    icon = { Icon(Icons.Default.History, contentDescription = null) },
-                    title = stringResource(R.string.otp_records_entry_title),
-                    subtitle = stringResource(R.string.otp_records_entry_desc),
-                    onClick = onOpenOtpRecords,
-                )
+                OtpHubEntryCard(onClick = onOpenOtpHub)
             }
 
             Spacer(modifier = Modifier.height(8.dp + bottomContentPadding))

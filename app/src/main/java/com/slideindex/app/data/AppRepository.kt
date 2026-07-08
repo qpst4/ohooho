@@ -37,12 +37,24 @@ class AppRepository(private val context: Context) {
         }
     }
 
+    fun getCachedAppInfo(packageName: String): AppInfo? {
+        if (packageName.isBlank() || packageName == context.packageName) return null
+        return appsByPackage[packageName]
+    }
+
+    suspend fun resolveAppInfo(packageName: String): AppInfo? {
+        getCachedAppInfo(packageName)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            queryAppInfo(packageName)?.also { info ->
+                appsByPackage = appsByPackage + (packageName to info)
+            }
+        }
+    }
+
     /** Resolve icon/label from PackageManager even when the app is not in the launcher cache. */
     fun ensureAppInfo(packageName: String): AppInfo? {
         if (packageName.isBlank() || packageName == context.packageName) return null
-        return lookupApp(packageName) ?: queryAppInfo(packageName)?.also { info ->
-            appsByPackage = appsByPackage + (packageName to info)
-        }
+        return lookupApp(packageName)
     }
 
     /** Map a recents dump identifier to an installed package (handles Flyme class-style names). */

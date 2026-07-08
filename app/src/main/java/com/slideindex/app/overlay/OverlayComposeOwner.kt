@@ -51,7 +51,14 @@ object OverlayCompose {
     fun createComposeView(context: Context, owner: OverlayComposeOwner): ComposeView {
         return ComposeView(themedContext(context)).apply {
             bindOwners(this, owner)
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            // Overlays manage their own owner lifecycle; dispose on window detach instead of
+            // ON_DESTROY to avoid races when removeView and destroy() happen close together.
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
         }
+    }
+
+    fun disposeComposeView(view: ComposeView?) {
+        if (view == null) return
+        runCatching { view.disposeComposition() }
     }
 }

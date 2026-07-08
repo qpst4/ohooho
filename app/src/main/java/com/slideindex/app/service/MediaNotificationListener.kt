@@ -1,22 +1,39 @@
 package com.slideindex.app.service
 
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.slideindex.app.notification.NotificationHider
 import com.slideindex.app.notification.NotificationHistoryRecorder
 import com.slideindex.app.util.MediaSessionTracker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Notification listener for media session tracking and notification history recording.
  * Must be enabled in system Settings → Notification access.
+ *
+ * Listener callbacks arrive on the main thread; heavy recording work is offloaded so
+ * touch overlays (floating pointer, edge gestures) stay responsive.
  */
 class MediaNotificationListener : NotificationListenerService() {
+    private val workerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         instance = this
-        MediaSessionTracker.onListenerConnected(this)
-        runCatching {
-            NotificationHistoryRecorder.onListenerConnected(this, this, activeNotifications)
+        mainHandler.post { MediaSessionTracker.onListenerConnected(this) }
+        workerScope.launch {
+            val notifications = runCatching { activeNotifications }.getOrNull() ?: emptyArray()
+            NotificationHistoryRecorder.onListenerConnected(
+                applicationContext,
+                this@MediaNotificationListener,
+                notifications,
+            )
         }
     }
 
@@ -27,8 +44,11 @@ class MediaNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        MediaSessionTracker.onNotificationsChanged(this)
-        NotificationHistoryRecorder.onPosted(applicationContext, this, sbn)
+        mainHandler.post { MediaSessionTracker.onNotificationsChanged(this) }
+        val listener = this
+        workerScope.launch {
+            NotificationHistoryRecorder.onPosted(applicationContext, listener, sbn)
+        }
     }
 
     override fun onNotificationRemoved(
@@ -37,8 +57,10 @@ class MediaNotificationListener : NotificationListenerService() {
         reason: Int,
     ) {
         super.onNotificationRemoved(sbn, rankingMap, reason)
-        MediaSessionTracker.onNotificationsChanged(this)
-        NotificationHistoryRecorder.onRemoved(applicationContext, sbn, reason)
+        mainHandler.post { MediaSessionTracker.onNotificationsChanged(this) }
+        workerScope.launch {
+            NotificationHistoryRecorder.onRemoved(applicationContext, sbn, reason)
+        }
     }
 
     fun restoreNotificationToShade(key: String): Boolean = NotificationHider.unsnoozeNotification(key)

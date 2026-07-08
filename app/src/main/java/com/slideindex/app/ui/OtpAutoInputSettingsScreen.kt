@@ -32,8 +32,12 @@ fun OtpAutoInputSettingsScreen(
         title = stringResource(R.string.otp_auto_input_title),
         subtitle = stringResource(R.string.otp_auto_input_desc),
         onBack = onBack,
+        embedded = onBack == null,
         modifier = modifier,
     ) {
+        if (onBack == null) {
+            SettingsHintText(stringResource(R.string.otp_hub_extensions_hint))
+        }
         val context = LocalContext.current
         val formatDelayLabel = remember(context) {
             { value: Float ->

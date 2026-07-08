@@ -4,7 +4,9 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
 import com.slideindex.app.R
 import com.slideindex.app.otp.OtpMatchRule
+import com.slideindex.app.settings.AppSettings
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -59,116 +62,146 @@ fun OtpRulesListScreen(
     onOfficialRuleEnabledChange: (String, Boolean) -> Unit,
     onUserRulesChange: (List<OtpMatchRule>) -> Unit,
     modifier: Modifier = Modifier,
+    settings: AppSettings? = null,
+    onCopyToClipboardChange: ((Boolean) -> Unit)? = null,
+    onKeywordsRegexChange: ((String) -> Unit)? = null,
+    showTestDialog: Boolean = false,
+    onShowTestDialog: (() -> Unit)? = null,
+    onDismissTestDialog: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var showEditor by remember { mutableStateOf(false) }
     var editingRule by remember { mutableStateOf<OtpMatchRule?>(null) }
+    var keywordsText by remember(settings?.otpKeywordsRegex) {
+        mutableStateOf(settings?.otpKeywordsRegex.orEmpty())
+    }
+
+    val embeddedInHub = onBack == null
+    val showExtractionExtras = embeddedInHub && settings != null
 
     if (onBack != null) {
         BackHandler(onBack = onBack)
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                MediumFlexibleTopAppBar(
-                    title = { SettingsAppBarTitle(stringResource(R.string.otp_rules_list_title)) },
-                    navigationIcon = {
-                        if (onBack != null) {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                            }
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = onRefreshOfficialRules) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.otp_rules_refresh))
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        editingRule = null
-                        showEditor = true
-                    },
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.otp_rules_add))
-                }
-            },
-        ) { padding ->
+    val hubContentPadding = PaddingValues(start = 20.dp, top = 4.dp, end = 20.dp, bottom = 88.dp)
+
+    if (embeddedInHub) {
+        Box(modifier = modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(hubContentPadding),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                SettingsSectionTitle(stringResource(R.string.otp_rules_official_section))
-                SettingsHintText(
-                    stringResource(R.string.otp_rules_official_hint, officialRules.size),
+                OtpRulesListBody(
+                    embeddedInHub = true,
+                    officialRules = officialRules,
+                    userRules = userRules,
+                    disabledOfficialRuleIds = disabledOfficialRuleIds,
+                    showExtractionExtras = showExtractionExtras,
+                    settings = settings,
+                    keywordsText = keywordsText,
+                    onKeywordsTextChange = { keywordsText = it },
+                    onRefreshOfficialRules = onRefreshOfficialRules,
+                    onOfficialRuleEnabledChange = onOfficialRuleEnabledChange,
+                    onUserRulesChange = onUserRulesChange,
+                    onCopyToClipboardChange = onCopyToClipboardChange,
+                    onKeywordsRegexChange = onKeywordsRegexChange,
+                    onShowTestDialog = onShowTestDialog,
+                    onEditRule = { rule ->
+                        editingRule = rule
+                        showEditor = true
+                    },
                 )
-                if (officialRules.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.otp_rules_official_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
-                } else {
-                    officialRules.forEach { rule ->
-                        val enabled = rule.id !in disabledOfficialRuleIds
-                        OtpRuleCard(
-                            rule = rule,
-                            enabled = enabled,
-                            showDelete = false,
-                            onEnabledChange = { onOfficialRuleEnabledChange(rule.id, it) },
-                            onEdit = null,
-                            onDelete = null,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                SettingsSectionTitle(stringResource(R.string.otp_rules_user_section))
-                if (userRules.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.otp_rules_user_empty),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
-                    )
-                } else {
-                    userRules.forEach { rule ->
-                        OtpRuleCard(
-                            rule = rule,
-                            enabled = rule.enabled,
-                            showDelete = true,
-                            onEnabledChange = { enabled ->
-                                onUserRulesChange(
-                                    userRules.map {
-                                        if (it.id == rule.id) it.copy(enabled = enabled) else it
-                                    },
-                                )
-                            },
-                            onEdit = {
-                                editingRule = rule
-                                showEditor = true
-                            },
-                            onDelete = {
-                                onUserRulesChange(userRules.filterNot { it.id == rule.id })
-                            },
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(72.dp))
+            }
+            FloatingActionButton(
+                onClick = {
+                    editingRule = null
+                    showEditor = true
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.otp_rules_add))
             }
         }
+    } else {
+        Box(modifier = modifier.fillMaxSize()) {
+            Scaffold(
+                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                topBar = {
+                    MediumFlexibleTopAppBar(
+                        title = { SettingsAppBarTitle(stringResource(R.string.otp_rules_list_title)) },
+                        navigationIcon = {
+                            onBack?.let { back ->
+                                IconButton(onClick = back) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                }
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = onRefreshOfficialRules) {
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.otp_rules_refresh))
+                            }
+                        },
+                        scrollBehavior = scrollBehavior,
+                    )
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = {
+                            editingRule = null
+                            showEditor = true
+                        },
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.otp_rules_add))
+                    }
+                },
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    OtpRulesListBody(
+                        embeddedInHub = false,
+                        officialRules = officialRules,
+                        userRules = userRules,
+                        disabledOfficialRuleIds = disabledOfficialRuleIds,
+                        showExtractionExtras = showExtractionExtras,
+                        settings = settings,
+                        keywordsText = keywordsText,
+                        onKeywordsTextChange = { keywordsText = it },
+                        onRefreshOfficialRules = onRefreshOfficialRules,
+                        onOfficialRuleEnabledChange = onOfficialRuleEnabledChange,
+                        onUserRulesChange = onUserRulesChange,
+                        onCopyToClipboardChange = onCopyToClipboardChange,
+                        onKeywordsRegexChange = onKeywordsRegexChange,
+                        onShowTestDialog = onShowTestDialog,
+                        onEditRule = { rule ->
+                            editingRule = rule
+                            showEditor = true
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(72.dp))
+                }
+            }
+        }
+    }
+
+    if (showExtractionExtras && showTestDialog) {
+        OtpTestDialogHost(
+            settings = settings!!,
+            officialRules = officialRules,
+            keywordsRegex = keywordsText,
+            onDismiss = onDismissTestDialog!!,
+        )
     }
 
     if (showEditor) {
@@ -193,6 +226,121 @@ fun OtpRulesListScreen(
                 editingRule = null
             },
         )
+    }
+}
+
+@Composable
+private fun OtpRulesListBody(
+    embeddedInHub: Boolean,
+    officialRules: List<OtpMatchRule>,
+    userRules: List<OtpMatchRule>,
+    disabledOfficialRuleIds: Set<String>,
+    showExtractionExtras: Boolean,
+    settings: AppSettings?,
+    keywordsText: String,
+    onKeywordsTextChange: (String) -> Unit,
+    onRefreshOfficialRules: () -> Unit,
+    onOfficialRuleEnabledChange: (String, Boolean) -> Unit,
+    onUserRulesChange: (List<OtpMatchRule>) -> Unit,
+    onCopyToClipboardChange: ((Boolean) -> Unit)?,
+    onKeywordsRegexChange: ((String) -> Unit)?,
+    onShowTestDialog: (() -> Unit)?,
+    onEditRule: (OtpMatchRule) -> Unit,
+) {
+    if (embeddedInHub) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.otp_rules_tab_title),
+                style = MaterialTheme.typography.titleMediumEmphasized,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onRefreshOfficialRules) {
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.otp_rules_refresh))
+            }
+        }
+        SettingsHintText(stringResource(R.string.otp_hub_rules_hint))
+    }
+
+    if (showExtractionExtras) {
+        val hubSettings = settings!!
+        SettingsSectionTitle(stringResource(R.string.otp_extraction_behavior_section))
+        OtpCopyToClipboardSection(
+            copyToClipboard = hubSettings.otpCopyToClipboard,
+            onCopyToClipboardChange = onCopyToClipboardChange!!,
+        )
+    }
+
+    SettingsSectionTitle(stringResource(R.string.otp_rules_official_section))
+    SettingsHintText(
+        stringResource(R.string.otp_rules_official_hint, officialRules.size),
+    )
+    if (officialRules.isEmpty()) {
+        Text(
+            text = stringResource(R.string.otp_rules_official_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+    } else {
+        officialRules.forEach { rule ->
+            val enabled = rule.id !in disabledOfficialRuleIds
+            OtpRuleCard(
+                rule = rule,
+                enabled = enabled,
+                showDelete = false,
+                onEnabledChange = { onOfficialRuleEnabledChange(rule.id, it) },
+                onEdit = null,
+                onDelete = null,
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(4.dp))
+    SettingsSectionTitle(stringResource(R.string.otp_rules_user_section))
+    if (userRules.isEmpty()) {
+        Text(
+            text = stringResource(R.string.otp_rules_user_empty),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+        )
+    } else {
+        userRules.forEach { rule ->
+            OtpRuleCard(
+                rule = rule,
+                enabled = rule.enabled,
+                showDelete = true,
+                onEnabledChange = { enabled ->
+                    onUserRulesChange(
+                        userRules.map {
+                            if (it.id == rule.id) it.copy(enabled = enabled) else it
+                        },
+                    )
+                },
+                onEdit = { onEditRule(rule) },
+                onDelete = {
+                    onUserRulesChange(userRules.filterNot { it.id == rule.id })
+                },
+            )
+        }
+    }
+
+    if (showExtractionExtras) {
+        OtpKeywordsEditorSection(
+            keywordsText = keywordsText,
+            onKeywordsTextChange = onKeywordsTextChange,
+            onSave = { onKeywordsRegexChange!!(keywordsText) },
+            onReset = {
+                val defaultRegex = com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+                onKeywordsTextChange(defaultRegex)
+                onKeywordsRegexChange!!(defaultRegex)
+            },
+            sectionTitle = stringResource(R.string.otp_keywords_fallback_section),
+        )
+        OtpTestLinkSection(onOpenTest = onShowTestDialog!!)
     }
 }
 

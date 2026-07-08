@@ -44,7 +44,7 @@ class NotificationFilterRepository(context: Context) {
     }
 
     fun findMatchingRules(sbn: StatusBarNotification): List<NotificationFilterRule> {
-        return NotificationRuleMatcher.findMatching(_rules.value, sbn)
+        return NotificationRuleMatcher.findMatching(_rules.value, sbn, appContext)
             .filter { it.userCreated }
     }
 
@@ -126,20 +126,27 @@ class NotificationFilterRepository(context: Context) {
         NotificationHider.snoozeMatchingActive(appContext, listener)
     }
 
+    fun exportRulesJson(): String = NotificationFilterCodec.encode(_rules.value)
+
+    suspend fun importRulesJson(raw: String, replace: Boolean = false): Boolean {
+        val imported = NotificationFilterCodec.decode(raw).filter { it.userCreated }
+        if (imported.isEmpty()) return false
+        mutex.withLock {
+            val current = if (replace) emptyList() else readFromDisk()
+            val merged = imported + current.filter { existing ->
+                imported.none { it.id == existing.id }
+            }
+            writeToDisk(merged)
+            _rules.value = merged
+        }
+        return true
+    }
+
     private fun applyRuleToActive(rule: NotificationFilterRule) {
         if (!rule.enabled || !rule.userCreated) return
         val listener = MediaNotificationListener.instance ?: return
         listener.activeNotifications?.forEach { sbn ->
-            if (NotificationRuleMatcher.matches(
-                    rule = rule,
-                    packageName = sbn.packageName,
-                    channelId = sbn.notification?.channelId,
-                    title = sbn.notification?.extras
-                        ?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty(),
-                    text = sbn.notification?.extras
-                        ?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty(),
-                )
-            ) {
+            if (NotificationRuleMatcher.findMatching(listOf(rule), sbn, appContext).isNotEmpty()) {
                 NotificationRuleExecutor.execute(appContext, listener, sbn, listOf(rule))
             }
         }
@@ -164,18 +171,9 @@ class NotificationFilterRepository(context: Context) {
     companion object {
         private const val RULES_FILE_NAME = "notification_filter_rules.json"
 
-        private fun NotificationFilterRule.isSameTarget(other: NotificationFilterRule): Boolean {
-            return packageName == other.packageName &&
-                channelId == other.channelId &&
-                titlePattern == other.titlePattern &&
-                textPattern == other.textPattern &&
-                useRegex == other.useRegex &&
-                actions == other.actions
-        }
-
         private fun NotificationFilterRule.matchesItem(item: NotificationHistoryItem): Boolean {
             return NotificationRuleMatcher.matches(
-                rule = this,
+                rule = this.normalized(),
                 packageName = item.packageName,
                 channelId = null,
                 title = item.title,

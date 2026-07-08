@@ -70,6 +70,8 @@ fun OtpRecordsScreen(
     onOpenTestFlow: (() -> Unit)? = null,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
+    val embeddedInHub = onBack == null
+
     if (onBack != null) {
         BackHandler(onBack = onBack)
     }
@@ -100,60 +102,7 @@ fun OtpRecordsScreen(
         }
     }
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            MediumFlexibleTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.otp_records_title),
-                        style = MaterialTheme.typography.titleLargeEmphasized,
-                    )
-                },
-                navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showFilterSheet = true }) {
-                        Icon(Icons.Default.FilterList, contentDescription = stringResource(R.string.otp_records_filter))
-                    }
-                    IconButton(onClick = { showSortMenu = true }) {
-                        Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.otp_records_sort))
-                    }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.otp_records_sort_newest)) },
-                            onClick = {
-                                sortOrder = OtpRecordSortOrder.NEWEST_FIRST
-                                showSortMenu = false
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.otp_records_sort_oldest)) },
-                            onClick = {
-                                sortOrder = OtpRecordSortOrder.OLDEST_FIRST
-                                showSortMenu = false
-                            },
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
-        val listModifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
-            .padding(bottom = contentPadding.calculateBottomPadding())
+    val recordsListContent: @Composable (Modifier) -> Unit = { listModifier ->
         if (records.isEmpty()) {
             OtpRecordsEmptyState(
                 modifier = listModifier,
@@ -161,8 +110,7 @@ fun OtpRecordsScreen(
             )
         } else {
             LazyColumn(
-                modifier = listModifier
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                modifier = listModifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (filteredRecords.isEmpty()) {
@@ -176,7 +124,7 @@ fun OtpRecordsScreen(
                     }
                 } else {
                     items(filteredRecords, key = { it.id }) { record ->
-                        val appInfo = app.appRepository.ensureAppInfo(record.packageName)
+                        val appInfo = app.appRepository.getCachedAppInfo(record.packageName)
                         OtpRecordRow(
                             record = record,
                             appInfo = appInfo,
@@ -193,6 +141,79 @@ fun OtpRecordsScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    if (embeddedInHub) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = contentPadding.calculateBottomPadding()),
+        ) {
+            OtpRecordsEmbeddedToolbar(
+                showSortMenu = showSortMenu,
+                onShowFilterSheet = { showFilterSheet = true },
+                onShowSortMenu = { showSortMenu = true },
+                onDismissSortMenu = { showSortMenu = false },
+                onSortNewest = {
+                    sortOrder = OtpRecordSortOrder.NEWEST_FIRST
+                    showSortMenu = false
+                },
+                onSortOldest = {
+                    sortOrder = OtpRecordSortOrder.OLDEST_FIRST
+                    showSortMenu = false
+                },
+            )
+            recordsListContent(Modifier.fillMaxSize())
+        }
+    } else {
+        Scaffold(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            topBar = {
+                MediumFlexibleTopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.otp_records_title),
+                            style = MaterialTheme.typography.titleLargeEmphasized,
+                        )
+                    },
+                    navigationIcon = {
+                        onBack?.let { back ->
+                            IconButton(onClick = back) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            }
+                        }
+                    },
+                    actions = {
+                        OtpRecordsFilterSortActions(
+                            showSortMenu = showSortMenu,
+                            onShowFilterSheet = { showFilterSheet = true },
+                            onShowSortMenu = { showSortMenu = true },
+                            onDismissSortMenu = { showSortMenu = false },
+                            onSortNewest = {
+                                sortOrder = OtpRecordSortOrder.NEWEST_FIRST
+                                showSortMenu = false
+                            },
+                            onSortOldest = {
+                                sortOrder = OtpRecordSortOrder.OLDEST_FIRST
+                                showSortMenu = false
+                            },
+                        )
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+            },
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(bottom = contentPadding.calculateBottomPadding()),
+            ) {
+                recordsListContent(Modifier.fillMaxSize())
             }
         }
     }
@@ -257,6 +278,67 @@ fun OtpRecordsScreen(
                     Text(stringResource(R.string.shell_panel_close))
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun OtpRecordsFilterSortActions(
+    showSortMenu: Boolean,
+    onShowFilterSheet: () -> Unit,
+    onShowSortMenu: () -> Unit,
+    onDismissSortMenu: () -> Unit,
+    onSortNewest: () -> Unit,
+    onSortOldest: () -> Unit,
+) {
+    IconButton(onClick = onShowFilterSheet) {
+        Icon(Icons.Default.FilterList, contentDescription = stringResource(R.string.otp_records_filter))
+    }
+    IconButton(onClick = onShowSortMenu) {
+        Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.otp_records_sort))
+    }
+    DropdownMenu(
+        expanded = showSortMenu,
+        onDismissRequest = onDismissSortMenu,
+    ) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.otp_records_sort_newest)) },
+            onClick = onSortNewest,
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.otp_records_sort_oldest)) },
+            onClick = onSortOldest,
+        )
+    }
+}
+
+@Composable
+private fun OtpRecordsEmbeddedToolbar(
+    showSortMenu: Boolean,
+    onShowFilterSheet: () -> Unit,
+    onShowSortMenu: () -> Unit,
+    onDismissSortMenu: () -> Unit,
+    onSortNewest: () -> Unit,
+    onSortOldest: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.otp_records_title),
+            style = MaterialTheme.typography.titleMediumEmphasized,
+            modifier = Modifier.weight(1f),
+        )
+        OtpRecordsFilterSortActions(
+            showSortMenu = showSortMenu,
+            onShowFilterSheet = onShowFilterSheet,
+            onShowSortMenu = onShowSortMenu,
+            onDismissSortMenu = onDismissSortMenu,
+            onSortNewest = onSortNewest,
+            onSortOldest = onSortOldest,
         )
     }
 }

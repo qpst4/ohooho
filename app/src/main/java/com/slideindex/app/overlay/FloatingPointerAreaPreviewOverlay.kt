@@ -52,6 +52,7 @@ object FloatingPointerAreaPreviewOverlay {
     private var settingsState: androidx.compose.runtime.MutableState<AppSettings>? = null
     private var triggerPositionState: androidx.compose.runtime.MutableState<Offset>? = null
     private var settingsCollectJob: Job? = null
+    private var showToken = 0
 
     val isShowing: Boolean get() = displayView != null
 
@@ -61,6 +62,7 @@ object FloatingPointerAreaPreviewOverlay {
             return
         }
         if (isShowing) return
+        val token = showToken
         if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
             Log.w(TAG, "show: accessibility service not enabled")
             return
@@ -94,10 +96,18 @@ object FloatingPointerAreaPreviewOverlay {
             }
         }
 
+        if (token != showToken) {
+            OverlayCompose.disposeComposeView(composeView)
+            owner.destroy()
+            return
+        }
+
         val displayParams = buildDisplayParams(hostContext)
 
         val displayAdded = runCatching { wm.addView(composeView, displayParams) }.isSuccess
-        if (!displayAdded) {
+        if (!displayAdded || token != showToken) {
+            runCatching { wm.removeView(composeView) }
+            OverlayCompose.disposeComposeView(composeView)
             owner.destroy()
             return
         }
@@ -121,16 +131,20 @@ object FloatingPointerAreaPreviewOverlay {
             mainHandler.post { hide() }
             return
         }
+        showToken++
         settingsCollectJob?.cancel()
         settingsCollectJob = null
         val wm = windowManager
-        displayView?.let { runCatching { wm?.removeView(it) } }
-        displayOwner?.destroy()
+        val view = displayView
+        val owner = displayOwner
         displayView = null
         displayOwner = null
         windowManager = null
         settingsState = null
         triggerPositionState = null
+        view?.let { runCatching { wm?.removeView(it) } }
+        OverlayCompose.disposeComposeView(view)
+        owner?.destroy()
     }
 
     fun updateSettings(settings: AppSettings) {

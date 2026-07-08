@@ -110,7 +110,8 @@ object NotificationHistoryRecorder {
         }
         if (!shouldHide) return false
         if (matchingRules.any { it.hidesNotification() }) return true
-        return NotificationHider.hideFromShade(listener, sbn)
+        NotificationHider.hideFromShadeOnMain(listener, sbn)
+        return true
     }
 
     fun onRemoved(context: Context, sbn: StatusBarNotification, reason: Int) {

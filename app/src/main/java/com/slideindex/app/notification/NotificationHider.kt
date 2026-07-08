@@ -2,6 +2,8 @@ package com.slideindex.app.notification
 
 import android.app.Notification
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -9,6 +11,7 @@ import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.MediaNotificationListener
 
 object NotificationHider {
+    private val mainHandler = Handler(Looper.getMainLooper())
     /**
      * Effectively permanent snooze (~50 years). Well below [Long.MAX_VALUE] to avoid overflow.
      * [NotificationListenerService.snoozeNotification] is available from API 26; minSdk is 30.
@@ -48,6 +51,14 @@ object NotificationHider {
     fun hideFromShade(listener: NotificationListenerService, sbn: StatusBarNotification): Boolean {
         if (sbn.packageName == listener.packageName) return false
         return hideFromShade(listener, sbn.key, sbn)
+    }
+
+    fun hideFromShadeOnMain(listener: NotificationListenerService, sbn: StatusBarNotification) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            hideFromShade(listener, sbn)
+        } else {
+            mainHandler.post { hideFromShade(listener, sbn) }
+        }
     }
 
     fun hideFromShade(listener: NotificationListenerService, key: String, sbn: StatusBarNotification? = null): Boolean {

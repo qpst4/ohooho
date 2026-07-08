@@ -751,6 +751,7 @@ object FloatingPointerOverlayWindow {
         screenOffReceiver?.let { receiver ->
             appContext?.let { ctx -> runCatching { ctx.unregisterReceiver(receiver) } }
         }
+        OverlayCompose.disposeComposeView(displayView)
         displayOwner?.destroy()
         displayOwner = null
         displayView = null
