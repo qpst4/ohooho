@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +40,7 @@ import com.slideindex.app.ui.FloatingBottomNavBar
 import com.slideindex.app.ui.MainBottomNavDestination
 import com.slideindex.app.ui.MainBottomNavHeight
 import com.slideindex.app.ui.MainBottomNavOuterPadding
+import com.slideindex.app.ui.feedback.UserMessageSnackbarHost
 import com.slideindex.app.ui.theme.SlideIndexTheme
 
 @Composable
@@ -106,6 +108,13 @@ fun MainNavHost(
         )
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarBottomPadding = if (currentKey.isRootDestination()) {
+        rootBottomContentPadding + MainBottomNavOuterPadding
+    } else {
+        16.dp
+    }
+
     SlideIndexTheme(
         seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
         dynamicColor = settings.dynamicColorEnabled,
@@ -152,6 +161,14 @@ fun MainNavHost(
                         .padding(bottom = MainBottomNavOuterPadding),
                 )
             }
+            UserMessageSnackbarHost(
+                userMessageBus = app.userMessageBus,
+                snackbarHostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = snackbarBottomPadding),
+            )
         }
     }
 }

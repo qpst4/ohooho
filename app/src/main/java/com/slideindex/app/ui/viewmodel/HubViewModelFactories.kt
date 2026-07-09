@@ -1,6 +1,5 @@
 package com.slideindex.app.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -14,14 +13,20 @@ fun homeViewModelFactory(
     initializer {
         HomeViewModel(
             settingsRepository = app.settingsRepository,
+            userMessageBus = app.userMessageBus,
             effects = effects,
+            app = app,
         )
     }
 }
 
 fun shakeHubViewModelFactory(app: SlideIndexApp): ViewModelProvider.Factory = viewModelFactory {
     initializer {
-        ShakeHubViewModel(settingsRepository = app.settingsRepository)
+        ShakeHubViewModel(
+            settingsRepository = app.settingsRepository,
+            userMessageBus = app.userMessageBus,
+            app = app,
+        )
     }
 }
 
@@ -29,6 +34,8 @@ fun notificationHubViewModelFactory(app: SlideIndexApp): ViewModelProvider.Facto
     initializer {
         NotificationHubViewModel(
             settingsRepository = app.settingsRepository,
+            userMessageBus = app.userMessageBus,
+            app = app,
             notificationHistoryRepository = app.notificationHistoryRepository,
             notificationFilterRepository = app.notificationFilterRepository,
         )
@@ -37,7 +44,11 @@ fun notificationHubViewModelFactory(app: SlideIndexApp): ViewModelProvider.Facto
 
 fun extensionHubViewModelFactory(app: SlideIndexApp): ViewModelProvider.Factory = viewModelFactory {
     initializer {
-        ExtensionHubViewModel(settingsRepository = app.settingsRepository)
+        ExtensionHubViewModel(
+            settingsRepository = app.settingsRepository,
+            userMessageBus = app.userMessageBus,
+            app = app,
+        )
     }
 }
 

@@ -1,6 +1,8 @@
 package com.slideindex.app.ui.viewmodel
 
+import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.ui.feedback.UserMessageBus
 
 interface HomeScreenEffects {
     fun refreshServiceState()
@@ -12,46 +14,55 @@ interface HomeScreenEffects {
 
 class HomeViewModel(
     settingsRepository: SettingsRepository,
+    userMessageBus: UserMessageBus,
+    app: SlideIndexApp,
     private val effects: HomeScreenEffects,
-) : SettingsViewModel(settingsRepository) {
-    fun setServiceEnabled(enabled: Boolean) = launchSettingsUpdate {
-        settingsRepository.setServiceEnabled(enabled)
-        effects.refreshServiceState()
-    }
-
-    fun setHapticEnabled(enabled: Boolean) = launchSettingsUpdate {
-        settingsRepository.setHapticEnabled(enabled)
-        if (enabled) {
-            effects.previewHaptic()
+) : SettingsViewModel(settingsRepository, userMessageBus, app) {
+    fun setServiceEnabled(enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setServiceEnabled(enabled).also { result ->
+            if (result.isSuccess) {
+                effects.refreshServiceState()
+            }
         }
     }
 
-    fun setHapticStrength(level: Int) = launchSettingsUpdate {
-        settingsRepository.setHapticStrengthLevel(level)
-        effects.previewHaptic(strengthLevel = level)
+    fun setHapticEnabled(enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setHapticEnabled(enabled).also { result ->
+            if (result.isSuccess && enabled) {
+                effects.previewHaptic()
+            }
+        }
     }
 
-    fun setGestureHintEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setHapticStrength(level: Int) = launchSettingsWrite {
+        settingsRepository.setHapticStrengthLevel(level).also { result ->
+            if (result.isSuccess) {
+                effects.previewHaptic(strengthLevel = level)
+            }
+        }
+    }
+
+    fun setGestureHintEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setGestureHintEnabled(enabled)
     }
 
-    fun setHideTriggerInLandscape(enabled: Boolean) = launchSettingsUpdate {
+    fun setHideTriggerInLandscape(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setHideTriggerInLandscape(enabled)
     }
 
-    fun setHideTriggerOnLockScreen(enabled: Boolean) = launchSettingsUpdate {
+    fun setHideTriggerOnLockScreen(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setHideTriggerOnLockScreen(enabled)
     }
 
-    fun setHideTriggerOnLauncher(enabled: Boolean) = launchSettingsUpdate {
+    fun setHideTriggerOnLauncher(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setHideTriggerOnLauncher(enabled)
     }
 
-    fun setDynamicColorEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setDynamicColorEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setDynamicColorEnabled(enabled)
     }
 
-    fun setThemeColor(color: Int) = launchSettingsUpdate {
+    fun setThemeColor(color: Int) = launchSettingsWrite {
         settingsRepository.setThemeColor(color)
     }
 

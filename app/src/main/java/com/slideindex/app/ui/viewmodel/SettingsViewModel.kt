@@ -1,11 +1,15 @@
 package com.slideindex.app.ui.viewmodel
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.slideindex.app.R
+import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shake.ShakeGestureType
+import com.slideindex.app.ui.feedback.UserMessageBus
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13,6 +17,8 @@ import kotlinx.coroutines.launch
 
 abstract class SettingsViewModel(
     protected val settingsRepository: SettingsRepository,
+    private val userMessageBus: UserMessageBus,
+    private val app: SlideIndexApp,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsRepository.settings
         .stateIn(
@@ -21,51 +27,60 @@ abstract class SettingsViewModel(
             initialValue = AppSettings(),
         )
 
-    protected fun launchSettingsUpdate(block: suspend () -> Unit) {
-        viewModelScope.launch { block() }
+    protected fun launchSettingsWrite(
+        @StringRes failureMessageRes: Int = R.string.settings_save_failed,
+        block: suspend () -> Result<Unit>,
+    ) {
+        viewModelScope.launch {
+            block().onFailure {
+                userMessageBus.showError(app.getString(failureMessageRes))
+            }
+        }
     }
 }
 
 class ShakeHubViewModel(
     settingsRepository: SettingsRepository,
-) : SettingsViewModel(settingsRepository) {
-    fun setEnabled(enabled: Boolean) = launchSettingsUpdate {
+    userMessageBus: UserMessageBus,
+    app: SlideIndexApp,
+) : SettingsViewModel(settingsRepository, userMessageBus, app) {
+    fun setEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeGesturesEnabled(enabled)
     }
 
-    fun setBasicAction(type: ShakeGestureType, action: GestureAction) = launchSettingsUpdate {
+    fun setBasicAction(type: ShakeGestureType, action: GestureAction) = launchSettingsWrite {
         settingsRepository.setShakeGestureAction(type, action)
     }
 
-    fun setLockScreenShakeEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setLockScreenShakeEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setLockScreenShakeEnabled(enabled)
     }
 
-    fun setIndependentAppShakeEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setIndependentAppShakeEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setIndependentAppShakeEnabled(enabled)
     }
 
-    fun setGlobalSensitivity(value: Float) = launchSettingsUpdate {
+    fun setGlobalSensitivity(value: Float) = launchSettingsWrite {
         settingsRepository.setShakeGlobalSensitivity(value)
     }
 
-    fun setIndependentSensitivityEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setIndependentSensitivityEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeIndependentSensitivityEnabled(enabled)
     }
 
-    fun setAnimationFeedbackEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setAnimationFeedbackEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeAnimationFeedbackEnabled(enabled)
     }
 
-    fun setVibrationFeedbackEnabled(enabled: Boolean) = launchSettingsUpdate {
+    fun setVibrationFeedbackEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeVibrationFeedbackEnabled(enabled)
     }
 
-    fun setAnimationColor(color: Int) = launchSettingsUpdate {
+    fun setAnimationColor(color: Int) = launchSettingsWrite {
         settingsRepository.setShakeAnimationColor(color)
     }
 
-    fun setDisableInLandscape(enabled: Boolean) = launchSettingsUpdate {
+    fun setDisableInLandscape(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeDisableInLandscape(enabled)
     }
 }

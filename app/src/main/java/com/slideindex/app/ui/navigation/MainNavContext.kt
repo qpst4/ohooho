@@ -1,6 +1,7 @@
 package com.slideindex.app.ui.navigation
 
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -10,6 +11,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.NavBackStack
 import com.slideindex.app.MainActivity
+import com.slideindex.app.R
 import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.settings.AppSettings
@@ -92,14 +94,24 @@ class MainNavContext(
         activity.refreshPermissionState()
     }
 
-    fun launchSettingsChange(block: suspend () -> Unit) {
-        launch(block)
+    fun launchSettingsChange(
+        @StringRes failureMessageRes: Int = R.string.settings_save_failed,
+        block: suspend () -> Result<Unit>,
+    ) {
+        launch {
+            block().onFailure {
+                app.userMessageBus.showError(activity.getString(failureMessageRes))
+            }
+        }
     }
 
     fun setServiceEnabled(enabled: Boolean) {
-        launch {
-            app.settingsRepository.setServiceEnabled(enabled)
-            refreshServiceState()
+        launchSettingsChange {
+            app.settingsRepository.setServiceEnabled(enabled).also { result ->
+                if (result.isSuccess) {
+                    refreshServiceState()
+                }
+            }
         }
     }
 
@@ -134,11 +146,9 @@ class MainNavContext(
 
     fun requestBatteryOptimization() {
         if (!PermissionHelper.requestBatteryOptimizationAccess(activity)) {
-            android.widget.Toast.makeText(
-                activity,
-                activity.getString(com.slideindex.app.R.string.battery_optimization_request_failed),
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+            app.userMessageBus.showError(
+                activity.getString(R.string.battery_optimization_request_failed),
+            )
         }
     }
 
@@ -147,19 +157,23 @@ class MainNavContext(
     }
 
     fun setHideFromRecents(enabled: Boolean) {
-        launch {
-            app.settingsRepository.setHideFromRecents(enabled)
-            activity.applyHideFromRecents(enabled)
+        launchSettingsChange {
+            app.settingsRepository.setHideFromRecents(enabled).also { result ->
+                if (result.isSuccess) {
+                    activity.applyHideFromRecents(enabled)
+                }
+            }
         }
     }
 
     fun setAccessibilityKeepAlive(enabled: Boolean) {
-        launch {
-            app.settingsRepository.setAccessibilityKeepAliveEnabled(enabled)
-            if (enabled) {
-                SecureSettingsHelper.ensureAccessibilityEnabled(activity)
-                refreshPermissionState()
-                refreshServiceState()
+        launchSettingsChange {
+            app.settingsRepository.setAccessibilityKeepAliveEnabled(enabled).also { result ->
+                if (result.isSuccess && enabled) {
+                    SecureSettingsHelper.ensureAccessibilityEnabled(activity)
+                    refreshPermissionState()
+                    refreshServiceState()
+                }
             }
         }
     }
@@ -168,15 +182,16 @@ class MainNavContext(
         val granted = SecureSettingsHelper.grantViaShizuku(activity)
         refreshPermissionState()
         val messageRes = if (granted) {
-            com.slideindex.app.R.string.secure_settings_grant_success
+            R.string.secure_settings_grant_success
         } else {
-            com.slideindex.app.R.string.secure_settings_grant_failed
+            R.string.secure_settings_grant_failed
         }
-        android.widget.Toast.makeText(
-            activity,
-            activity.getString(messageRes),
-            android.widget.Toast.LENGTH_SHORT,
-        ).show()
+        val message = activity.getString(messageRes)
+        if (granted) {
+            app.userMessageBus.showSuccess(message)
+        } else {
+            app.userMessageBus.showError(message)
+        }
         return granted
     }
 }

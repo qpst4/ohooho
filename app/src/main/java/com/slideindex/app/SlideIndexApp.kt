@@ -9,6 +9,7 @@ import com.slideindex.app.notification.NotificationHistoryRepository
 import com.slideindex.app.otp.OtpOfficialRulesLoader
 import com.slideindex.app.otp.OtpRecordsRepository
 import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.ui.feedback.UserMessageBus
 import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.widget.WidgetPanelPage
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,7 @@ class SlideIndexApp : Application() {
         private set
     lateinit var otpRecordsRepository: OtpRecordsRepository
         private set
+    val userMessageBus = UserMessageBus()
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

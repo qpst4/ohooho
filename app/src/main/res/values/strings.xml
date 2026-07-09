@@ -244,6 +244,7 @@
     <string name="battery_optimization_title">电池优化</string>
     <string name="battery_optimization_desc">加入白名单以保持后台运行，避免手势服务被系统终止</string>
     <string name="battery_optimization_request_failed">无法打开电池优化设置，请前往系统设置手动将本应用加入白名单</string>
+    <string name="settings_save_failed">设置保存失败，请稍后重试</string>
     <string name="auto_start_title">应用自启动</string>
     <string name="auto_start_desc">配合电池优化选项提高后台留存能力</string>
     <string name="auto_start_request_failed">请手动前往开启自启动权限</string>

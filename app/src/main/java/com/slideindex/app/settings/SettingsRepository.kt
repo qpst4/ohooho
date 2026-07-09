@@ -1199,7 +1199,7 @@ class SettingsRepository(private val context: Context) {
         return stored
     }
 
-    private suspend fun edit(block: (MutablePreferences) -> Unit) {
+    private suspend fun edit(block: (MutablePreferences) -> Unit): Result<Unit> = runCatching {
         context.dataStore.edit { prefs ->
             block(prefs)
         }
