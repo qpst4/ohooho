@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
@@ -17,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.shell.ShellCommandCodec
@@ -57,7 +57,7 @@ class ShellCommandEditorTrampolineActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
 
-        val app = application as SlideIndexApp
+        val deps = AppEntryPoints.dependencies(this)
         setContent {
             val scope = rememberCoroutineScope()
             var themeSeedArgb by remember { mutableIntStateOf(AppSettings().themeColorArgb) }
@@ -65,7 +65,7 @@ class ShellCommandEditorTrampolineActivity : ComponentActivity() {
             var dismissRequest by remember { mutableStateOf<(() -> Unit)?>(null) }
 
             LaunchedEffect(Unit) {
-                val settings = app.settingsRepository.settings.first()
+                val settings = deps.settingsRepository.settings.first()
                 themeSeedArgb = settings.themeColorArgb
                 dynamicColorEnabled = settings.dynamicColorEnabled
             }

@@ -1,5 +1,6 @@
 package com.slideindex.app.ui
 
+import com.slideindex.app.di.AppDependencies
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -40,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppDependencies
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,7 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.notification.ActiveNotificationEntry
 import com.slideindex.app.notification.NotificationFilterRule
@@ -101,7 +102,7 @@ fun NotificationHistoryScreen(
     onRequestListenerAccess: () -> Unit,
 ) {
     val context = LocalContext.current
-    val app = remember { context.applicationContext as SlideIndexApp }
+    val deps = rememberAppDependencies()
     var showRulesScreen by remember { mutableStateOf(false) }
     var showSettingsScreen by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -112,7 +113,7 @@ fun NotificationHistoryScreen(
     var showClearAllConfirm by remember { mutableStateOf(false) }
     var replayOpenAppDialog by remember { mutableStateOf<NotificationReplayResult.Failure?>(null) }
     var selectedTab by remember { mutableIntStateOf(NotificationFilterTab.ACTIVE.ordinal) }
-    val filterRules by app.notificationFilterRepository.rules.collectAsStateWithLifecycle()
+    val filterRules by deps.notificationFilterRepository.rules.collectAsStateWithLifecycle()
     val visibleHistoryItems = uiState.classification.visibleItems
     val hiddenItems = uiState.classification.hiddenItems
     val filteredHistoryItems = uiState.filteredHistoryItems
@@ -122,16 +123,16 @@ fun NotificationHistoryScreen(
     val classification = uiState.classification
     val scope = rememberCoroutineScope()
     val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
-    val historyRepository = app.notificationHistoryRepository
+    val historyRepository = deps.notificationHistoryRepository
 
     LaunchedEffect(Unit) {
-        app.appRepository.loadApps()
+        deps.appRepository.loadApps()
     }
 
     LaunchedEffect(Unit) {
         combine(
-            app.notificationHistoryRepository.items,
-            app.notificationFilterRepository.rules,
+            deps.notificationHistoryRepository.items,
+            deps.notificationFilterRepository.rules,
             snapshotFlow {
                 Triple(listenerEnabled, searchQuery, refreshGeneration)
             },
@@ -175,12 +176,12 @@ fun NotificationHistoryScreen(
     if (showRulesScreen) {
         NotificationRulesScreen(
             rules = filterRules.filter { it.userCreated },
-            app = app,
+            deps = deps,
             onBack = { showRulesScreen = false },
-            onUpsertRule = { rule -> app.notificationFilterRepository.upsertRule(rule) },
-            onRemoveRule = { id -> app.notificationFilterRepository.removeRule(id) },
+            onUpsertRule = { rule -> deps.notificationFilterRepository.upsertRule(rule) },
+            onRemoveRule = { id -> deps.notificationFilterRepository.removeRule(id) },
             onSetRuleEnabled = { id, enabled ->
-                app.notificationFilterRepository.setRuleEnabled(id, enabled)
+                deps.notificationFilterRepository.setRuleEnabled(id, enabled)
             },
         )
         return
@@ -188,7 +189,7 @@ fun NotificationHistoryScreen(
 
     if (showSettingsScreen) {
         NotificationFilterSettingsScreen(
-            app = app,
+            deps = deps,
             listenerEnabled = listenerEnabled,
             onBack = { showSettingsScreen = false },
             onRequestListenerAccess = onRequestListenerAccess,
@@ -210,8 +211,8 @@ fun NotificationHistoryScreen(
             onRequestListenerAccess()
             return
         }
-        val hiddenFromShade = app.notificationFilterRepository.hideItemFromShade(item)
-        historyId?.let { app.notificationHistoryRepository.markHidden(it, true) }
+        val hiddenFromShade = deps.notificationFilterRepository.hideItemFromShade(item)
+        historyId?.let { deps.notificationHistoryRepository.markHidden(it, true) }
         onRefreshActive()
         val messageRes = when {
             hiddenFromShade -> R.string.notification_hidden_success
@@ -320,7 +321,7 @@ fun NotificationHistoryScreen(
                     activeNotifications = activeNotifications,
                     itemMeta = { item -> classification.metaFor(item) },
                     dateFormat = dateFormat,
-                    app = app,
+                    deps = deps,
                     onRefreshActive = onRefreshActive,
                     onRequestListenerAccess = onRequestListenerAccess,
                     onHideItem = ::performHide,
@@ -336,7 +337,7 @@ fun NotificationHistoryScreen(
                     activeKeys = activeKeys,
                     itemMeta = { item -> classification.metaFor(item) },
                     dateFormat = dateFormat,
-                    app = app,
+                    deps = deps,
                     onRefreshActive = onRefreshActive,
                     onHideItem = ::performHide,
                     onDelete = { pendingDeleteItem = it },
@@ -352,7 +353,7 @@ fun NotificationHistoryScreen(
                     activeKeys = activeKeys,
                     itemMeta = { item -> classification.metaFor(item) },
                     dateFormat = dateFormat,
-                    app = app,
+                    deps = deps,
                     onRefreshActive = onRefreshActive,
                     onDelete = { pendingDeleteItem = it },
                     scope = scope,
@@ -370,7 +371,7 @@ fun NotificationHistoryScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        app.notificationHistoryRepository.delete(item.id)
+                        deps.notificationHistoryRepository.delete(item.id)
                         pendingDeleteItem = null
                     },
                 ) {
@@ -393,7 +394,7 @@ fun NotificationHistoryScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        app.notificationHistoryRepository.clearAll()
+                        deps.notificationHistoryRepository.clearAll()
                         showClearAllConfirm = false
                     },
                 ) {
@@ -410,7 +411,7 @@ fun NotificationHistoryScreen(
 
     replayOpenAppDialog?.let { failure ->
         val packageName = failure.packageName.orEmpty()
-        val appLabel = app.appRepository.getCachedAppInfo(packageName)?.label ?: packageName
+        val appLabel = deps.appRepository.getCachedAppInfo(packageName)?.label ?: packageName
         AlertDialog(
             onDismissRequest = { replayOpenAppDialog = null },
             title = { Text(stringResource(R.string.notification_history_recycled_title)) },
@@ -418,7 +419,7 @@ fun NotificationHistoryScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        app.notificationHistoryRepository.openTargetApp(packageName)
+                        deps.notificationHistoryRepository.openTargetApp(packageName)
                         replayOpenAppDialog = null
                     },
                 ) {
@@ -435,13 +436,13 @@ fun NotificationHistoryScreen(
 }
 
 @Composable
-private fun rememberResolvableAppInfo(app: SlideIndexApp, packageName: String): AppInfo? {
+private fun rememberResolvableAppInfo(deps: AppDependencies, packageName: String): AppInfo? {
     var appInfo by remember(packageName) {
-        mutableStateOf(app.appRepository.getCachedAppInfo(packageName))
+        mutableStateOf(deps.appRepository.getCachedAppInfo(packageName))
     }
     LaunchedEffect(packageName) {
         if (appInfo == null) {
-            appInfo = app.appRepository.resolveAppInfo(packageName)
+            appInfo = deps.appRepository.resolveAppInfo(packageName)
         }
     }
     return appInfo
@@ -454,7 +455,7 @@ private fun ActiveNotificationsTab(
     activeNotifications: List<ActiveNotificationEntry>,
     itemMeta: (NotificationHistoryItem) -> NotificationHistoryItemMeta,
     dateFormat: DateFormat,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     onRefreshActive: () -> Unit,
     onRequestListenerAccess: () -> Unit,
     onHideItem: (NotificationHistoryItem, String?) -> Unit,
@@ -490,7 +491,7 @@ private fun ActiveNotificationsTab(
                 val historyItem = entry.historyItem
                 val displayItem = historyItem ?: entry.toHistoryItem()
                 val meta = historyItem?.let(itemMeta) ?: itemMeta(displayItem)
-                val appInfo = rememberResolvableAppInfo(app, entry.packageName)
+                val appInfo = rememberResolvableAppInfo(deps, entry.packageName)
                 NotificationHistoryRow(
                     item = displayItem,
                     appInfo = appInfo,
@@ -502,7 +503,7 @@ private fun ActiveNotificationsTab(
                     showDeleteAction = historyItem != null,
                     onOpen = {
                         scope.launch {
-                            when (val result = app.notificationHistoryRepository.replayActive(entry)) {
+                            when (val result = deps.notificationHistoryRepository.replayActive(entry)) {
                                     is NotificationReplayResult.Success -> Unit
                                     is NotificationReplayResult.Failure -> onReplayResult(result)
                                 }
@@ -513,16 +514,16 @@ private fun ActiveNotificationsTab(
                     },
                     onUnhide = {
                         scope.launch {
-                            val result = app.notificationHistoryRepository.restoreToShade(
+                            val result = deps.notificationHistoryRepository.restoreToShade(
                                 item = historyItem ?: displayItem,
-                                filterRepository = app.notificationFilterRepository,
+                                filterRepository = deps.notificationFilterRepository,
                             )
                             showRestoreResultToast(context, result)
                             onRefreshActive()
                         }
                     },
                     onDelete = {
-                        historyItem?.let { app.notificationHistoryRepository.delete(it.id) }
+                        historyItem?.let { deps.notificationHistoryRepository.delete(it.id) }
                     },
                 )
             }
@@ -540,7 +541,7 @@ private fun HistoryNotificationsTab(
     activeKeys: Set<String>,
     itemMeta: (NotificationHistoryItem) -> NotificationHistoryItemMeta,
     dateFormat: DateFormat,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     onRefreshActive: () -> Unit,
     onHideItem: (NotificationHistoryItem, String?) -> Unit,
     onDelete: (NotificationHistoryItem) -> Unit,
@@ -582,7 +583,7 @@ private fun HistoryNotificationsTab(
             } else {
                 items(filteredItems, key = { it.id }) { item ->
                     val meta = itemMeta(item)
-                    val appInfo = rememberResolvableAppInfo(app, item.packageName)
+                    val appInfo = rememberResolvableAppInfo(deps, item.packageName)
                     NotificationHistoryRow(
                         item = item,
                         appInfo = appInfo,
@@ -593,7 +594,7 @@ private fun HistoryNotificationsTab(
                         showRestoreAction = false,
                         onOpen = {
                             scope.launch {
-                                when (val result = app.notificationHistoryRepository.replay(item)) {
+                                when (val result = deps.notificationHistoryRepository.replay(item)) {
                                     is NotificationReplayResult.Success -> Unit
                                     is NotificationReplayResult.Failure -> onReplayResult(result)
                                 }
@@ -619,7 +620,7 @@ private fun HiddenNotificationsTab(
     activeKeys: Set<String>,
     itemMeta: (NotificationHistoryItem) -> NotificationHistoryItemMeta,
     dateFormat: DateFormat,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     onRefreshActive: () -> Unit,
     onDelete: (NotificationHistoryItem) -> Unit,
     scope: kotlinx.coroutines.CoroutineScope,
@@ -659,7 +660,7 @@ private fun HiddenNotificationsTab(
                 }
             } else {
                 items(filteredItems, key = { it.id }) { item ->
-                    val appInfo = rememberResolvableAppInfo(app, item.packageName)
+                    val appInfo = rememberResolvableAppInfo(deps, item.packageName)
                     NotificationHistoryRow(
                         item = item,
                         appInfo = appInfo,
@@ -670,7 +671,7 @@ private fun HiddenNotificationsTab(
                         showRestoreAction = true,
                         onOpen = {
                             scope.launch {
-                                when (val result = app.notificationHistoryRepository.replay(item)) {
+                                when (val result = deps.notificationHistoryRepository.replay(item)) {
                                     is NotificationReplayResult.Success -> Unit
                                     is NotificationReplayResult.Failure -> onReplayResult(result)
                                 }
@@ -679,9 +680,9 @@ private fun HiddenNotificationsTab(
                         onHide = {},
                         onUnhide = {
                             scope.launch {
-                                val result = app.notificationHistoryRepository.restoreToShade(
+                                val result = deps.notificationHistoryRepository.restoreToShade(
                                     item = item,
-                                    filterRepository = app.notificationFilterRepository,
+                                    filterRepository = deps.notificationFilterRepository,
                                 )
                                 showRestoreResultToast(context, result)
                                 onRefreshActive()

@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppDependencies
 
 import androidx.compose.runtime.getValue
 
@@ -56,7 +57,6 @@ import androidx.compose.ui.unit.dp
 
 import com.slideindex.app.R
 
-import com.slideindex.app.SlideIndexApp
 
 import com.slideindex.app.otp.OtpExtractionConfig
 
@@ -372,7 +372,7 @@ fun OtpTestDialogHost(
 
     val context = LocalContext.current
 
-    val app = remember { context.applicationContext as SlideIndexApp }
+    val deps = rememberAppDependencies()
 
     val extractionConfig = remember(settings, officialRules, keywordsRegex) {
 
@@ -398,7 +398,7 @@ fun OtpTestDialogHost(
 
         onRecord = { code, sampleText, ruleName ->
 
-            app.otpRecordsRepository.record(
+            deps.otpRecordsRepository.record(
 
                 code = code,
 

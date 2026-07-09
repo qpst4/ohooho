@@ -1,0 +1,82 @@
+package com.slideindex.app.service
+
+import com.slideindex.app.di.AppEntryPoints
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
+import com.slideindex.app.overlay.LayoutPreviewContent
+import com.slideindex.app.ui.navigation.NavPermissionStates
+import com.slideindex.app.util.PermissionHelper
+import com.slideindex.app.util.SecureSettingsHelper
+import com.slideindex.app.util.TaskManagerUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+
+class OverlayServiceController(
+    private val context: Context,
+    private val permissionStates: NavPermissionStates,
+    private val scope: CoroutineScope,
+) {
+    fun sendPreviewIntent(
+        action: String,
+        content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,
+    ) {
+        if (!permissionStates.accessibilityGranted.value) return
+        val intent = Intent(context, OverlayService::class.java)
+            .setAction(action)
+            .putExtra(OverlayService.EXTRA_PREVIEW_CONTENT, content.name)
+        context.startService(intent)
+    }
+
+    fun stopPreviewOnPause() {
+        sendPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
+        FloatingPointerAreaPreviewOverlay.hide()
+    }
+
+    fun refreshPermissionState() {
+        permissionStates.notificationGranted.value = PermissionHelper.hasNotificationPermission(context)
+        permissionStates.usageAccessGranted.value = PermissionHelper.hasUsageAccess(context)
+        permissionStates.shizukuGranted.value = TaskManagerUtil.hasPermission()
+        permissionStates.accessibilityGranted.value =
+            PermissionHelper.isAccessibilityServiceEnabled(context)
+        permissionStates.batteryOptimizationExempt.value =
+            PermissionHelper.isBatteryOptimizationExempt(context)
+        permissionStates.writeSecureSettingsGranted.value =
+            SecureSettingsHelper.hasWriteSecureSettings(context)
+        permissionStates.notificationListenerEnabled.value =
+            com.slideindex.app.util.MediaSessionHelper.isNotificationListenerEnabled(context)
+        if (permissionStates.shizukuGranted.value) {
+            TaskManagerUtil.warmUp()
+        }
+    }
+
+    fun refreshServiceState() {
+        scope.launch {
+            val deps = AppEntryPoints.dependencies(context)
+            val settings = deps.settingsRepository.settings.first()
+            if (settings.accessibilityKeepAliveEnabled &&
+                permissionStates.writeSecureSettingsGranted.value &&
+                settings.serviceEnabled
+            ) {
+                SecureSettingsHelper.ensureAccessibilityEnabled(context)
+                permissionStates.accessibilityGranted.value =
+                    PermissionHelper.isAccessibilityServiceEnabled(context)
+            }
+            val shouldRun = settings.serviceEnabled &&
+                permissionStates.accessibilityGranted.value &&
+                permissionStates.notificationGranted.value
+            val serviceIntent = Intent(context, OverlayService::class.java)
+            if (shouldRun) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+            } else {
+                context.stopService(serviceIntent)
+            }
+        }
+    }
+}

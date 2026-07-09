@@ -1,0 +1,27 @@
+package com.slideindex.app.di
+
+import com.slideindex.app.data.AppRepository
+import com.slideindex.app.notification.NotificationFilterPreferences
+import com.slideindex.app.notification.NotificationFilterRepository
+import com.slideindex.app.notification.NotificationHistoryRepository
+import com.slideindex.app.otp.OtpOfficialRulesLoader
+import com.slideindex.app.otp.OtpRecordsRepository
+import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.ui.feedback.UserMessageBus
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+
+@Singleton
+class AppDependencies @Inject constructor(
+    val appRepository: AppRepository,
+    val settingsRepository: SettingsRepository,
+    val notificationHistoryRepository: NotificationHistoryRepository,
+    val notificationFilterPreferences: NotificationFilterPreferences,
+    val notificationFilterRepository: NotificationFilterRepository,
+    val otpOfficialRulesLoader: OtpOfficialRulesLoader,
+    val otpRecordsRepository: OtpRecordsRepository,
+    val userMessageBus: UserMessageBus,
+    val applicationScope: CoroutineScope,
+    val widgetPanelPersistence: WidgetPanelPersistence,
+)

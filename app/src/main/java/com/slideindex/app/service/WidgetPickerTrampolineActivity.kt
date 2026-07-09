@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,7 +13,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.ui.WidgetPickerScreen
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.widget.WidgetProviderEntry
@@ -32,8 +32,8 @@ class WidgetPickerTrampolineActivity : ComponentActivity() {
     )
     super.onCreate(savedInstanceState)
 
-    val app = application as SlideIndexApp
-    val initialSettings = runBlocking { app.settingsRepository.settings.first() }
+    val deps = AppEntryPoints.dependencies(this)
+    val initialSettings = runBlocking { deps.settingsRepository.settings.first() }
     var themeSeedArgb by mutableIntStateOf(initialSettings.themeColorArgb)
     var dynamicColorEnabled by mutableStateOf(initialSettings.dynamicColorEnabled)
 

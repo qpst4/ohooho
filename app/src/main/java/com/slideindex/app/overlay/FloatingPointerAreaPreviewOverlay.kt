@@ -1,5 +1,6 @@
 package com.slideindex.app.overlay
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -25,7 +26,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.theme.SlideIndexTheme
@@ -72,8 +72,8 @@ object FloatingPointerAreaPreviewOverlay {
         val dm = hostContext.resources.displayMetrics
         val bounds = readOverlayScreenBounds(wm, dm)
 
-        val app = context.applicationContext as SlideIndexApp
-        val settingsHolder = mutableStateOf(app.settingsRepository.readSnapshot())
+        val deps = AppEntryPoints.dependencies(context)
+        val settingsHolder = mutableStateOf(deps.settingsRepository.readSnapshot())
         val triggerHolder = mutableStateOf(
             Offset(0f, bounds.second * DEFAULT_TRIGGER_Y_NORM),
         )
@@ -120,7 +120,7 @@ object FloatingPointerAreaPreviewOverlay {
 
         settingsCollectJob?.cancel()
         settingsCollectJob = overlayScope.launch {
-            app.settingsRepository.settings.collectLatest { latest ->
+            deps.settingsRepository.settings.collectLatest { latest ->
                 settingsHolder.value = latest
             }
         }

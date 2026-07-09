@@ -21,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppRepository
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.util.PinyinHelper
 
@@ -45,7 +45,7 @@ fun ShakeGestureBlacklistScreen(
     onRemoveBlacklistedApp: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val appRepository = remember { (context.applicationContext as SlideIndexApp).appRepository }
+    val appRepository = rememberAppRepository()
     var allApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }

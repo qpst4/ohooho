@@ -1,5 +1,6 @@
 package com.slideindex.app.shake
 
+import com.slideindex.app.di.AppEntryPoints
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,7 +12,6 @@ import android.os.PowerManager
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.WindowManager
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.gesture.ActionExecutor
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.service.OverlayService
@@ -29,7 +29,7 @@ class ShakeGestureHost(
     private val scope: CoroutineScope,
 ) {
     private val appContext = context.applicationContext
-    private val app = appContext as SlideIndexApp
+    private val deps = AppEntryPoints.dependencies(appContext)
     private var detector: ShakeGestureDetector? = null
     private var settingsJob: Job? = null
     private var latestSettings: AppSettings? = null
@@ -60,7 +60,7 @@ class ShakeGestureHost(
         screenInteractive = powerManager().isInteractive
         registerScreenReceiver()
         settingsJob = scope.launch {
-            app.settingsRepository.settings.collectLatest { settings ->
+            deps.settingsRepository.settings.collectLatest { settings ->
                 latestSettings = settings
                 applyRuntime(settings)
             }
@@ -265,7 +265,7 @@ class ShakeGestureHost(
             }, 100L)
             return
         }
-        Log.w(TAG, "gesture $type action $action FAILED â€” accessibility connected=${SlideIndexAccessibilityService.isConnected()}")
+        Log.w(TAG, "gesture $type action $action FAILED â€?accessibility connected=${SlideIndexAccessibilityService.isConnected()}")
     }
 
     private fun deliverFeedback(
@@ -291,7 +291,7 @@ class ShakeGestureHost(
 
     private fun actionExecutor(): ActionExecutor {
         val ctx = SlideIndexAccessibilityService.overlayHostContext() ?: appContext
-        return ActionExecutor(ctx, app.appRepository)
+        return ActionExecutor(ctx, deps.appRepository)
     }
 
     private fun readCenterX(): Float {

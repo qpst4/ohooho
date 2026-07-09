@@ -12,7 +12,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation3.runtime.NavBackStack
 import com.slideindex.app.MainActivity
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
+import com.slideindex.app.di.AppDependencies
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.HapticHelper
@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 @Stable
 class MainNavContext(
     val activity: MainActivity,
-    val app: SlideIndexApp,
+    val deps: AppDependencies,
     val backStack: NavBackStack<AppNavKey>,
     val permissionStates: NavPermissionStates,
     val floatingPointerAreaPreviewEnabledState: MutableState<Boolean>,
@@ -35,7 +35,7 @@ class MainNavContext(
 ) {
     @Composable
     fun collectAppSettings(): AppSettings {
-        val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(
+        val settings by deps.settingsRepository.settings.collectAsStateWithLifecycle(
             initialValue = AppSettings(),
         )
         return settings
@@ -100,14 +100,14 @@ class MainNavContext(
     ) {
         launch {
             block().onFailure {
-                app.userMessageBus.showError(activity.getString(failureMessageRes))
+                deps.userMessageBus.showError(activity.getString(failureMessageRes))
             }
         }
     }
 
     fun setServiceEnabled(enabled: Boolean) {
         launchSettingsChange {
-            app.settingsRepository.setServiceEnabled(enabled).also { result ->
+            deps.settingsRepository.setServiceEnabled(enabled).also { result ->
                 if (result.isSuccess) {
                     refreshServiceState()
                 }
@@ -117,7 +117,7 @@ class MainNavContext(
 
     fun previewHaptic(enabled: Boolean = true, strengthLevel: Int? = null) {
         launch {
-            val latest = app.settingsRepository.settings.first()
+            val latest = deps.settingsRepository.settings.first()
             HapticHelper.preview(
                 activity.window.decorView,
                 latest.copy(
@@ -146,7 +146,7 @@ class MainNavContext(
 
     fun requestBatteryOptimization() {
         if (!PermissionHelper.requestBatteryOptimizationAccess(activity)) {
-            app.userMessageBus.showError(
+            deps.userMessageBus.showError(
                 activity.getString(R.string.battery_optimization_request_failed),
             )
         }
@@ -158,7 +158,7 @@ class MainNavContext(
 
     fun setHideFromRecents(enabled: Boolean) {
         launchSettingsChange {
-            app.settingsRepository.setHideFromRecents(enabled).also { result ->
+            deps.settingsRepository.setHideFromRecents(enabled).also { result ->
                 if (result.isSuccess) {
                     activity.applyHideFromRecents(enabled)
                 }
@@ -168,7 +168,7 @@ class MainNavContext(
 
     fun setAccessibilityKeepAlive(enabled: Boolean) {
         launchSettingsChange {
-            app.settingsRepository.setAccessibilityKeepAliveEnabled(enabled).also { result ->
+            deps.settingsRepository.setAccessibilityKeepAliveEnabled(enabled).also { result ->
                 if (result.isSuccess && enabled) {
                     SecureSettingsHelper.ensureAccessibilityEnabled(activity)
                     refreshPermissionState()
@@ -188,9 +188,9 @@ class MainNavContext(
         }
         val message = activity.getString(messageRes)
         if (granted) {
-            app.userMessageBus.showSuccess(message)
+            deps.userMessageBus.showSuccess(message)
         } else {
-            app.userMessageBus.showError(message)
+            deps.userMessageBus.showError(message)
         }
         return granted
     }

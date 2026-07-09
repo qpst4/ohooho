@@ -33,6 +33,13 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
 
+      - name: Assemble Release (unsigned smoke)
+        if: env.SIGN_RELEASE != 'true'
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Compile androidTest
+        run: ./gradlew compileDebugAndroidTestKotlin --no-daemon
+
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4

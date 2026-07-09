@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.BroadcastReceiver
@@ -25,7 +26,6 @@ import com.slideindex.app.message.MessageReminderController
 import com.slideindex.app.otp.OtpAutoFillController
 import com.slideindex.app.overlay.EdgeOverlayHost
 import com.slideindex.app.overlay.LayoutPreviewContent
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.util.TriggerEnvironmentState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,8 +77,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         if (now - lastOtpCheckUptime < 300L) return
         lastOtpCheckUptime = now
         if (OtpAutoFillController.isFillingActive()) return
-        val app = applicationContext as? SlideIndexApp ?: return
-        val settings = app.settingsRepository.readSnapshot()
+        val deps = runCatching { AppEntryPoints.dependencies(applicationContext) }.getOrNull() ?: return
+        val settings = deps.settingsRepository.readSnapshot()
         if (!settings.otpAutoInputEnabled || !OtpAutoFillController.hasPendingCode()) return
         OtpAutoFillController.scheduleAutoFill(this, settings)
     }
@@ -211,7 +211,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         }
 
         /**
-         * Inject tap at screen coordinates (async – safe to call from any thread).
+         * Inject tap at screen coordinates (async ??safe to call from any thread).
          * Gesture first, then node ACTION_CLICK fallback.
          */
         fun dispatchTap(
@@ -469,7 +469,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             }
         }
 
-        /** Synchronous wrapper – only call off the main thread. */
+        /** Synchronous wrapper ??only call off the main thread. */
         fun dispatchTapSync(rawX: Float, rawY: Float): Boolean {
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 Log.e(TAG, "dispatchTapSync must not run on main thread (deadlock risk)")
@@ -690,8 +690,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         fun scheduleOtpAutoFill() {
             val service = instance ?: return
-            val app = service.applicationContext as? SlideIndexApp ?: return
-            val settings = app.settingsRepository.readSnapshot()
+            val deps = runCatching { AppEntryPoints.dependencies(service.applicationContext) }.getOrNull() ?: return
+            val settings = deps.settingsRepository.readSnapshot()
             if (!settings.otpAutoInputEnabled) return
             OtpAutoFillController.scheduleAutoFill(service, settings)
         }

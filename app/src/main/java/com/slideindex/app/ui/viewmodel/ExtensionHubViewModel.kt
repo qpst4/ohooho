@@ -1,11 +1,15 @@
 package com.slideindex.app.ui.viewmodel
 
-import com.slideindex.app.SlideIndexApp
+import android.content.Context
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.ui.feedback.UserMessageBus
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 
-class ExtensionHubViewModel(
+@HiltViewModel
+class ExtensionHubViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     userMessageBus: UserMessageBus,
-    app: SlideIndexApp,
-) : SettingsViewModel(settingsRepository, userMessageBus, app)
+    @ApplicationContext context: Context,
+) : SettingsViewModel(settingsRepository, userMessageBus, context)

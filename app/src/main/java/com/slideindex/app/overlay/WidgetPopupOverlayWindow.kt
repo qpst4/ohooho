@@ -1,5 +1,6 @@
 package com.slideindex.app.overlay
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -69,7 +70,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.R
 import com.slideindex.app.service.WidgetBindTrampolineActivity
 import com.slideindex.app.service.WidgetPickerTrampoline
@@ -273,7 +273,7 @@ object WidgetPopupOverlayWindow {
     val ctx = appContext ?: return
     runCatching {
       runBlocking {
-        (ctx.applicationContext as SlideIndexApp).persistWidgetPanelPagesNow(pending)
+        AppEntryPoints.dependencies(ctx).widgetPanelPersistence.persistNow(pending)
       }
     }.onFailure { Log.e(TAG, "flushPendingPages failed", it) }
     pendingPagesToSave = null
@@ -281,7 +281,7 @@ object WidgetPopupOverlayWindow {
 
   private fun savePages(context: Context, pages: List<WidgetPanelPage>) {
     pendingPagesToSave = pages
-    (context.applicationContext as SlideIndexApp).schedulePersistWidgetPanelPages(pages)
+    AppEntryPoints.dependencies(context).widgetPanelPersistence.schedulePersist(pages)
   }
 
   private fun cleanup() {
@@ -347,7 +347,7 @@ object WidgetPopupOverlayWindow {
     ) {
       val context = LocalContext.current
       val hostContext = appContext ?: context
-      val app = remember(hostContext) { hostContext.applicationContext as SlideIndexApp }
+      val deps = remember(hostContext) { AppEntryPoints.dependencies(hostContext) }
       val dm = context.resources.displayMetrics
       val density = LocalDensity.current
 
@@ -368,7 +368,7 @@ object WidgetPopupOverlayWindow {
           gridInteractionActive = false
           return@LaunchedEffect
         }
-        val stored = app.settingsRepository.settings.first().widgetPanelPages
+        val stored = deps.settingsRepository.settings.first().widgetPanelPages
         pages = WidgetPanelDefaults.effectivePages(stored)
           .map { WidgetPanelGridLogic.fitPageToGrid(it) }
       }

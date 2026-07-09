@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -20,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.ui.ShellCommandPanelOverlaySheet
@@ -46,7 +46,7 @@ class ShellCommandPanelTrampolineActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
 
-        val app = application as SlideIndexApp
+        val deps = AppEntryPoints.dependencies(this)
         setContent {
             var commands by remember { mutableStateOf<List<ShellCommand>>(emptyList()) }
             var shizukuGranted by remember { mutableStateOf(false) }
@@ -55,7 +55,7 @@ class ShellCommandPanelTrampolineActivity : ComponentActivity() {
             var dismissRequest by remember { mutableStateOf<(() -> Unit)?>(null) }
 
             LaunchedEffect(Unit) {
-                val settings = app.settingsRepository.settings.first()
+                val settings = deps.settingsRepository.settings.first()
                 commands = settings.shellCommands
                 themeSeedArgb = settings.themeColorArgb
                 dynamicColorEnabled = settings.dynamicColorEnabled

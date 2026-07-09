@@ -1,5 +1,6 @@
 package com.slideindex.app.notification
 
+import com.slideindex.app.di.AppEntryPoints
 import android.app.Notification
 import android.content.Context
 import android.os.Handler
@@ -7,7 +8,6 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.MediaNotificationListener
 
 object NotificationHider {
@@ -172,10 +172,10 @@ object NotificationHider {
     }
 
     fun snoozeMatchingActive(context: Context, listener: NotificationListenerService) {
-        val app = context.applicationContext as? SlideIndexApp ?: return
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
         val active = listener.activeNotifications ?: return
         active.forEach { sbn ->
-            if (shouldHide(context, app.notificationFilterRepository, sbn)) {
+            if (shouldHide(context, deps.notificationFilterRepository, sbn)) {
                 hideFromShade(listener, sbn)
             }
         }

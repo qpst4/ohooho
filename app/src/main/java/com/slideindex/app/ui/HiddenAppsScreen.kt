@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppRepository
 
 import androidx.compose.runtime.LaunchedEffect
 
@@ -64,7 +65,6 @@ import androidx.compose.ui.unit.dp
 
 import com.slideindex.app.R
 
-import com.slideindex.app.SlideIndexApp
 
 import com.slideindex.app.data.AppInfo
 
@@ -92,7 +92,7 @@ fun HiddenAppsScreen(
 
     val context = LocalContext.current
 
-    val appRepository = remember { (context.applicationContext as SlideIndexApp).appRepository }
+    val appRepository = rememberAppRepository()
 
     var allApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
 

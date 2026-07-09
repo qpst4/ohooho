@@ -33,7 +33,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.slideindex.app.MainActivity
-import com.slideindex.app.SlideIndexApp
+import com.slideindex.app.di.AppDependencies
 import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.FloatingBottomNavBar
@@ -46,10 +46,10 @@ import com.slideindex.app.ui.theme.SlideIndexTheme
 @Composable
 fun MainNavHost(
     activity: MainActivity,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     permissionStates: NavPermissionStates,
 ) {
-    val settings by app.settingsRepository.settings.collectAsStateWithLifecycle(
+    val settings by deps.settingsRepository.settings.collectAsStateWithLifecycle(
         initialValue = AppSettings(),
     )
     var savedBottomNavTab by rememberSaveable {
@@ -93,14 +93,14 @@ fun MainNavHost(
 
     val navContext = remember(
         activity,
-        app,
+        deps,
         backStack,
         permissionStates,
         rootBottomContentPadding,
     ) {
         MainNavContext(
             activity = activity,
-            app = app,
+            deps = deps,
             backStack = backStack,
             permissionStates = permissionStates,
             floatingPointerAreaPreviewEnabledState = floatingPointerAreaPreviewEnabledState,
@@ -162,7 +162,7 @@ fun MainNavHost(
                 )
             }
             UserMessageSnackbarHost(
-                userMessageBus = app.userMessageBus,
+                userMessageBus = deps.userMessageBus,
                 snackbarHostState = snackbarHostState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)

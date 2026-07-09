@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Looper
 import android.util.Log
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.resolvedFreeWindowMode
@@ -53,13 +52,22 @@ object TaskManagerUtil {
     }
 
     @Volatile
-    private var warmUpInFlight = false
+    private var applicationContext: Context? = null
+
+    fun initialize(context: Context) {
+        applicationContext = context.applicationContext
+    }
+
+    fun applicationContext(): Context = appContext()
 
     @Volatile
     private var allShortcutsCacheLoadedAt: Long = 0L
 
     @Volatile
     private var allShortcutsCache: Map<String, List<Pair<String, String>>> = emptyMap()
+
+    @Volatile
+    private var warmUpInFlight = false
 
     private val taskWorkerLock = Any()
 
@@ -720,5 +728,6 @@ object TaskManagerUtil {
         }
     }
 
-    private fun appContext(): Context = SlideIndexApp.instance.applicationContext
+    private fun appContext(): Context =
+        applicationContext ?: error("TaskManagerUtil.initialize() must be called before use")
 }

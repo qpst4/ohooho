@@ -66,7 +66,16 @@
 -dontwarn net.sourceforge.pinyin4j.**
 
 # ---------------------------------------------------------------------------
-# Application components
+# Hilt / Dagger
+-keep class dagger.hilt.** { *; }
+-keep class javax.inject.** { *; }
+-keep class * extends dagger.hilt.android.internal.managers.ViewComponentManager$FragmentContextWrapper { *; }
+-keepclasseswithmembers class * {
+    @dagger.* <methods>;
+}
+-keepclasseswithmembers class * {
+    @javax.inject.* <fields>;
+}
 # ---------------------------------------------------------------------------
 -keep class com.slideindex.app.SlideIndexApp { *; }
 -keep class * extends android.app.Activity { *; }

@@ -1,6 +1,11 @@
 package com.slideindex.app.ui.viewmodel
 
-import com.slideindex.app.SlideIndexApp
+import android.content.Context
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.ui.feedback.UserMessageBus
 
@@ -12,12 +17,13 @@ interface HomeScreenEffects {
     fun previewHaptic(enabled: Boolean = true, strengthLevel: Int? = null)
 }
 
-class HomeViewModel(
+@HiltViewModel(assistedFactory = HomeViewModel.Factory::class)
+class HomeViewModel @AssistedInject constructor(
     settingsRepository: SettingsRepository,
     userMessageBus: UserMessageBus,
-    app: SlideIndexApp,
-    private val effects: HomeScreenEffects,
-) : SettingsViewModel(settingsRepository, userMessageBus, app) {
+    @ApplicationContext context: Context,
+    @Assisted private val effects: HomeScreenEffects,
+) : SettingsViewModel(settingsRepository, userMessageBus, context) {
     fun setServiceEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setServiceEnabled(enabled).also { result ->
             if (result.isSuccess) {
@@ -71,4 +77,9 @@ class HomeViewModel(
     fun requestShizuku() = effects.requestShizuku()
 
     fun openAccessibilitySettings() = effects.openAccessibilitySettings()
+
+    @AssistedFactory
+    interface Factory {
+        fun create(effects: HomeScreenEffects): HomeViewModel
+    }
 }

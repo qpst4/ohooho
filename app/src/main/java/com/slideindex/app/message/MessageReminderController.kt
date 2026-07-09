@@ -1,5 +1,6 @@
 package com.slideindex.app.message
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Handler
@@ -7,7 +8,6 @@ import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.notification.NotificationIntentLauncher
 import com.slideindex.app.notification.NotificationSbnCache
 import com.slideindex.app.overlay.DanmakuOverlayWindow
@@ -34,8 +34,8 @@ object MessageReminderController {
         listener: NotificationListenerService,
         sbn: StatusBarNotification,
     ) {
-        val app = context.applicationContext as? SlideIndexApp ?: return
-        val settings = app.settingsRepository.readSnapshot().messageReminderSettings
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
+        val settings = deps.settingsRepository.readSnapshot().messageReminderSettings
         if (!settings.enabled) return
 
         NotificationSbnCache.cacheActive(sbn)
@@ -253,8 +253,8 @@ object MessageReminderController {
 
     fun onConfigurationChanged(context: Context, newConfig: Configuration) {
         if (newConfig.orientation != Configuration.ORIENTATION_PORTRAIT) return
-        val app = context.applicationContext as? SlideIndexApp ?: return
-        val settings = app.settingsRepository.readSnapshot().messageReminderSettings
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
+        val settings = deps.settingsRepository.readSnapshot().messageReminderSettings
         if (!settings.danmakuEnabled || settings.portraitDanmaku) return
         mainHandler.post { DanmakuOverlayWindow.detach() }
     }

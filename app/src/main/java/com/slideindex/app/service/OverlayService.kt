@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,7 +14,6 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.slideindex.app.MainActivity
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.shake.ShakeGestureHost
 import com.slideindex.app.util.SecureSettingsHelper
@@ -42,8 +42,8 @@ class OverlayService : LifecycleService() {
         lifecycleScope.launch {
             while (isActive) {
                 delay(ACCESSIBILITY_WATCHDOG_INTERVAL_MS)
-                val app = application as? SlideIndexApp ?: continue
-                val settings = app.settingsRepository.settings.first()
+                val deps = runCatching { AppEntryPoints.dependencies(this@OverlayService) }.getOrNull() ?: continue
+                val settings = deps.settingsRepository.settings.first()
                 if (!settings.accessibilityKeepAliveEnabled) continue
                 if (!settings.serviceEnabled) continue
                 if (!SecureSettingsHelper.hasWriteSecureSettings(this@OverlayService)) continue

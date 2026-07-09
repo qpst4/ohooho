@@ -35,6 +35,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppRepository
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,7 +50,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.launcher.QuickLauncherDefaults
@@ -83,7 +83,7 @@ fun QuickLauncherEditorScreen(
     onRowsChange: (Int) -> Unit,
 ) {
     val context = LocalContext.current
-    val appRepository = remember { (context.applicationContext as SlideIndexApp).appRepository }
+    val appRepository = rememberAppRepository()
     var allApps by remember { mutableStateOf(appRepository.getCachedApps()) }
     var mode by remember { mutableStateOf<EditorMode>(EditorMode.Main) }
     var searchQuery by remember { mutableStateOf("") }

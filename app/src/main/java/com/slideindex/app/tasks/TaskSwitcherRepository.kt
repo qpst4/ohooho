@@ -11,7 +11,6 @@ import com.slideindex.app.util.RecentPackageResolver
 import com.slideindex.app.util.TaskActivityLabelResolver
 import com.slideindex.app.util.TaskManagerUtil
 import com.slideindex.app.util.TaskSwitcherLockStore
-import com.slideindex.app.SlideIndexApp
 
 /**
  * Client-side task switcher: live system recents via Shizuku, mapped to overlay UI entries.
@@ -69,7 +68,7 @@ object TaskSwitcherRepository {
 
     private fun loadEntries(appRepository: AppRepository): List<RecentAppEntry> {
         val refs = TaskManagerUtil.refreshRecentTasks()
-        val locked = TaskSwitcherLockStore.lockedPackages(SlideIndexApp.instance.applicationContext)
+        val locked = TaskSwitcherLockStore.lockedPackages(TaskManagerUtil.applicationContext())
         val seenIds = LinkedHashSet<Int>()
         val seenPackages = LinkedHashSet<String>()
         val entries = mutableListOf<RecentAppEntry>()
@@ -124,7 +123,7 @@ object TaskSwitcherRepository {
     }
 
     private fun resolveLabel(ref: TaskManagerUtil.RecentTaskRef, appInfo: AppInfo): String {
-        val context = SlideIndexApp.instance.applicationContext
+        val context = TaskManagerUtil.applicationContext()
         TaskActivityLabelResolver.resolveDisplayTitle(
             context,
             ref.topComponent.orEmpty(),

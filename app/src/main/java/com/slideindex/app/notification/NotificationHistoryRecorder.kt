@@ -1,11 +1,11 @@
 package com.slideindex.app.notification
 
+import com.slideindex.app.di.AppEntryPoints
 import android.app.Notification
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.otp.NotificationTextExtractor
 import com.slideindex.app.otp.OtpAutoFillController
 import com.slideindex.app.otp.OtpClipboardHelper
@@ -40,9 +40,9 @@ object NotificationHistoryRecorder {
 
         NotificationSbnCache.cacheActive(sbn)
 
-        val app = context.applicationContext as? SlideIndexApp ?: return false
-        val matchingRules = app.notificationFilterRepository.findMatchingRules(sbn)
-        val shouldHide = NotificationHider.shouldHide(context, app.notificationFilterRepository, sbn)
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return false
+        val matchingRules = deps.notificationFilterRepository.findMatchingRules(sbn)
+        val shouldHide = NotificationHider.shouldHide(context, deps.notificationFilterRepository, sbn)
 
         val capturedIntent = NotificationHistoryIntentCapture.capture(sbn, context)
         Log.i(
@@ -54,8 +54,8 @@ object NotificationHistoryRecorder {
                 "notificationExtras=${!capturedIntent.extrasBase64.isNullOrBlank()}",
         )
 
-        val settings = app.settingsRepository.readSnapshot()
-        val officialRules = app.otpOfficialRulesLoader.getRules()
+        val settings = deps.settingsRepository.readSnapshot()
+        val officialRules = deps.otpOfficialRulesLoader.getRules()
         val extraction = VerificationCodeExtractor.extract(
             packageName = sbn.packageName,
             title = title,
@@ -70,7 +70,7 @@ object NotificationHistoryRecorder {
         val extractedCode = extraction.code
         if (!extractedCode.isNullOrBlank()) {
             Log.i(TAG, "Extracted OTP from ${sbn.packageName}")
-            app.otpRecordsRepository.record(
+            deps.otpRecordsRepository.record(
                 code = extractedCode,
                 packageName = sbn.packageName,
                 title = title,
@@ -102,7 +102,7 @@ object NotificationHistoryRecorder {
             extractedCode = extractedCode,
             extractionAttempted = extraction.attempted,
         )
-        app.notificationHistoryRepository.record(item)
+        deps.notificationHistoryRepository.record(item)
 
         if (matchingRules.isNotEmpty()) {
             NotificationRuleExecutor.execute(context, listener, sbn, matchingRules)
@@ -116,7 +116,7 @@ object NotificationHistoryRecorder {
     fun onRemoved(context: Context, sbn: StatusBarNotification, reason: Int) {
         NotificationSbnCache.onRemoved(sbn, reason)
 
-        val app = context.applicationContext as? SlideIndexApp ?: return
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
         val captured = NotificationHistoryIntentCapture.capture(sbn, context)
         val hasCapture = !captured.pendingIntentBase64.isNullOrBlank() ||
             !captured.intentUri.isNullOrBlank() ||
@@ -130,6 +130,6 @@ object NotificationHistoryRecorder {
                 "uri=${!captured.intentUri.isNullOrBlank()} " +
                 "parcel=${!captured.intentParcelBase64.isNullOrBlank()}",
         )
-        app.notificationHistoryRepository.updateCapture(sbn.key, captured)
+        deps.notificationHistoryRepository.updateCapture(sbn.key, captured)
     }
 }

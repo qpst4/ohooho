@@ -174,8 +174,38 @@ gradlew.bat testDebugUnitTest
 
 ## 项目结构
 
+### Gradle 模块
+
+| 模块 | 说明 |
+|------|------|
+| `:app` | 主应用、UI、服务、DataStore |
+| `:core:common` | 跨模块共享类型（如 `PanelSide`） |
+| `:core:monitoring` | Debug 性能监控（Overlay FPS、主线程阻塞） |
+| `:core:gesture` | 手势域占位模块（纯逻辑将逐步迁入） |
+| `:core:notification` | 通知域占位模块（编解码将逐步迁入） |
+| `:feature:settings` | 设置特性占位模块（模型/仓库将逐步迁入） |
+
+### 依赖注入（Hilt）
+
+- `SlideIndexApp` 标注 `@HiltAndroidApp`，Repository 等由 `AppModule` 提供
+- UI 通过 `@HiltViewModel` / `hiltViewModel()` 获取 ViewModel
+- 无障碍服务、Overlay、BroadcastReceiver 等非 `@AndroidEntryPoint` 场景使用 `AppEntryPoints.dependencies(context)` 获取 `AppDependencies`
+- Compose 屏幕可使用 `rememberAppDependencies()` / `rememberAppRepository()`
+
+### 性能监控（Debug）
+
+`EdgeOverlayHost` 在 Debug 构建下启用 `PerformanceMonitor`：
+
+- **FrameRateMonitor** — Choreographer 统计 Overlay FPS 与 jank
+- **MainThreadWatchdog** — Looper 消息分发耗时检测
+
+日志标签：`FrameRateMonitor`、`MainThreadWatchdog`
+
+### 应用包内目录
+
 ```
 app/src/main/java/com/slideindex/app/
+├── di/             # Hilt 模块、AppDependencies、EntryPoint
 ├── gesture/        # 手势识别与动作执行
 ├── overlay/        # 系统悬浮窗与触摸层
 ├── ui/             # Jetpack Compose 设置界面

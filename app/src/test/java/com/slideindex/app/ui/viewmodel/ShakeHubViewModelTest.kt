@@ -1,6 +1,6 @@
 package com.slideindex.app.ui.viewmodel
 
-import com.slideindex.app.SlideIndexApp
+import android.content.Context
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.ui.feedback.UserMessageBus
@@ -13,18 +13,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [30], application = SlideIndexApp::class)
+@Config(sdk = [30])
 class ShakeHubViewModelTest {
     private lateinit var viewModel: ShakeHubViewModel
 
     @Before
     fun setUp() {
-        val app = RuntimeEnvironment.getApplication() as SlideIndexApp
-        val repository = SettingsRepository(app)
+        val context = RuntimeEnvironment.getApplication()
+        val repository = SettingsRepository(context)
         viewModel = ShakeHubViewModel(
             settingsRepository = repository,
             userMessageBus = UserMessageBus(),
-            app = app,
+            context = context,
         )
     }
 

@@ -1,8 +1,8 @@
 ﻿package com.slideindex.app.ui.navigation
 
 import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import com.slideindex.app.ui.ExtensionHubScreen
 import com.slideindex.app.ui.FloatingPointerJoystickSettingsScreen
@@ -13,14 +13,11 @@ import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
-import com.slideindex.app.ui.viewmodel.extensionHubViewModelFactory
 
 fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
     entry<AppNavKey.ExtensionHub> {
         val permissions = ctx.collectPermissions()
-        val viewModel: ExtensionHubViewModel = viewModel(
-            factory = extensionHubViewModelFactory(ctx.app),
-        )
+        val viewModel: ExtensionHubViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         ExtensionHubScreen(
             settings = settings,
@@ -42,17 +39,17 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
             onSaveItems = { items ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setQuickLauncherItems(items)
+                    ctx.deps.settingsRepository.setQuickLauncherItems(items)
                 }
             },
             onColumnsChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setQuickLauncherColumnsPerPage(value)
+                    ctx.deps.settingsRepository.setQuickLauncherColumnsPerPage(value)
                 }
             },
             onRowsChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setQuickLauncherRowsPerPage(value)
+                    ctx.deps.settingsRepository.setQuickLauncherRowsPerPage(value)
                 }
             },
         )
@@ -67,7 +64,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
             onSaveCommands = { items ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setShellCommands(items)
+                    ctx.deps.settingsRepository.setShellCommands(items)
                 }
             },
             onRequestShizuku = { ctx.requestShizuku() },
@@ -81,17 +78,17 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
             onSavePages = { pages ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setWidgetPanelPages(pages)
+                    ctx.deps.settingsRepository.setWidgetPanelPages(pages)
                 }
             },
             onBlurEnabledChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setWidgetPanelBlurEnabled(enabled)
+                    ctx.deps.settingsRepository.setWidgetPanelBlurEnabled(enabled)
                 }
             },
             onWidthFractionChange = { fraction ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setWidgetPanelWidthFraction(fraction)
+                    ctx.deps.settingsRepository.setWidgetPanelWidthFraction(fraction)
                 }
             },
         )
@@ -112,22 +109,22 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onOpenRadialMenuSettings = { ctx.navigate(AppNavKey.FloatingPointerRadialMenu) },
             onJoystickAreaZoomChange = { zoom ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickAreaZoomFraction(zoom)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickAreaZoomFraction(zoom)
                 }
             },
             onJoystickAreaWidthChange = { width ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickAreaWidthPx(width)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickAreaWidthPx(width)
                 }
             },
             onJoystickAreaHeightChange = { height ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickAreaHeightPx(height)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickAreaHeightPx(height)
                 }
             },
             onMatchJoystickToScreenAspectChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerMatchJoystickToScreenAspect(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerMatchJoystickToScreenAspect(enabled)
                 }
             },
         )
@@ -141,87 +138,87 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
             onPointerDiameterChange = { size ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerPointerDiameterPx(size)
+                    ctx.deps.settingsRepository.setFloatingPointerPointerDiameterPx(size)
                 }
             },
             onRingThicknessChange = { thickness ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRingThicknessPx(thickness)
+                    ctx.deps.settingsRepository.setFloatingPointerRingThicknessPx(thickness)
                 }
             },
             onDotDiameterChange = { diameter ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerDotDiameterPx(diameter)
+                    ctx.deps.settingsRepository.setFloatingPointerDotDiameterPx(diameter)
                 }
             },
             onRingColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRingColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRingColor(color)
                 }
             },
             onFillColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerFillColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerFillColor(color)
                 }
             },
             onDotColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerDotColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerDotColor(color)
                 }
             },
             onClickVisualFeedbackChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerClickVisualFeedbackEnabled(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerClickVisualFeedbackEnabled(enabled)
                 }
             },
             onClickHapticChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerClickHapticEnabled(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerClickHapticEnabled(enabled)
                 }
             },
             onRippleColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRippleColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRippleColor(color)
                 }
             },
             onRippleSizeChange = { size ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRippleSizeDp(size)
+                    ctx.deps.settingsRepository.setFloatingPointerRippleSizeDp(size)
                 }
             },
             onRippleDurationChange = { duration ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRippleDurationMs(duration)
+                    ctx.deps.settingsRepository.setFloatingPointerRippleDurationMs(duration)
                 }
             },
             onTrailTypeChange = { type ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerTrailType(type)
+                    ctx.deps.settingsRepository.setFloatingPointerTrailType(type)
                 }
             },
             onTrailDurationChange = { duration ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerTrailDurationMs(duration)
+                    ctx.deps.settingsRepository.setFloatingPointerTrailDurationMs(duration)
                 }
             },
             onTrailColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerTrailColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerTrailColor(color)
                 }
             },
             onHideWhenReleasedChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerHideWhenJoystickReleased(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerHideWhenJoystickReleased(enabled)
                 }
             },
             onPointerDesignChange = { design ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerDesignId(design.id)
+                    ctx.deps.settingsRepository.setFloatingPointerDesignId(design.id)
                 }
             },
             onResetVisualDefaults = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.resetFloatingPointerVisualDefaults()
+                    ctx.deps.settingsRepository.resetFloatingPointerVisualDefaults()
                 }
             },
         )
@@ -235,52 +232,52 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
             onJoystickDiameterChange = { size ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickDiameterPx(size)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickDiameterPx(size)
                 }
             },
             onInnerColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickInnerColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickInnerColor(color)
                 }
             },
             onOuterColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickOuterColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickOuterColor(color)
                 }
             },
             onGradientRadiusChange = { fraction ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerJoystickGradientRadiusFraction(fraction)
+                    ctx.deps.settingsRepository.setFloatingPointerJoystickGradientRadiusFraction(fraction)
                 }
             },
             onHideOnOutsideClickChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerHideOnOutsideClick(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerHideOnOutsideClick(enabled)
                 }
             },
             onHideOnQuickSwipeChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerHideOnQuickSwipe(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerHideOnQuickSwipe(enabled)
                 }
             },
             onHideWhenIdleChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerHideWhenIdle(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerHideWhenIdle(enabled)
                 }
             },
             onIdleDelayChange = { delayMs ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerIdleHideDelayMs(delayMs)
+                    ctx.deps.settingsRepository.setFloatingPointerIdleHideDelayMs(delayMs)
                 }
             },
             onResetVisualDefaults = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.resetFloatingPointerJoystickVisualDefaults()
+                    ctx.deps.settingsRepository.resetFloatingPointerJoystickVisualDefaults()
                 }
             },
             onResetBehaviorDefaults = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.resetFloatingPointerJoystickBehaviorDefaults()
+                    ctx.deps.settingsRepository.resetFloatingPointerJoystickBehaviorDefaults()
                 }
             },
         )
@@ -294,67 +291,67 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
             onEnabledChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialMenuEnabled(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialMenuEnabled(enabled)
                 }
             },
             onAlwaysVisibleChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialAlwaysVisible(enabled)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialAlwaysVisible(enabled)
                 }
             },
             onLongPressMsChange = { ms ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialLongPressMs(ms)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialLongPressMs(ms)
                 }
             },
             onSlotActionChange = { index, action ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialSlotAction(index, action)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialSlotAction(index, action)
                 }
             },
             onOuterDiameterChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialOuterDiameterPx(value)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialOuterDiameterPx(value)
                 }
             },
             onInnerDiameterChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialInnerDiameterPx(value)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialInnerDiameterPx(value)
                 }
             },
             onOuterColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialOuterColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialOuterColor(color)
                 }
             },
             onInnerColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialInnerColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialInnerColor(color)
                 }
             },
             onDividerThicknessChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialDividerThicknessPx(value)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialDividerThicknessPx(value)
                 }
             },
             onDividerColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialDividerColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialDividerColor(color)
                 }
             },
             onIconSizeFractionChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialIconSizeFraction(value)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialIconSizeFraction(value)
                 }
             },
             onIconColorChange = { color ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFloatingPointerRadialIconColor(color)
+                    ctx.deps.settingsRepository.setFloatingPointerRadialIconColor(color)
                 }
             },
             onResetDesignDefaults = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.resetFloatingPointerRadialDesignDefaults()
+                    ctx.deps.settingsRepository.resetFloatingPointerRadialDesignDefaults()
                 }
             },
         )

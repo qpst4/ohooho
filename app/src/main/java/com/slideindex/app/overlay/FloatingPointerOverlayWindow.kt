@@ -1,5 +1,6 @@
 package com.slideindex.app.overlay
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -47,7 +48,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.gesture.ActionExecutor
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
@@ -242,10 +242,10 @@ object FloatingPointerOverlayWindow {
         session = pointerSession
         touchLayoutParams = touchParams
         appContext = hostContext
-        val app = hostContext.applicationContext as SlideIndexApp
+        val deps = AppEntryPoints.dependencies(hostContext)
         actionExecutor = ActionExecutor(
             context = hostContext,
-            appRepository = app.appRepository,
+            appRepository = deps.appRepository,
             clickPassthroughHandler = null,
             overlayBrightness = null,
             side = PanelSide.LEFT,
@@ -356,9 +356,9 @@ object FloatingPointerOverlayWindow {
 
     private fun startSettingsSync(context: Context, settingsHolder: MutableState<AppSettings>) {
         settingsCollectJob?.cancel()
-        val app = context.applicationContext as SlideIndexApp
+        val deps = AppEntryPoints.dependencies(context)
         settingsCollectJob = overlayScope.launch {
-            app.settingsRepository.settings.collectLatest { latest ->
+            deps.settingsRepository.settings.collectLatest { latest ->
                 settingsHolder.value = latest
                 onSettingsUpdated(latest)
             }

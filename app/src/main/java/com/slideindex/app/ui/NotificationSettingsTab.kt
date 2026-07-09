@@ -1,5 +1,6 @@
 package com.slideindex.app.ui
 
+import com.slideindex.app.di.AppDependencies
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.notification.NotificationFilterPreferences
 import com.slideindex.app.notification.NotificationFilterSettings
 import kotlin.math.roundToInt
@@ -27,14 +27,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun NotificationSettingsTab(
-    app: SlideIndexApp,
+    deps: AppDependencies,
     listenerEnabled: Boolean,
     onRequestListenerAccess: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val filterSettings by app.notificationFilterPreferences.settings.collectAsStateWithLifecycle(
+    val filterSettings by deps.notificationFilterPreferences.settings.collectAsStateWithLifecycle(
         initialValue = NotificationFilterSettings(),
     )
     val maxCountRange = NotificationFilterPreferences.MIN_NOTIFICATION_HISTORY_MAX_COUNT.toFloat()..
@@ -87,7 +87,7 @@ fun NotificationSettingsTab(
                             onRequestListenerAccess()
                             return@Button
                         }
-                        val restored = app.notificationHistoryRepository.restoreAllSnoozed()
+                        val restored = deps.notificationHistoryRepository.restoreAllSnoozed()
                         val messageRes = if (restored > 0) {
                             R.string.notification_restore_snoozed_result
                         } else {
@@ -128,8 +128,8 @@ fun NotificationSettingsTab(
                     onValueChange = { value ->
                         val count = snapMaxCount(value).roundToInt()
                         scope.launch {
-                            app.notificationFilterPreferences.setNotificationHistoryMaxCount(count)
-                            app.notificationHistoryRepository.applyMaxCountLimit(count)
+                            deps.notificationFilterPreferences.setNotificationHistoryMaxCount(count)
+                            deps.notificationHistoryRepository.applyMaxCountLimit(count)
                         }
                     },
                 )

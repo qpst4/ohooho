@@ -41,7 +41,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
+import com.slideindex.app.di.AppDependencies
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.notification.AppMatchMode
 import com.slideindex.app.notification.AppTarget
@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun NotificationRuleEditorScreen(
     initialRule: NotificationFilterRule?,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     onBack: () -> Unit,
     onSave: (NotificationFilterRule) -> Unit,
 ) {
@@ -357,7 +357,7 @@ fun NotificationRuleEditorScreen(
 
     if (showAppPicker) {
         NotificationRuleAppPickerDialog(
-            app = app,
+            deps = deps,
             initialPackageNames = appTargets.map { it.packageName }.toSet(),
             onDismiss = { showAppPicker = false },
             onConfirm = { selected ->
@@ -552,7 +552,7 @@ private fun resolveChargeMask(battery: Boolean, wired: Boolean, wireless: Boolea
 
 @Composable
 fun NotificationRuleAppPickerDialog(
-    app: SlideIndexApp,
+    deps: AppDependencies,
     initialPackageNames: Set<String>,
     onDismiss: () -> Unit,
     onConfirm: (Set<String>) -> Unit,
@@ -561,10 +561,10 @@ fun NotificationRuleAppPickerDialog(
     var query by remember { mutableStateOf("") }
     var selected by remember(initialPackageNames) { mutableStateOf(initialPackageNames) }
     LaunchedEffect(Unit) {
-        apps = withContext(Dispatchers.IO) { app.appRepository.loadApps() }
+        apps = withContext(Dispatchers.IO) { deps.appRepository.loadApps() }
     }
     val filtered = remember(apps, query) {
-        app.appRepository.searchApps(apps, query)
+        deps.appRepository.searchApps(apps, query)
     }
 
     androidx.compose.material3.AlertDialog(

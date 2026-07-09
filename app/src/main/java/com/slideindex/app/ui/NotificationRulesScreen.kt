@@ -1,5 +1,6 @@
 package com.slideindex.app.ui
 
+import com.slideindex.app.di.AppDependencies
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -18,14 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.notification.NotificationFilterRule
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NotificationRulesScreen(
     rules: List<NotificationFilterRule>,
-    app: SlideIndexApp,
+    deps: AppDependencies,
     onBack: () -> Unit,
     onUpsertRule: (NotificationFilterRule) -> Unit,
     onRemoveRule: (String) -> Unit,
@@ -52,7 +52,7 @@ fun NotificationRulesScreen(
     ) { padding ->
         NotificationRulesTab(
             rules = rules,
-            app = app,
+            deps = deps,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),

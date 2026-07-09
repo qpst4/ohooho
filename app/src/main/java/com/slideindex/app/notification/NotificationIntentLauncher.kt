@@ -1,5 +1,6 @@
 package com.slideindex.app.notification
 
+import com.slideindex.app.di.AppEntryPoints
 import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
@@ -7,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.message.NotificationData
 import com.slideindex.app.service.MediaNotificationListener
 import com.slideindex.app.settings.AppSettings
@@ -27,7 +27,7 @@ object NotificationIntentLauncher {
 
     fun openInSmallWindow(context: Context, data: NotificationData): Boolean {
         val appContext = context.applicationContext
-        val settings = (appContext as? SlideIndexApp)?.settingsRepository?.readSnapshot()
+        val settings = runCatching { AppEntryPoints.dependencies(appContext) }.getOrNull()?.settingsRepository?.readSnapshot()
         if (settings != null && settings.freeWindowEnabled) {
             val launchOptions = FreeWindowLauncher.launchOptionsBundle(appContext, settings)
             findSbn(data)?.let { sbn ->

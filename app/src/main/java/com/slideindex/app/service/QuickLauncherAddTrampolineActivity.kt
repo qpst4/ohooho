@@ -1,5 +1,6 @@
 package com.slideindex.app.service
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
@@ -17,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import com.slideindex.app.settings.AppSettings
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.ui.QuickLauncherAddOverlaySheet
@@ -50,16 +50,16 @@ class QuickLauncherAddTrampolineActivity : ComponentActivity() {
         val configuredActionKeys =
             intent.getStringArrayExtra(EXTRA_CONFIGURED_ACTION_KEYS)?.toSet().orEmpty()
 
-        val app = application as SlideIndexApp
+        val deps = AppEntryPoints.dependencies(this)
         setContent {
             var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var themeSeedArgb by remember { mutableIntStateOf(AppSettings().themeColorArgb) }
             var dynamicColorEnabled by remember { mutableStateOf(false) }
             var dismissRequest by remember { mutableStateOf<(() -> Unit)?>(null) }
             LaunchedEffect(Unit) {
-                launch { apps = app.appRepository.loadApps() }
+                launch { apps = deps.appRepository.loadApps() }
                 launch {
-                    app.settingsRepository.settings.collect { settings ->
+                    deps.settingsRepository.settings.collect { settings ->
                         themeSeedArgb = settings.themeColorArgb
                         dynamicColorEnabled = settings.dynamicColorEnabled
                     }

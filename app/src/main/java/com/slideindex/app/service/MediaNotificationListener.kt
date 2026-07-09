@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Notification listener for media session tracking and notification history recording.
- * Must be enabled in system Settings â†’ Notification access.
+ * Must be enabled in system Settings â†?Notification access.
  *
  * Listener callbacks arrive on the main thread; heavy recording work is offloaded so
  * touch overlays (floating pointer, edge gestures) stay responsive.

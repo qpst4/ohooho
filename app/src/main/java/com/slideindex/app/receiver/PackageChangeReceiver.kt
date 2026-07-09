@@ -1,9 +1,9 @@
 package com.slideindex.app.receiver
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.slideindex.app.SlideIndexApp
 
 class PackageChangeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -12,7 +12,7 @@ class PackageChangeReceiver : BroadcastReceiver() {
         ) {
             return
         }
-        val app = context.applicationContext as SlideIndexApp
-        app.appRepository.invalidate()
+        val deps = AppEntryPoints.dependencies(context)
+        deps.appRepository.invalidate()
     }
 }

@@ -21,3 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "SlideIndex"
 include(":app")
+include(":core:common")
+include(":core:gesture")
+include(":core:notification")
+include(":core:monitoring")
+include(":feature:settings")

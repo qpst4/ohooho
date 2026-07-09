@@ -3,8 +3,8 @@
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import com.slideindex.app.R
 import com.slideindex.app.shake.ShakeGestureSettings
@@ -14,13 +14,10 @@ import com.slideindex.app.ui.ShakeGesturesScreen
 import com.slideindex.app.ui.ShakeIndependentAppSettingsScreen
 import com.slideindex.app.ui.ShakeIndependentSensitivityScreen
 import com.slideindex.app.ui.viewmodel.ShakeHubViewModel
-import com.slideindex.app.ui.viewmodel.shakeHubViewModelFactory
 
 fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
     entry<AppNavKey.ShakeGestures> {
-        val viewModel: ShakeHubViewModel = viewModel(
-            factory = shakeHubViewModelFactory(ctx.app),
-        )
+        val viewModel: ShakeHubViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         ShakeGesturesScreen(
             settings = settings.shakeGestureSettings,
@@ -54,12 +51,12 @@ fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ShakeGestures) },
             onBlacklistApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.addShakeBlacklistedApp(packageName)
+                    ctx.deps.settingsRepository.addShakeBlacklistedApp(packageName)
                 }
             },
             onRemoveBlacklistedApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.removeShakeBlacklistedApp(packageName)
+                    ctx.deps.settingsRepository.removeShakeBlacklistedApp(packageName)
                 }
             },
         )
@@ -75,7 +72,7 @@ fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ShakeGestures) },
             onActionChange = { type, action ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setLockScreenShakeAction(type, action)
+                    ctx.deps.settingsRepository.setLockScreenShakeAction(type, action)
                 }
             },
         )
@@ -90,7 +87,7 @@ fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ShakeGestures) },
             onSensitivityChange = { type, value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setShakeDirectionSensitivity(type, value)
+                    ctx.deps.settingsRepository.setShakeDirectionSensitivity(type, value)
                 }
             },
         )
@@ -104,13 +101,13 @@ fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ShakeGestures) },
             onOpenAppConfig = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.addPerAppShakeConfig(packageName)
+                    ctx.deps.settingsRepository.addPerAppShakeConfig(packageName)
                 }
                 ctx.navigate(AppNavKey.ShakePerAppActions(packageName))
             },
             onRemoveAppConfig = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.removePerAppShakeConfig(packageName)
+                    ctx.deps.settingsRepository.removePerAppShakeConfig(packageName)
                 }
             },
         )
@@ -138,7 +135,7 @@ fun EntryProviderScope<AppNavKey>.shakeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ShakeIndependentAppSettings) },
             onActionChange = { type, action ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setPerAppShakeAction(packageName, type, action)
+                    ctx.deps.settingsRepository.setPerAppShakeAction(packageName, type, action)
                 }
             },
         )

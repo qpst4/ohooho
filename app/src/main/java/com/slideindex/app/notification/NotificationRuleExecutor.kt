@@ -129,7 +129,7 @@ object NotificationRuleExecutor {
         val extras = original.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
-        val newTitle = expandTemplate(replaceTitle ?: "通知", title, text, appLabel)
+        val newTitle = expandTemplate(replaceTitle ?: "??", title, text, appLabel)
         val newText = expandTemplate(replaceMessage ?: "", title, text, appLabel)
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         ensureChannel(context, manager, sbn.packageName, "rule_replace")
@@ -209,7 +209,7 @@ object NotificationRuleExecutor {
         val message = if (template != null) {
             expandTemplate(template, title, text, appLabel)
         } else {
-            listOf(title, text).filter { it.isNotBlank() }.joinToString("，")
+            listOf(title, text).filter { it.isNotBlank() }.joinToString("?")
         }
         if (message.isBlank()) return
         val appContext = context.applicationContext

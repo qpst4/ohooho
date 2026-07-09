@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import com.slideindex.app.ui.compose.rememberAppDependencies
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,7 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.data.AppInfo
 import com.slideindex.app.otp.OtpClipboardHelper
 import com.slideindex.app.otp.OtpRecord
@@ -77,8 +77,8 @@ fun OtpRecordsScreen(
     }
 
     val context = LocalContext.current
-    val app = remember { context.applicationContext as SlideIndexApp }
-    val records by app.otpRecordsRepository.records.collectAsStateWithLifecycle()
+    val deps = rememberAppDependencies()
+    val records by deps.otpRecordsRepository.records.collectAsStateWithLifecycle()
     var sortOrder by remember { mutableStateOf(OtpRecordSortOrder.NEWEST_FIRST) }
     var filterPackage by remember { mutableStateOf<String?>(null) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -124,7 +124,7 @@ fun OtpRecordsScreen(
                     }
                 } else {
                     items(filteredRecords, key = { it.id }) { record ->
-                        val appInfo = app.appRepository.getCachedAppInfo(record.packageName)
+                        val appInfo = deps.appRepository.getCachedAppInfo(record.packageName)
                         OtpRecordRow(
                             record = record,
                             appInfo = appInfo,
@@ -244,7 +244,7 @@ fun OtpRecordsScreen(
                     },
                 )
                 packageOptions.forEach { packageName ->
-                    val appInfo = app.appRepository.ensureAppInfo(packageName)
+                    val appInfo = deps.appRepository.ensureAppInfo(packageName)
                     OtpRecordFilterOption(
                         label = appInfo?.label ?: packageName,
                         selected = filterPackage == packageName,
@@ -266,7 +266,7 @@ fun OtpRecordsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        app.otpRecordsRepository.delete(record.id)
+                        deps.otpRecordsRepository.delete(record.id)
                         pendingDelete = null
                     },
                 ) {

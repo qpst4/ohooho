@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ksp)
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -64,6 +66,7 @@ android {
     buildFeatures {
         compose = true
         aidl = true
+        buildConfig = true
     }
 
     packaging {
@@ -78,10 +81,21 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
+    implementation(project(":core:gesture"))
+    implementation(project(":core:notification"))
+    implementation(project(":core:monitoring"))
+    implementation(project(":feature:settings"))
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.0")
+
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.hilt.navigation.compose)
     implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.service)
@@ -108,4 +122,10 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }

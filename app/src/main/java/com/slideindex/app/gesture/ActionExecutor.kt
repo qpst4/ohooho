@@ -1,5 +1,6 @@
 package com.slideindex.app.gesture
 
+import com.slideindex.app.di.AppEntryPoints
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -16,7 +17,6 @@ import com.slideindex.app.overlay.WidgetPopupOverlayWindow
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.overlay.TaskSwitcherMenuItemType
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.service.ShellCommandPanelTrampoline
 import com.slideindex.app.service.SlideIndexAccessibilityService
@@ -213,7 +213,7 @@ class ActionExecutor(
 
     private fun openShellCommandPanelStandalone(): Boolean {
         if (ShellCommandPanelTrampoline.isActive()) return true
-        val app = context.applicationContext as? SlideIndexApp ?: return false
+        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return false
         return runCatching {
             ShellCommandPanelTrampoline.launch(
                 context = context,
@@ -221,8 +221,8 @@ class ActionExecutor(
                 onPrepare = {},
                 onDismiss = {},
                 onPersist = { commands ->
-                    app.applicationScope.launch {
-                        app.settingsRepository.setShellCommands(commands)
+                    deps.applicationScope.launch {
+                        deps.settingsRepository.setShellCommands(commands)
                     }
                 },
             )

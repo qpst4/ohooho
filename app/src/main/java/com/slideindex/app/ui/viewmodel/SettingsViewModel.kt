@@ -1,15 +1,18 @@
 package com.slideindex.app.ui.viewmodel
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.slideindex.app.R
-import com.slideindex.app.SlideIndexApp
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shake.ShakeGestureType
 import com.slideindex.app.ui.feedback.UserMessageBus
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -18,7 +21,7 @@ import kotlinx.coroutines.launch
 abstract class SettingsViewModel(
     protected val settingsRepository: SettingsRepository,
     private val userMessageBus: UserMessageBus,
-    private val app: SlideIndexApp,
+    private val appContext: Context,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsRepository.settings
         .stateIn(
@@ -33,17 +36,18 @@ abstract class SettingsViewModel(
     ) {
         viewModelScope.launch {
             block().onFailure {
-                userMessageBus.showError(app.getString(failureMessageRes))
+                userMessageBus.showError(appContext.getString(failureMessageRes))
             }
         }
     }
 }
 
-class ShakeHubViewModel(
+@HiltViewModel
+class ShakeHubViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
     userMessageBus: UserMessageBus,
-    app: SlideIndexApp,
-) : SettingsViewModel(settingsRepository, userMessageBus, app) {
+    @ApplicationContext context: Context,
+) : SettingsViewModel(settingsRepository, userMessageBus, context) {
     fun setEnabled(enabled: Boolean) = launchSettingsWrite {
         settingsRepository.setShakeGesturesEnabled(enabled)
     }

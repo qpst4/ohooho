@@ -3,8 +3,8 @@
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.EntryProviderScope
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.service.OverlayService
@@ -32,15 +32,14 @@ import com.slideindex.app.ui.animationstyle.CapsuleStyleSettingsScreen
 import com.slideindex.app.ui.animationstyle.WaveStyleSettingsScreen
 import com.slideindex.app.ui.viewmodel.HomeViewModel
 import com.slideindex.app.ui.viewmodel.MainNavHomeEffects
-import com.slideindex.app.ui.viewmodel.homeViewModelFactory
 
 fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
     entry<AppNavKey.HomeMain> {
         val permissions = ctx.collectPermissions()
         val homeEffects = remember(ctx) { MainNavHomeEffects(ctx) }
-        val viewModel: HomeViewModel = viewModel(
-            factory = homeViewModelFactory(ctx.app, homeEffects),
-        )
+        val viewModel: HomeViewModel = hiltViewModel<HomeViewModel, HomeViewModel.Factory> { factory ->
+            factory.create(homeEffects)
+        }
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         MainScreen(
             settings = settings,
@@ -100,17 +99,17 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onIndexHeightChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setIndexHeightFraction(value)
+                    ctx.deps.settingsRepository.setIndexHeightFraction(value)
                 }
             },
             onAppsPerRowChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setAppsPerRow(value)
+                    ctx.deps.settingsRepository.setAppsPerRow(value)
                 }
             },
             onPanelOpacityChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setPanelOpacity(value)
+                    ctx.deps.settingsRepository.setPanelOpacity(value)
                 }
             },
             onOpenHiddenAppsSettings = { ctx.navigate(AppNavKey.HomeHiddenApps) },
@@ -134,12 +133,12 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeLayout) },
             onHideApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.addHiddenApp(packageName)
+                    ctx.deps.settingsRepository.addHiddenApp(packageName)
                 }
             },
             onUnhideApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.removeHiddenApp(packageName)
+                    ctx.deps.settingsRepository.removeHiddenApp(packageName)
                 }
             },
         )
@@ -155,12 +154,12 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onRequestUsageAccess = { ctx.openUsageAccessSettings() },
             onExcludeApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.addExcludedTriggerApp(packageName)
+                    ctx.deps.settingsRepository.addExcludedTriggerApp(packageName)
                 }
             },
             onRemoveExcludedApp = { packageName ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.removeExcludedTriggerApp(packageName)
+                    ctx.deps.settingsRepository.removeExcludedTriggerApp(packageName)
                 }
             },
         )
@@ -174,22 +173,22 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeMain) },
             onEnabledChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFreeWindowEnabled(enabled)
+                    ctx.deps.settingsRepository.setFreeWindowEnabled(enabled)
                 }
             },
             onLaunchPolicyChange = { policyId ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setAppLaunchPolicyId(policyId)
+                    ctx.deps.settingsRepository.setAppLaunchPolicyId(policyId)
                 }
             },
             onLongPressDurationChange = { durationMs ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setLongPressLaunchDurationMs(durationMs)
+                    ctx.deps.settingsRepository.setLongPressLaunchDurationMs(durationMs)
                 }
             },
             onModeChange = { modeId ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFreeWindowModeId(modeId)
+                    ctx.deps.settingsRepository.setFreeWindowModeId(modeId)
                 }
             },
             onOpenPreview = { ctx.navigate(AppNavKey.HomeFreeWindowPreview) },
@@ -204,7 +203,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeFreeWindow) },
             onSave = { width, height, left, top ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setFreeWindowLayout(width, height, left, top)
+                    ctx.deps.settingsRepository.setFreeWindowLayout(width, height, left, top)
                 }
             },
         )
@@ -225,12 +224,12 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onAddTriggerPair = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.addTriggerHandlePair()
+                    ctx.deps.settingsRepository.addTriggerHandlePair()
                 }
             },
             onRemoveTriggerHandle = { side, handleId ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.removeTriggerHandle(side, handleId)
+                    ctx.deps.settingsRepository.removeTriggerHandle(side, handleId)
                 }
             },
         )
@@ -257,12 +256,12 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onSlotConfigChange = { handleId, trigger, action, mode ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setSlotConfig(side, trigger, action, mode, handleId)
+                    ctx.deps.settingsRepository.setSlotConfig(side, trigger, action, mode, handleId)
                 }
             },
             onDefaultTriggerModeChange = { mode ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setDefaultTriggerMode(side, mode)
+                    ctx.deps.settingsRepository.setDefaultTriggerMode(side, mode)
                 }
             },
         )
@@ -283,27 +282,27 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onShortSwipeDistanceChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setShortSwipeDistanceDp(side, key.handleId, value)
+                    ctx.deps.settingsRepository.setShortSwipeDistanceDp(side, key.handleId, value)
                 }
             },
             onLongSwipeDistanceChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setLongSwipeDistanceDp(side, key.handleId, value)
+                    ctx.deps.settingsRepository.setLongSwipeDistanceDp(side, key.handleId, value)
                 }
             },
             onEdgeWidthChange = { value ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setEdgeTriggerWidthDp(side, value)
+                    ctx.deps.settingsRepository.setEdgeTriggerWidthDp(side, value)
                 }
             },
             onTriggerVerticalRangeChange = { handleId, top, bottom ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setTriggerVerticalRange(side, handleId, top, bottom)
+                    ctx.deps.settingsRepository.setTriggerVerticalRange(side, handleId, top, bottom)
                 }
             },
             onAlignHandlesChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setTriggerAlignOppositeSide(
+                    ctx.deps.settingsRepository.setTriggerAlignOppositeSide(
                         handleId = key.handleId,
                         sourceSide = side,
                         enabled = enabled,
@@ -312,12 +311,12 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onInterceptBackChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setInterceptSystemBackGesture(enabled)
+                    ctx.deps.settingsRepository.setInterceptSystemBackGesture(enabled)
                 }
             },
             onLimitInterceptLengthChange = { enabled ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setLimitMaxInterceptLength(enabled)
+                    ctx.deps.settingsRepository.setLimitMaxInterceptLength(enabled)
                 }
             },
             onLayoutPreviewStart = {
@@ -346,17 +345,17 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             },
             onDesignChange = { design ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setTriggerHandleDesign(side, key.handleId, design)
+                    ctx.deps.settingsRepository.setTriggerHandleDesign(side, key.handleId, design)
                 }
             },
             onPresetApply = { preset ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.applyTriggerDesignPreset(side, key.handleId, preset)
+                    ctx.deps.settingsRepository.applyTriggerDesignPreset(side, key.handleId, preset)
                 }
             },
             onResetDefaults = {
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setTriggerHandleDesign(
+                    ctx.deps.settingsRepository.setTriggerHandleDesign(
                         side,
                         key.handleId,
                         TriggerHandleDesign(),
@@ -374,7 +373,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeMain) },
             onSave = { config ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setGestureAngleConfig(config)
+                    ctx.deps.settingsRepository.setGestureAngleConfig(config)
                 }
             },
         )
@@ -389,7 +388,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeMain) },
             onStyleSelected = { style ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.setGestureHintStyle(style)
+                    ctx.deps.settingsRepository.setGestureHintStyle(style)
                 }
             },
             onOpenStyleConfig = { style ->
@@ -413,7 +412,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeAnimationStyleSelect) },
             onStyleChange = { style ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.updateWaveStyle(style)
+                    ctx.deps.settingsRepository.updateWaveStyle(style)
                 }
             },
         )
@@ -428,7 +427,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeAnimationStyleSelect) },
             onStyleChange = { style ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.updateCapsuleStyle(style)
+                    ctx.deps.settingsRepository.updateCapsuleStyle(style)
                 }
             },
         )
@@ -443,7 +442,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.HomeAnimationStyleSelect) },
             onStyleChange = { style ->
                 ctx.launchSettingsChange {
-                    ctx.app.settingsRepository.updateBubbleStyle(style)
+                    ctx.deps.settingsRepository.updateBubbleStyle(style)
                 }
             },
         )
