@@ -56,7 +56,9 @@ object QuickLauncherIconResolver {
         appsByPackage: Map<String, AppInfo>,
         context: Context?,
     ): Drawable? {
-        QuickLauncherItemCodec.resolveHostPackageName(payload)?.let { packageName ->
+        QuickLauncherItemCodec.resolveHostPackageName(payload) { uri ->
+            KnownAppShortcuts.packageForIntentUri(uri)
+        }?.let { packageName ->
             appsByPackage[packageName]?.icon?.let { return it }
         }
         if (payload.startsWith("c:")) {
@@ -96,7 +98,7 @@ object QuickLauncherIconResolver {
     ): Drawable? {
         QuickLauncherItemCodec.resolveHostPackageName(
             "${QuickLauncherItemCodec.INTENT_PAYLOAD_PREFIX}$intentUri",
-        )?.let { appsByPackage[it]?.icon }?.let { return it }
+        ) { uri -> KnownAppShortcuts.packageForIntentUri(uri) }?.let { appsByPackage[it]?.icon }?.let { return it }
         context?.let { ctx ->
             packageFromIntentUri(ctx, intentUri)?.let { appsByPackage[it]?.icon }?.let { return it }
         }

@@ -179,13 +179,13 @@ gradlew.bat testDebugUnitTest
 | 模块 | 说明 |
 |------|------|
 | `:app` | 主应用、UI、服务、DataStore、运行时逻辑 |
-| `:core:common` | 跨模块共享类型（`PanelSide`、`GestureAnimationPosition`） |
+| `:core:common` | 跨模块共享类型（`PanelSide`、`GestureAnimationPosition`）、`QuickLauncherGridLogic`、`ShellCommand` 编解码 |
 | `:core:monitoring` | Debug 性能监控（Overlay FPS、主线程阻塞） |
-| `:core:gesture` | 手势纯逻辑：动作/规则/触发器编解码、路径识别、`GestureShortcutPayload` |
+| `:core:gesture` | 手势纯逻辑：动作/规则/触发器编解码、路径识别、`GestureShortcutPayload`、快速启动器模型、`ShakeGestureSettings` |
 | `:core:notification` | 通知纯逻辑：规则匹配、历史/过滤编解码、Intent 捕获 |
-| `:feature:settings` | 设置模型：`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle` 等 |
+| `:feature:settings` | 设置模型：`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle`、`FloatingPointerRadialMenuCodec` 等 |
 
-`AppSettings` 与各模块的扩展函数（如 `activeWaveStyle()`、`rulesForSide()`）仍留在 `:app`，避免循环依赖。
+`AppSettings`、`SettingsRepository` 与各模块的扩展函数（如 `activeWaveStyle()`、`rulesForSide()`）仍留在 `:app`；`QuickLauncherDefaults` 依赖 `AppInfo` 亦留 `:app`。
 
 ### 依赖注入（Hilt）
 

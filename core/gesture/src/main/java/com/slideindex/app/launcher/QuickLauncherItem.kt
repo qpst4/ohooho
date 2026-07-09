@@ -3,7 +3,6 @@ package com.slideindex.app.launcher
 import android.content.Intent
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
-import com.slideindex.app.util.KnownAppShortcuts
 
 enum class QuickLauncherItemType(val id: Int) {
     APP(0),
@@ -175,12 +174,15 @@ object QuickLauncherItemCodec {
         return packageName to shortcutId
     }
 
-    fun resolveHostPackageName(payload: String): String? {
+    fun resolveHostPackageName(
+        payload: String,
+        fallbackPackageForIntentUri: (String) -> String? = { null },
+    ): String? {
         if (payload.startsWith(INTENT_PAYLOAD_PREFIX)) {
             parseIntentHostPackage(payload)?.let { return it }
             parseIntentPayload(payload)?.let { uri ->
                 packageNameFromIntentUri(uri)?.let { return it }
-                KnownAppShortcuts.packageForIntentUri(uri)?.let { return it }
+                fallbackPackageForIntentUri(uri)?.let { return it }
             }
             return null
         }
@@ -190,7 +192,7 @@ object QuickLauncherItemCodec {
                 parseIntentHostPackageBody(part)?.let { return it }
                 extractIntentUriFromBody(part).let { uri ->
                     packageNameFromIntentUri(uri)?.let { return it }
-                    KnownAppShortcuts.packageForIntentUri(uri)?.let { return it }
+                    fallbackPackageForIntentUri(uri)?.let { return it }
                 }
             }
             return null
