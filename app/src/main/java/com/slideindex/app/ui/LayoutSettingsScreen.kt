@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.slideindex.app.BuildConfig
 import com.slideindex.app.R
 import com.slideindex.app.settings.AppSettings
 import kotlin.math.roundToInt
@@ -28,6 +29,7 @@ fun LayoutSettingsScreen(
     onOpenHiddenAppsSettings: () -> Unit,
     onLayoutPreviewStart: () -> Unit,
     onLayoutPreviewStop: () -> Unit,
+    onDebugPerformanceMonitorChange: (Boolean) -> Unit = {},
 ) {
     DisposableEffect(Unit) {
         onDispose { onLayoutPreviewStop() }
@@ -80,6 +82,19 @@ fun LayoutSettingsScreen(
                 hiddenCount = settings.hiddenAppPackages.size,
                 onClick = onOpenHiddenAppsSettings,
             )
+        }
+
+        if (BuildConfig.DEBUG) {
+            SettingsSectionTitle(stringResource(R.string.debug_section_title))
+            SettingsCard {
+                SettingSwitchRow(
+                    title = stringResource(R.string.debug_performance_monitor),
+                    subtitle = stringResource(R.string.debug_performance_monitor_desc),
+                    checked = settings.debugPerformanceMonitorEnabled,
+                    enabled = true,
+                    onCheckedChange = onDebugPerformanceMonitorChange,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))

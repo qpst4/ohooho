@@ -131,4 +131,5 @@ data class AppSettings(
     val otpAutoInputIntervalMs: Int = 0,
     val shakeGestureSettings: ShakeGestureSettings = ShakeGestureSettings(),
     val messageReminderSettings: MessageSettings = MessageSettings(),
+    val debugPerformanceMonitorEnabled: Boolean = false,
 )

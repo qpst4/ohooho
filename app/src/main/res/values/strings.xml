@@ -352,6 +352,9 @@
     <string name="settings_section_layout">布局与索引</string>
     <string name="settings_section_trigger">边缘触发</string>
     <string name="settings_section_panel">索引与面板</string>
+    <string name="debug_section_title">调试</string>
+    <string name="debug_performance_monitor">性能监控</string>
+    <string name="debug_performance_monitor_desc">在 Logcat 输出 Overlay FPS 与主线程慢消息（仅 Debug 构建）</string>
     <string name="settings_section_apps">应用与启动</string>
     <string name="settings_section_feedback">交互反馈</string>
     <string name="settings_section_appearance">外观</string>

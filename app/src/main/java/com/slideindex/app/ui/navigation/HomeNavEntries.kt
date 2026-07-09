@@ -122,6 +122,11 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             onLayoutPreviewStop = {
                 ctx.sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
             },
+            onDebugPerformanceMonitorChange = { enabled ->
+                ctx.launchSettingsChange {
+                    ctx.deps.settingsRepository.setDebugPerformanceMonitorEnabled(enabled)
+                }
+            },
         )
     }
 

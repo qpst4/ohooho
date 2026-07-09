@@ -47,11 +47,17 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.roundToInt
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "slide_index_settings")
 
-class SettingsRepository(private val context: Context) {
+@Singleton
+class SettingsRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
     @Volatile
     private var cachedSettings: AppSettings = AppSettings()
 
@@ -186,6 +192,7 @@ class SettingsRepository(private val context: Context) {
             otpAutoInputIntervalMs = prefs[OTP_AUTO_INPUT_INTERVAL_MS] ?: 0,
             shakeGestureSettings = readShakeGestureSettings(prefs),
             messageReminderSettings = readMessageReminderSettings(prefs),
+            debugPerformanceMonitorEnabled = prefs[DEBUG_PERFORMANCE_MONITOR] ?: false,
         )
     }
 
@@ -731,6 +738,9 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setShakeGesturesEnabled(enabled: Boolean) = edit { it[SHAKE_GESTURES_ENABLED] = enabled }
+
+    suspend fun setDebugPerformanceMonitorEnabled(enabled: Boolean) =
+        edit { it[DEBUG_PERFORMANCE_MONITOR] = enabled }
 
     suspend fun setShakeGestureAction(type: ShakeGestureType, action: GestureAction) = edit { prefs ->
         val current = readShakeGestureSettings(prefs)
@@ -1360,5 +1370,6 @@ class SettingsRepository(private val context: Context) {
         private val MESSAGE_SUPPRESS_WHEN_SYSTEM_DND =
             booleanPreferencesKey("message_suppress_when_system_dnd")
         private val MESSAGE_APP_FILTER_RULES = stringSetPreferencesKey("message_app_filter_rules")
+        private val DEBUG_PERFORMANCE_MONITOR = booleanPreferencesKey("debug_performance_monitor")
     }
 }

@@ -27,12 +27,10 @@ class EdgeOverlayHost(
     private var settingsJob: Job? = null
     private var previewActive = false
     private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
+    private var performanceMonitorEnabled = false
 
     fun start() {
         if (overlayManager != null) return
-        if (BuildConfig.DEBUG) {
-            PerformanceMonitor.setEnabled(true)
-        }
         overlayManager = OverlayManager(
             context = context,
             appRepository = deps.appRepository,
@@ -66,6 +64,7 @@ class EdgeOverlayHost(
                     overlayManager?.destroy()
                     return@collectLatest
                 }
+                updatePerformanceMonitor(settings.debugPerformanceMonitorEnabled)
                 overlayManager?.applySettings(settings)
                 if (previewActive) {
                     overlayManager?.setPreviewMode(true, previewContent)
@@ -75,9 +74,7 @@ class EdgeOverlayHost(
     }
 
     fun stop() {
-        if (BuildConfig.DEBUG) {
-            PerformanceMonitor.setEnabled(false)
-        }
+        updatePerformanceMonitor(false)
         settingsJob?.cancel()
         settingsJob = null
         foregroundTracker?.stop()
@@ -118,4 +115,11 @@ class EdgeOverlayHost(
 
     fun dispatchExternalGestureAction(action: com.slideindex.app.gesture.GestureAction, anchorRawY: Float): Boolean =
         overlayManager?.dispatchExternalGestureAction(action, anchorRawY) == true
+
+    private fun updatePerformanceMonitor(enabled: Boolean) {
+        if (!BuildConfig.DEBUG) return
+        if (performanceMonitorEnabled == enabled) return
+        performanceMonitorEnabled = enabled
+        PerformanceMonitor.setEnabled(enabled)
+    }
 }
