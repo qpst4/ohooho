@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.BroadcastReceiver
@@ -32,7 +32,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
+@dagger.hilt.android.AndroidEntryPoint
 class SlideIndexAccessibilityService : AccessibilityService() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var edgeOverlayHost: EdgeOverlayHost? = null
@@ -77,7 +80,6 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         if (now - lastOtpCheckUptime < 300L) return
         lastOtpCheckUptime = now
         if (OtpAutoFillController.isFillingActive()) return
-        val deps = runCatching { AppEntryPoints.dependencies(applicationContext) }.getOrNull() ?: return
         val settings = deps.settingsRepository.readSnapshot()
         if (!settings.otpAutoInputEnabled || !OtpAutoFillController.hasPendingCode()) return
         OtpAutoFillController.scheduleAutoFill(this, settings)
@@ -690,8 +692,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         fun scheduleOtpAutoFill() {
             val service = instance ?: return
-            val deps = runCatching { AppEntryPoints.dependencies(service.applicationContext) }.getOrNull() ?: return
-            val settings = deps.settingsRepository.readSnapshot()
+            val settings = service.deps.settingsRepository.readSnapshot()
             if (!settings.otpAutoInputEnabled) return
             OtpAutoFillController.scheduleAutoFill(service, settings)
         }

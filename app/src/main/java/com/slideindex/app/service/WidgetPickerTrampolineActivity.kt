@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,7 +23,10 @@ import kotlinx.coroutines.runBlocking
  * Fallback picker when [com.slideindex.app.overlay.WidgetPickerOverlayWindow] cannot attach
  * (e.g. settings screen while accessibility host is unavailable).
  */
+@dagger.hilt.android.AndroidEntryPoint
 class WidgetPickerTrampolineActivity : ComponentActivity() {
+
+  @javax.inject.Inject lateinit var deps: AppDependencies
 
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge(
@@ -32,7 +35,6 @@ class WidgetPickerTrampolineActivity : ComponentActivity() {
     )
     super.onCreate(savedInstanceState)
 
-    val deps = AppEntryPoints.dependencies(this)
     val initialSettings = runBlocking { deps.settingsRepository.settings.first() }
     var themeSeedArgb by mutableIntStateOf(initialSettings.themeColorArgb)
     var dynamicColorEnabled by mutableStateOf(initialSettings.dynamicColorEnabled)

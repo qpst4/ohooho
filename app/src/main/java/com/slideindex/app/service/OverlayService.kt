@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,7 +26,10 @@ import kotlinx.coroutines.launch
  * Foreground service for persistent notification and settings sync.
  * Edge overlays are hosted by [SlideIndexAccessibilityService] (SideGesture-style).
  */
+@dagger.hilt.android.AndroidEntryPoint
 class OverlayService : LifecycleService() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private var shakeGestureHost: ShakeGestureHost? = null
 
@@ -34,7 +37,7 @@ class OverlayService : LifecycleService() {
         super.onCreate()
         createNotificationChannel()
         promoteToForeground()
-        shakeGestureHost = ShakeGestureHost(this, lifecycleScope).also { it.start() }
+        shakeGestureHost = ShakeGestureHost(this, lifecycleScope, deps).also { it.start() }
         startAccessibilityWatchdog()
     }
 
@@ -42,7 +45,7 @@ class OverlayService : LifecycleService() {
         lifecycleScope.launch {
             while (isActive) {
                 delay(ACCESSIBILITY_WATCHDOG_INTERVAL_MS)
-                val deps = runCatching { AppEntryPoints.dependencies(this@OverlayService) }.getOrNull() ?: continue
+                val deps = this@OverlayService.deps
                 val settings = deps.settingsRepository.settings.first()
                 if (!settings.accessibilityKeepAliveEnabled) continue
                 if (!settings.serviceEnabled) continue

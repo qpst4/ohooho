@@ -1,6 +1,6 @@
 package com.slideindex.app.shake
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -27,9 +27,9 @@ import kotlinx.coroutines.launch
 class ShakeGestureHost(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val deps: AppDependencies,
 ) {
     private val appContext = context.applicationContext
-    private val deps = AppEntryPoints.dependencies(appContext)
     private var detector: ShakeGestureDetector? = null
     private var settingsJob: Job? = null
     private var latestSettings: AppSettings? = null
@@ -265,7 +265,7 @@ class ShakeGestureHost(
             }, 100L)
             return
         }
-        Log.w(TAG, "gesture $type action $action FAILED â€?accessibility connected=${SlideIndexAccessibilityService.isConnected()}")
+        Log.w(TAG, "gesture $type action $action FAILED ??accessibility connected=${SlideIndexAccessibilityService.isConnected()}")
     }
 
     private fun deliverFeedback(

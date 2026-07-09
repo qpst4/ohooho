@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
@@ -26,7 +26,10 @@ import com.slideindex.app.util.AppShortcutLoader
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+@dagger.hilt.android.AndroidEntryPoint
 class QuickLauncherAddTrampolineActivity : ComponentActivity() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private var dismissed = false
 
@@ -50,7 +53,6 @@ class QuickLauncherAddTrampolineActivity : ComponentActivity() {
         val configuredActionKeys =
             intent.getStringArrayExtra(EXTRA_CONFIGURED_ACTION_KEYS)?.toSet().orEmpty()
 
-        val deps = AppEntryPoints.dependencies(this)
         setContent {
             var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
             var themeSeedArgb by remember { mutableIntStateOf(AppSettings().themeColorArgb) }

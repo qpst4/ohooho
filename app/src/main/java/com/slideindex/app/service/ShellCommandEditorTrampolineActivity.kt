@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
@@ -33,7 +33,10 @@ import kotlinx.coroutines.withContext
  * Transparent activity that hosts [ShellCommandEditorOverlaySheet] so text input uses the normal
  * window pipeline while keeping the centered-sheet look of the shell command panel.
  */
+@dagger.hilt.android.AndroidEntryPoint
 class ShellCommandEditorTrampolineActivity : ComponentActivity() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private var dismissed = false
 
@@ -57,7 +60,6 @@ class ShellCommandEditorTrampolineActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
 
-        val deps = AppEntryPoints.dependencies(this)
         setContent {
             val scope = rememberCoroutineScope()
             var themeSeedArgb by remember { mutableIntStateOf(AppSettings().themeColorArgb) }

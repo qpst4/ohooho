@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -27,7 +27,10 @@ import com.slideindex.app.ui.ShellCommandPanelOverlaySheet
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import kotlinx.coroutines.flow.first
 
+@dagger.hilt.android.AndroidEntryPoint
 class ShellCommandPanelTrampolineActivity : ComponentActivity() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private var dismissed = false
 
@@ -46,7 +49,6 @@ class ShellCommandPanelTrampolineActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
 
-        val deps = AppEntryPoints.dependencies(this)
         setContent {
             var commands by remember { mutableStateOf<List<ShellCommand>>(emptyList()) }
             var shizukuGranted by remember { mutableStateOf(false) }

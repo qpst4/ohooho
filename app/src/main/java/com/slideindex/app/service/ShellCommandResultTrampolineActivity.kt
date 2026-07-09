@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -26,7 +26,10 @@ import com.slideindex.app.ui.ShellCommandResultOverlaySheet
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import kotlinx.coroutines.flow.first
 
+@dagger.hilt.android.AndroidEntryPoint
 class ShellCommandResultTrampolineActivity : ComponentActivity() {
+
+    @javax.inject.Inject lateinit var deps: AppDependencies
 
     private var dismissed = false
 
@@ -50,7 +53,6 @@ class ShellCommandResultTrampolineActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
 
-        val deps = AppEntryPoints.dependencies(this)
         setContent {
             var themeSeedArgb by remember { mutableIntStateOf(AppSettings().themeColorArgb) }
             var dynamicColorEnabled by remember { mutableStateOf(false) }
