@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +42,7 @@ import com.slideindex.app.ui.MainBottomNavDestination
 import com.slideindex.app.ui.MainBottomNavHeight
 import com.slideindex.app.ui.MainBottomNavOuterPadding
 import com.slideindex.app.ui.feedback.UserMessageSnackbarHost
+import com.slideindex.app.ui.compose.LocalAppDependencies
 import com.slideindex.app.ui.theme.SlideIndexTheme
 
 @Composable
@@ -81,7 +83,7 @@ fun MainNavHost(
             permissions.accessibilityGranted &&
             floatingPointerAreaPreviewEnabled
         ) {
-            FloatingPointerAreaPreviewOverlay.show(activity)
+            FloatingPointerAreaPreviewOverlay.show(deps)
         } else if (FloatingPointerAreaPreviewOverlay.isShowing) {
             FloatingPointerAreaPreviewOverlay.hide()
         }
@@ -115,6 +117,7 @@ fun MainNavHost(
         16.dp
     }
 
+    CompositionLocalProvider(LocalAppDependencies provides deps) {
     SlideIndexTheme(
         seedColor = androidx.compose.ui.graphics.Color(settings.themeColorArgb),
         dynamicColor = settings.dynamicColorEnabled,
@@ -170,5 +173,6 @@ fun MainNavHost(
                     .padding(bottom = snackbarBottomPadding),
             )
         }
+    }
     }
 }

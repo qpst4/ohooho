@@ -1,6 +1,6 @@
 package com.slideindex.app.overlay
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -56,23 +56,22 @@ object FloatingPointerAreaPreviewOverlay {
 
     val isShowing: Boolean get() = displayView != null
 
-    fun show(context: Context) {
+    fun show(deps: AppDependencies) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { show(context) }
+            mainHandler.post { show(deps) }
             return
         }
         if (isShowing) return
         val token = showToken
-        if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+        val hostContext = SlideIndexAccessibilityService.overlayHostContext() ?: return
+        if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(hostContext)) {
             Log.w(TAG, "show: accessibility service not enabled")
             return
         }
-        val hostContext = SlideIndexAccessibilityService.overlayHostContext() ?: return
         val wm = hostContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
         val dm = hostContext.resources.displayMetrics
         val bounds = readOverlayScreenBounds(wm, dm)
 
-        val deps = AppEntryPoints.dependencies(context)
         val settingsHolder = mutableStateOf(deps.settingsRepository.readSnapshot())
         val triggerHolder = mutableStateOf(
             Offset(0f, bounds.second * DEFAULT_TRIGGER_Y_NORM),

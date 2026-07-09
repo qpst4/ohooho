@@ -17,6 +17,7 @@ import com.slideindex.app.overlay.SideBubbleOverlayWindow
 import com.slideindex.app.service.MediaNotificationListener
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.service.SlideIndexAccessibilityService
+import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.VolumeControlHelper
 
 object MessageReminderController {
@@ -46,15 +47,16 @@ object MessageReminderController {
 
         val plan = buildDisplayPlan(context, settings, data) ?: return
         if (isAlreadyDisplayed(plan)) return
-        mainHandler.post { showPlan(context, plan) }
+        mainHandler.post { showPlan(context, plan, deps) }
     }
 
     fun onAction(
         context: Context,
         plan: MessageDisplayPlan,
         action: MessageAction,
+        deps: AppDependencies,
     ) {
-        MessageActionExecutor.execute(context, plan.data, action)
+        MessageActionExecutor.execute(context, plan.data, action, deps.settingsRepository.readSnapshot())
         dismissPlan(plan)
     }
 
@@ -185,7 +187,7 @@ object MessageReminderController {
         )
     }
 
-    private fun showPlan(context: Context, plan: MessageDisplayPlan) {
+    private fun showPlan(context: Context, plan: MessageDisplayPlan, deps: AppDependencies) {
         when (plan.primaryStyle) {
             MessageStyle.DarkCard -> {
                 SideBubbleOverlayWindow.dismissImmediate()
@@ -222,7 +224,7 @@ object MessageReminderController {
                     MessageCardOverlayWindow.show(
                         context = context,
                         plan = plan,
-                        onAction = { action -> onAction(context, plan, action) },
+                        onAction = { action -> onAction(context, plan, action, deps) },
                         onDismiss = { dismissPlan(plan) },
                     )
                 }
@@ -232,7 +234,7 @@ object MessageReminderController {
                     SideBubbleOverlayWindow.show(
                         context = context,
                         plan = plan,
-                        onAction = { action -> onAction(context, plan, action) },
+                        onAction = { action -> onAction(context, plan, action, deps) },
                         onDismiss = { dismissPlan(plan) },
                     )
                 }
@@ -241,7 +243,7 @@ object MessageReminderController {
                 FloatIconOverlayWindow.show(
                     context = context,
                     plan = plan,
-                    onAction = { action -> onAction(context, plan, action) },
+                    onAction = { action -> onAction(context, plan, action, deps) },
                     onDismiss = { dismissPlan(plan) },
                 )
             }
@@ -275,10 +277,10 @@ object MessageReminderController {
 object MessageActionExecutor {
     private const val DND_DURATION_MS = 5 * 60 * 1000L
 
-    fun execute(context: Context, data: NotificationData, action: MessageAction) {
+    fun execute(context: Context, data: NotificationData, action: MessageAction, settings: AppSettings) {
         when (action) {
             MessageAction.Read -> openNotification(context, data)
-            MessageAction.ReadInSmallWindow -> openNotificationInSmallWindow(context, data)
+            MessageAction.ReadInSmallWindow -> openNotificationInSmallWindow(context, data, settings)
             MessageAction.Ignore -> Unit
             MessageAction.IgnoreAndRemove -> {
                 MessageReminderController.cancelNotification(data.key)
@@ -296,8 +298,8 @@ object MessageActionExecutor {
         }
     }
 
-    private fun openNotificationInSmallWindow(context: Context, data: NotificationData) {
-        val opened = NotificationIntentLauncher.openInSmallWindow(context, data)
+    private fun openNotificationInSmallWindow(context: Context, data: NotificationData, settings: AppSettings) {
+        val opened = NotificationIntentLauncher.openInSmallWindow(context, data, settings)
         if (!opened) {
             Log.w(TAG, "Failed to open notification in small window for ${data.packageName}")
         }

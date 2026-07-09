@@ -1,6 +1,5 @@
 package com.slideindex.app.notification
 
-import com.slideindex.app.di.AppEntryPoints
 import android.app.Notification
 import android.content.Context
 import android.os.Handler
@@ -169,16 +168,6 @@ object NotificationHider {
     ): Boolean {
         if (sbn.packageName == context.packageName) return false
         return filterRepository.matches(sbn)
-    }
-
-    fun snoozeMatchingActive(context: Context, listener: NotificationListenerService) {
-        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
-        val active = listener.activeNotifications ?: return
-        active.forEach { sbn ->
-            if (shouldHide(context, deps.notificationFilterRepository, sbn)) {
-                hideFromShade(listener, sbn)
-            }
-        }
     }
 
     private const val TAG = "NotificationHider"

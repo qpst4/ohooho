@@ -195,8 +195,8 @@ gradlew.bat testDebugUnitTest
 - `SlideIndexApp` 标注 `@HiltAndroidApp`，仅注入 `AppDependencies` 与 `ShizukuInitializer`；`AppModule` 仅提供 `applicationScope`，`AppPortsModule` 绑定通知/应用启动等端口
 - Trampoline Activity、`OverlayService`、`SlideIndexAccessibilityService`、`MediaNotificationListener`、`PackageChangeReceiver` 等使用 `@AndroidEntryPoint` 注入 `AppDependencies`
 - UI 通过 `@HiltViewModel` / `hiltViewModel()` 获取 ViewModel
-- 部分 Overlay 窗口（悬浮指针、Widget 面板等）仍通过 `AppEntryPoints.dependencies(context)` 获取 `AppDependencies`
-- Compose 屏幕可使用 `rememberAppDependencies()` / `rememberAppRepository()`
+- 部分 Overlay 窗口（悬浮指针、Widget 面板等）通过 `SlideIndexAccessibilityService.overlayDependencies()` 获取 `AppDependencies`
+- Compose 主界面通过 `LocalAppDependencies` / `rememberAppDependencies()` 向下传递依赖；单元测试仍可使用 `AppEntryPoints.dependencies(context)`
 
 ### 性能监控（Debug）
 

@@ -1,6 +1,6 @@
 package com.slideindex.app.overlay
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -242,16 +242,27 @@ object FloatingPointerOverlayWindow {
         session = pointerSession
         touchLayoutParams = touchParams
         appContext = hostContext
-        val deps = AppEntryPoints.dependencies(hostContext)
+        val deps = SlideIndexAccessibilityService.overlayDependencies()
+            ?: run {
+                Log.w(TAG, "show: accessibility service deps unavailable")
+                runCatching { wm.removeView(displayCompose) }
+                displayDialogOwner.destroy()
+                return
+            }
         actionExecutor = ActionExecutor(
             context = hostContext,
             appRepository = deps.appRepository,
             clickPassthroughHandler = null,
             overlayBrightness = null,
             side = PanelSide.LEFT,
+            onShellCommandsPersist = { commands ->
+                overlayScope.launch {
+                    deps.settingsRepository.setShellCommands(commands)
+                }
+            },
         )
         registerScreenOffReceiver(hostContext)
-        startSettingsSync(hostContext, settingsHolder)
+        startSettingsSync(deps, settingsHolder)
         resetIdleTimer()
         beginOutsideDismissGrace()
 
@@ -354,9 +365,8 @@ object FloatingPointerOverlayWindow {
         mainHandler.postDelayed(runnable, settings.floatingPointerIdleHideDelayMs.toLong())
     }
 
-    private fun startSettingsSync(context: Context, settingsHolder: MutableState<AppSettings>) {
+    private fun startSettingsSync(deps: AppDependencies, settingsHolder: MutableState<AppSettings>) {
         settingsCollectJob?.cancel()
-        val deps = AppEntryPoints.dependencies(context)
         settingsCollectJob = overlayScope.launch {
             deps.settingsRepository.settings.collectLatest { latest ->
                 settingsHolder.value = latest

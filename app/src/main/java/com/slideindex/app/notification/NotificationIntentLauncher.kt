@@ -1,6 +1,5 @@
 package com.slideindex.app.notification
 
-import com.slideindex.app.di.AppEntryPoints
 import android.app.ActivityOptions
 import android.app.PendingIntent
 import android.content.Context
@@ -25,10 +24,9 @@ object NotificationIntentLauncher {
         return NotificationAppLauncher.open(appContext, data.packageName)
     }
 
-    fun openInSmallWindow(context: Context, data: NotificationData): Boolean {
+    fun openInSmallWindow(context: Context, data: NotificationData, settings: AppSettings): Boolean {
         val appContext = context.applicationContext
-        val settings = runCatching { AppEntryPoints.dependencies(appContext) }.getOrNull()?.settingsRepository?.readSnapshot()
-        if (settings != null && settings.freeWindowEnabled) {
+        if (settings.freeWindowEnabled) {
             val launchOptions = FreeWindowLauncher.launchOptionsBundle(appContext, settings)
             findSbn(data)?.let { sbn ->
                 if (replayFromSbn(appContext, sbn, launchOptions)) return true

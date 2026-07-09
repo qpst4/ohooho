@@ -688,6 +688,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         /** Context for [TYPE_ACCESSIBILITY_OVERLAY] windows; null when the service is not connected. */
         fun overlayHostContext(): Context? = instance
 
+        fun overlayDependencies(): AppDependencies? = instance?.deps
+
         fun currentForegroundPackage(): String? = instance?.currPackageName
 
         fun scheduleOtpAutoFill() {

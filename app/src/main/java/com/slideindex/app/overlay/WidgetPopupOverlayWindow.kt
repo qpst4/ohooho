@@ -1,6 +1,6 @@
 package com.slideindex.app.overlay
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -107,6 +107,7 @@ object WidgetPopupOverlayWindow {
   private var pendingPagesToSave: List<WidgetPanelPage>? = null
   private var screenOffReceiver: BroadcastReceiver? = null
   private var appContext: Context? = null
+  private var overlayDeps: AppDependencies? = null
 
   val isShowing: Boolean get() = composeView != null
 
@@ -138,6 +139,11 @@ object WidgetPopupOverlayWindow {
     val hostContext = SlideIndexAccessibilityService.overlayHostContext()
       ?: run {
         Log.w(TAG, "show: accessibility service not connected")
+        return false
+      }
+    val deps = SlideIndexAccessibilityService.overlayDependencies()
+      ?: run {
+        Log.w(TAG, "show: accessibility service deps unavailable")
         return false
       }
 
@@ -184,6 +190,7 @@ object WidgetPopupOverlayWindow {
     anchorRawYState = anchorY
     widgetAddFlowActiveState = widgetAddFlowActive
     appContext = hostContext
+    overlayDeps = deps
     registerScreenOffReceiver(hostContext)
 
     WidgetPopupHost.startListening(hostContext)
@@ -270,18 +277,19 @@ object WidgetPopupOverlayWindow {
 
   private fun flushPendingPages() {
     val pending = pendingPagesToSave ?: return
-    val ctx = appContext ?: return
+    val deps = overlayDeps ?: return
     runCatching {
       runBlocking {
-        AppEntryPoints.dependencies(ctx).widgetPanelPersistence.persistNow(pending)
+        deps.widgetPanelPersistence.persistNow(pending)
       }
     }.onFailure { Log.e(TAG, "flushPendingPages failed", it) }
     pendingPagesToSave = null
   }
 
-  private fun savePages(context: Context, pages: List<WidgetPanelPage>) {
+  private fun savePages(pages: List<WidgetPanelPage>) {
+    val deps = overlayDeps ?: return
     pendingPagesToSave = pages
-    AppEntryPoints.dependencies(context).widgetPanelPersistence.schedulePersist(pages)
+    deps.widgetPanelPersistence.schedulePersist(pages)
   }
 
   private fun cleanup() {
@@ -315,6 +323,7 @@ object WidgetPopupOverlayWindow {
     pendingPagesToSave = null
     screenOffReceiver = null
     appContext = null
+    overlayDeps = null
   }
 
   private fun initialAnchorY(dm: DisplayMetrics, anchorRawY: Float?, panelHeight: Int): Int {
@@ -347,7 +356,7 @@ object WidgetPopupOverlayWindow {
     ) {
       val context = LocalContext.current
       val hostContext = appContext ?: context
-      val deps = remember(hostContext) { AppEntryPoints.dependencies(hostContext) }
+      val deps = overlayDeps ?: return@SlideIndexTheme
       val dm = context.resources.displayMetrics
       val density = LocalDensity.current
 
@@ -381,7 +390,7 @@ object WidgetPopupOverlayWindow {
 
       fun persist(updated: List<WidgetPanelPage>) {
         pages = updated
-        savePages(hostContext, updated)
+        savePages(updated)
       }
 
       fun launchWidgetPicker(pageIndex: Int) {
