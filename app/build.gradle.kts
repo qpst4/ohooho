@@ -86,6 +86,7 @@ dependencies {
     implementation(project(":core:notification"))
     implementation(project(":core:monitoring"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:otp"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

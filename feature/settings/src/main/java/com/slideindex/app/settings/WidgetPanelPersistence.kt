@@ -1,6 +1,5 @@
-package com.slideindex.app.di
+package com.slideindex.app.settings
 
-import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.widget.WidgetPanelPage
 import javax.inject.Inject
 import javax.inject.Singleton

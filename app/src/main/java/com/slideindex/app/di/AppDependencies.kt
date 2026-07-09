@@ -7,6 +7,7 @@ import com.slideindex.app.notification.NotificationHistoryRepository
 import com.slideindex.app.otp.OtpOfficialRulesLoader
 import com.slideindex.app.otp.OtpRecordsRepository
 import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.settings.WidgetPanelPersistence
 import com.slideindex.app.ui.feedback.UserMessageBus
 import javax.inject.Inject
 import javax.inject.Singleton

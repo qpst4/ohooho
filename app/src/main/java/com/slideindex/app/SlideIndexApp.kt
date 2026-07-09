@@ -10,7 +10,7 @@ import com.slideindex.app.otp.OtpOfficialRulesLoader
 import com.slideindex.app.otp.OtpRecordsRepository
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.ui.feedback.UserMessageBus
-import com.slideindex.app.di.WidgetPanelPersistence
+import com.slideindex.app.settings.WidgetPanelPersistence
 import com.slideindex.app.widget.WidgetPanelPage
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject

@@ -183,9 +183,10 @@ gradlew.bat testDebugUnitTest
 | `:core:monitoring` | Debug 性能监控（Overlay FPS、主线程阻塞） |
 | `:core:gesture` | 手势纯逻辑：动作/规则/触发器编解码、路径识别、`GestureShortcutPayload`、快速启动器模型、`ShakeGestureSettings` |
 | `:core:notification` | 通知纯逻辑：规则匹配、历史/过滤编解码、Intent 捕获、消息提醒过滤/`MessageAction`/`MessageStyle`/`MessageSettings`/`NotificationData`/`MessageDisplayPlan` 编解码、`MessageThemeIds`/`MessageThemeColors` |
-| `:feature:settings` | 设置核心：`AppSettings`、`SettingsRepository`（DataStore + Hilt `@Inject`）、手势/边缘/样式扩展、`AppLaunchPolicy`/`FreeWindowMode`、`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle`、`FloatingPointerRadialMenuCodec` 等 |
+| `:feature:settings` | 设置核心：`AppSettings`、`SettingsRepository`（DataStore + Hilt `@Inject`）、`WidgetPanelPersistence`、手势/边缘/样式扩展、`AppLaunchPolicy`/`FreeWindowMode`、`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle`、`FloatingPointerRadialMenuCodec` 等 |
+| `:feature:otp` | OTP 持久化：`OtpRecordsRepository`（本地 JSON）、`OtpOfficialRulesLoader`（内置规则资产） |
 
-`:app` 仍保留依赖 Android 资源的 UI 层（如 `FloatingPointerDesign`、`MessageThemeCatalog`/`WeipopSideThemes`、`AppLaunchPolicyUi`/`FreeWindowModeUi`）、消息 Overlay 渲染（`MessageThemeUi`）、`NotificationHistoryRepository` 等持久化/服务逻辑、`launchShortcutFromCreated` 等运行时桥接；`QuickLauncherDefaults` 依赖 `AppInfo` 亦留 `:app`。
+`:app` 仍保留依赖 Android 资源的 UI 层（如 `FloatingPointerDesign`、`MessageThemeCatalog`/`WeipopSideThemes`、`AppLaunchPolicyUi`/`FreeWindowModeUi`）、消息 Overlay 渲染（`MessageThemeUi`）、`NotificationHistoryRepository` 等持久化/服务逻辑、`OtpAutoFillController` 等运行时桥接；`QuickLauncherDefaults` 依赖 `AppInfo` 亦留 `:app`。
 
 ### 依赖注入（Hilt）
 
