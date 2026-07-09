@@ -7,7 +7,9 @@ import com.slideindex.app.notification.NotificationListenerPort
 import com.slideindex.app.notification.NotificationShadeActions
 import com.slideindex.app.notification.NotificationFilterRule
 import com.slideindex.app.notification.NotificationHider
+import com.slideindex.app.notification.NotificationHistoryLaunchPort
 import com.slideindex.app.notification.NotificationRuleExecutor
+import com.slideindex.app.service.LaunchTrampolineActivity
 import com.slideindex.app.service.MediaNotificationListener
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.FreeWindowLauncher
@@ -58,6 +60,35 @@ class AppNotificationShadeActions @Inject constructor() : NotificationShadeActio
     ) {
         NotificationRuleExecutor.execute(context, listener, sbn, rules)
     }
+
+    override fun hideNotificationByKey(key: String): Boolean = NotificationHider.hideNotification(key)
+
+    override fun restoreAllSnoozed(selfPackage: String): List<String> =
+        NotificationHider.restoreAllSnoozed(selfPackage)
+
+    override fun unsnoozeNotification(key: String): Boolean = NotificationHider.unsnoozeNotification(key)
+}
+
+@Singleton
+class AppNotificationHistoryLaunchPort @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : NotificationHistoryLaunchPort {
+    override fun startPendingIntentTrampoline(pendingIntentBase64: String, fallbackIntent: Intent?): Boolean =
+        runCatching {
+            context.startActivity(
+                LaunchTrampolineActivity.createPendingIntentIntent(
+                    context = context,
+                    pendingIntentBase64 = pendingIntentBase64,
+                    fallbackIntent = fallbackIntent,
+                ),
+            )
+        }.isSuccess
+
+    override fun launchReplayIntent(intent: Intent, packageName: String, extrasBase64: String?): Boolean {
+        val trampoline = LaunchTrampolineActivity.createIntent(context, intent)
+        if (runCatching { context.startActivity(trampoline) }.isSuccess) return true
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
 }
 
 @Singleton
@@ -83,4 +114,10 @@ abstract class AppPortsModule {
     @Binds
     @Singleton
     abstract fun bindAppLaunchPort(impl: FreeWindowAppLaunchPort): AppLaunchPort
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationHistoryLaunchPort(
+        impl: AppNotificationHistoryLaunchPort,
+    ): NotificationHistoryLaunchPort
 }

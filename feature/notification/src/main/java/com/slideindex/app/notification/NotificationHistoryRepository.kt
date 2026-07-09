@@ -7,8 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
-import com.slideindex.app.service.LaunchTrampolineActivity
-import com.slideindex.app.service.MediaNotificationListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +28,9 @@ import javax.inject.Singleton
 class NotificationHistoryRepository @Inject constructor(
     @ApplicationContext context: Context,
     private val filterPreferences: NotificationFilterPreferences,
+    private val listenerPort: NotificationListenerPort,
+    private val shadeActions: NotificationShadeActions,
+    private val launchPort: NotificationHistoryLaunchPort,
 ) {
     private val appContext = context.applicationContext
     private val historyFile = File(appContext.filesDir, HISTORY_FILE_NAME)
@@ -201,14 +202,14 @@ class NotificationHistoryRepository @Inject constructor(
     }
 
     fun getActiveNotificationKeys(): Set<String> {
-        val listener = MediaNotificationListener.instance ?: return emptySet()
+        val listener = listenerPort.listenerOrNull() ?: return emptySet()
         return runCatching {
             listener.activeNotifications?.map { it.key }.orEmpty().toSet()
         }.getOrDefault(emptySet())
     }
 
     fun getActiveNotifications(historyItems: List<NotificationHistoryItem>): List<ActiveNotificationEntry> {
-        val listener = MediaNotificationListener.instance ?: return emptyList()
+        val listener = listenerPort.listenerOrNull() ?: return emptyList()
         val selfPackage = appContext.packageName
         val active = runCatching { listener.activeNotifications?.toList() }.getOrNull().orEmpty()
         val historyByKey = historyItems.mapNotNull { item ->
@@ -236,11 +237,11 @@ class NotificationHistoryRepository @Inject constructor(
 
     fun hideNotification(item: NotificationHistoryItem): Boolean {
         val key = item.notificationKey ?: return false
-        return NotificationHider.hideNotification(key)
+        return shadeActions.hideNotificationByKey(key)
     }
 
     fun restoreAllSnoozed(): Int {
-        val restoredKeys = NotificationHider.restoreAllSnoozed(appContext.packageName)
+        val restoredKeys = shadeActions.restoreAllSnoozed(appContext.packageName)
         if (restoredKeys.isEmpty()) return 0
         scope.launch {
             ensureLoaded()
@@ -283,7 +284,7 @@ class NotificationHistoryRepository @Inject constructor(
         filterRepository: NotificationFilterRepository,
     ): NotificationRestoreResult {
         val ruleRemoved = filterRepository.removeRuleForItem(item)
-        val unsnoozed = item.notificationKey?.let(NotificationHider::unsnoozeNotification) == true
+        val unsnoozed = item.notificationKey?.let(shadeActions::unsnoozeNotification) == true
         ensureLoaded()
         mutex.withLock {
             val current = storageItems
@@ -435,7 +436,7 @@ class NotificationHistoryRepository @Inject constructor(
 
     private fun replayFromActiveNotification(item: NotificationHistoryItem): Boolean {
         val key = item.notificationKey ?: return false
-        val listener = MediaNotificationListener.instance ?: return false
+        val listener = listenerPort.listenerOrNull() ?: return false
         val sbn = findStatusBarNotification(listener, key) ?: return false
         return replayPendingIntentsFromSbn(sbn)
     }
@@ -458,7 +459,7 @@ class NotificationHistoryRepository @Inject constructor(
     }
 
     private fun findStatusBarNotification(
-        listener: MediaNotificationListener,
+        listener: android.service.notification.NotificationListenerService,
         key: String,
     ): android.service.notification.StatusBarNotification? {
         runCatching {
@@ -496,16 +497,10 @@ class NotificationHistoryRepository @Inject constructor(
                 packageName = item.packageName,
             )
         return runCatching {
-            appContext.startActivity(
-                LaunchTrampolineActivity.createPendingIntentIntent(
-                    context = appContext,
-                    pendingIntentBase64 = pendingIntentBase64,
-                    fallbackIntent = fallbackIntent,
-                ),
-            )
+            launchPort.startPendingIntentTrampoline(pendingIntentBase64, fallbackIntent)
         }.onFailure { error ->
             Log.w(TAG, "PendingIntent trampoline launch failed for ${item.packageName}", error)
-        }.isSuccess
+        }.getOrDefault(false)
     }
 
     private fun createPendingIntentSendOptions(): android.os.Bundle? {
@@ -536,11 +531,7 @@ class NotificationHistoryRepository @Inject constructor(
             context = appContext,
             packageName = packageName,
         )
-        val trampoline = LaunchTrampolineActivity.createIntent(appContext, enriched)
-        if (runCatching { appContext.startActivity(trampoline) }.isSuccess) return true
-        if (runCatching { appContext.startActivity(enriched) }.isSuccess) return true
-        Log.e(TAG, "Stored intent launch failed for $packageName action=${enriched.action}")
-        return false
+        return launchPort.launchReplayIntent(enriched, packageName, extrasBase64)
     }
 
     private fun createActivityPendingIntent(intent: Intent): PendingIntent? {

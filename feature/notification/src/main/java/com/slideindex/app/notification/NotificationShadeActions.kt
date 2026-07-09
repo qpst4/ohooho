@@ -26,4 +26,10 @@ interface NotificationShadeActions {
         sbn: StatusBarNotification,
         rules: List<NotificationFilterRule>,
     )
+
+    fun hideNotificationByKey(key: String): Boolean
+
+    fun restoreAllSnoozed(selfPackage: String): List<String>
+
+    fun unsnoozeNotification(key: String): Boolean
 }
