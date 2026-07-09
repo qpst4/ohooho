@@ -8,10 +8,16 @@ import com.slideindex.app.util.FreeWindowLauncher
 import com.slideindex.app.util.PinyinHelper
 import com.slideindex.app.util.RecentPackageResolver
 import com.slideindex.app.settings.AppSettings
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class AppRepository(private val context: Context) {
+@Singleton
+class AppRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
     @Volatile
     private var cachedApps: List<AppInfo> = emptyList()
 

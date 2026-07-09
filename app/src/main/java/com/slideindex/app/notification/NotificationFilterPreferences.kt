@@ -12,12 +12,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private val Context.notificationFilterDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "notification_filter_preferences",
 )
 
-class NotificationFilterPreferences(context: Context) {
+@Singleton
+class NotificationFilterPreferences @Inject constructor(
+    @ApplicationContext context: Context,
+) {
     private val appContext = context.applicationContext
 
     @Volatile

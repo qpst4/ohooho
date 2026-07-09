@@ -11,9 +11,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class OtpRecordsRepository(context: Context) {
+@Singleton
+class OtpRecordsRepository @Inject constructor(
+    @ApplicationContext context: Context,
+) {
     private val appContext = context.applicationContext
     private val recordsFile = File(appContext.filesDir, RECORDS_FILE_NAME)
     private val mutex = Mutex()

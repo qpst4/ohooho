@@ -1,8 +1,14 @@
 package com.slideindex.app.otp
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class OtpOfficialRulesLoader(private val context: Context) {
+@Singleton
+class OtpOfficialRulesLoader @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
     @Volatile
     private var cachedRules: List<OtpMatchRule> = emptyList()
 

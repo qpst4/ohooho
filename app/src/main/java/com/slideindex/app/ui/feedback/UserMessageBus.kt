@@ -3,13 +3,16 @@ package com.slideindex.app.ui.feedback
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 
 sealed interface UserMessage {
     data class Error(val text: String) : UserMessage
     data class Success(val text: String) : UserMessage
 }
 
-class UserMessageBus {
+@Singleton
+class UserMessageBus @Inject constructor() {
     private val _messages = MutableSharedFlow<UserMessage>(extraBufferCapacity = 8)
     val messages: SharedFlow<UserMessage> = _messages.asSharedFlow()
 

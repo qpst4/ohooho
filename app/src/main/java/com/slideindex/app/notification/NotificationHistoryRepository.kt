@@ -21,10 +21,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class NotificationHistoryRepository(
-    context: Context,
+@Singleton
+class NotificationHistoryRepository @Inject constructor(
+    @ApplicationContext context: Context,
     private val filterPreferences: NotificationFilterPreferences,
 ) {
     private val appContext = context.applicationContext

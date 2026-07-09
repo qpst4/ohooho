@@ -16,9 +16,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class NotificationFilterRepository(context: Context) {
+@Singleton
+class NotificationFilterRepository @Inject constructor(
+    @ApplicationContext context: Context,
+) {
     private val appContext = context.applicationContext
     private val rulesFile = File(appContext.filesDir, RULES_FILE_NAME)
     private val mutex = Mutex()
