@@ -181,22 +181,21 @@ gradlew.bat testDebugUnitTest
 | `:app` | 主应用、UI、服务、DataStore、运行时逻辑 |
 | `:core:common` | 跨模块共享类型（`PanelSide`、`GestureAnimationPosition`）、`QuickLauncherGridLogic`、`ShellCommand`、`PinyinHelper`、Widget 面板模型/编解码/`WidgetGridMetrics`、`OtpMatchRule`/`OtpRecord`/`OtpKeywords`/`VerificationCodeExtractor`、`TaskExclusions`/`RecentPackageResolver`/`ShortcutDisplayRules`/`ShortcutShellParser`、`TaskShellParser`/`AbxXmlParser`/`ShortcutSystemXmlParser` 等 util 纯逻辑 |
 | `:feature:apps` | 已安装应用目录：`AppInfo`/`AppRepository`（`PackageManager` + `AppLaunchPort`） |
-| `:feature:notification` | 通知过滤持久化：`NotificationFilterRepository`、`NotificationFilterPreferences`；`NotificationListenerPort`/`NotificationShadeActions` 由 `:app` 绑定 |
+| `:feature:notification` | 通知过滤与历史：`NotificationFilterRepository`、`NotificationFilterPreferences`、`NotificationHistoryRepository`；端口 `NotificationListenerPort`/`NotificationShadeActions`/`NotificationHistoryLaunchPort` 由 `:app` 绑定 |
 | `:core:monitoring` | Debug 性能监控（Overlay FPS、主线程阻塞） |
 | `:core:gesture` | 手势纯逻辑：动作/规则/触发器编解码、路径识别、`GestureShortcutPayload`、快速启动器模型、`ShakeGestureSettings` |
 | `:core:notification` | 通知纯逻辑：规则匹配、历史/过滤编解码、Intent 捕获、消息提醒过滤/`MessageAction`/`MessageStyle`/`MessageSettings`/`NotificationData`/`MessageDisplayPlan` 编解码、`MessageThemeIds`/`MessageThemeColors` |
 | `:feature:settings` | 设置核心：`AppSettings`、`SettingsRepository`（DataStore + Hilt `@Inject`）、`WidgetPanelPersistence`、手势/边缘/样式扩展、`AppLaunchPolicy`/`FreeWindowMode`、`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle`、`FloatingPointerRadialMenuCodec` 等 |
 | `:feature:otp` | OTP 持久化：`OtpRecordsRepository`（本地 JSON）、`OtpOfficialRulesLoader`（内置规则资产） |
 
-`:app` 仍保留依赖 Android 资源的 UI 层、消息 Overlay 渲染（`MessageThemeUi`）、`NotificationHistoryRepository` 等持久化/服务逻辑、`OtpAutoFillController` 等运行时桥接。
+`:app` 仍保留依赖 Android 资源的 UI 层、消息 Overlay 渲染（`MessageThemeUi`）、`NotificationHistoryRecorder` 等运行时桥接、`OtpAutoFillController` 等无障碍集成逻辑。
 
 ### 依赖注入（Hilt）
 
-- `SlideIndexApp` 标注 `@HiltAndroidApp`；`AppRepository`、`SettingsRepository`、`Notification*Repository`、`Otp*Repository`、`UserMessageBus`、`ShizukuInitializer` 等通过 `@Inject` 构造器注入
-- `AppModule` 仅提供 `CoroutineScope`（`applicationScope`）；`AppPortsModule` 绑定 `NotificationListenerPort`、`NotificationShadeActions`、`AppLaunchPort`
-- Trampoline Activity、`OverlayService`、`SlideIndexAccessibilityService`、`PackageChangeReceiver` 使用 `@AndroidEntryPoint` 注入 `AppDependencies`
+- `SlideIndexApp` 标注 `@HiltAndroidApp`，仅注入 `AppDependencies` 与 `ShizukuInitializer`；`AppModule` 仅提供 `applicationScope`，`AppPortsModule` 绑定通知/应用启动等端口
+- Trampoline Activity、`OverlayService`、`SlideIndexAccessibilityService`、`MediaNotificationListener`、`PackageChangeReceiver` 等使用 `@AndroidEntryPoint` 注入 `AppDependencies`
 - UI 通过 `@HiltViewModel` / `hiltViewModel()` 获取 ViewModel
-- 无障碍服务、Overlay、BroadcastReceiver 等非 `@AndroidEntryPoint` 场景使用 `AppEntryPoints.dependencies(context)` 获取 `AppDependencies`
+- 部分 Overlay 窗口（悬浮指针、Widget 面板等）仍通过 `AppEntryPoints.dependencies(context)` 获取 `AppDependencies`
 - Compose 屏幕可使用 `rememberAppDependencies()` / `rememberAppRepository()`
 
 ### 性能监控（Debug）
@@ -216,7 +215,7 @@ app/src/main/java/com/slideindex/app/
 ├── gesture/        # 手势识别与动作执行
 ├── overlay/        # 系统悬浮窗与触摸层
 ├── ui/             # Jetpack Compose 设置界面
-├── notification/   # 通知历史与过滤规则
+├── notification/   # 通知录制、隐藏、Intent 启动等运行时桥接
 ├── message/        # 消息提醒
 ├── otp/            # 验证码提取与自动输入
 ├── shake/          # 摇一摇手势

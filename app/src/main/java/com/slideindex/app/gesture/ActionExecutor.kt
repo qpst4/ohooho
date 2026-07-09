@@ -1,6 +1,5 @@
 package com.slideindex.app.gesture
 
-import com.slideindex.app.di.AppEntryPoints
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -20,6 +19,7 @@ import com.slideindex.app.overlay.TaskSwitcherMenuItemType
 import com.slideindex.app.service.OverlayService
 import com.slideindex.app.service.ShellCommandPanelTrampoline
 import com.slideindex.app.service.SlideIndexAccessibilityService
+import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.shouldLaunchFullscreen
 import com.slideindex.app.util.FreeWindowLauncher
@@ -39,7 +39,6 @@ import com.slideindex.app.util.ScreenRecordHelper
 import com.slideindex.app.util.SystemGestureActions
 import com.slideindex.app.util.VolumeControlHelper
 import android.view.KeyEvent
-import kotlinx.coroutines.launch
 
 class ActionExecutor(
     private val context: Context,
@@ -47,6 +46,7 @@ class ActionExecutor(
     private val clickPassthroughHandler: ((Float, Float, () -> Unit) -> Unit)? = null,
     overlayBrightness: OverlayBrightnessControl? = null,
     private val side: PanelSide? = null,
+    private val onShellCommandsPersist: ((List<ShellCommand>) -> Unit)? = null,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val continuousAdjust = ContinuousAdjustController(context, overlayBrightness)
@@ -213,18 +213,14 @@ class ActionExecutor(
 
     private fun openShellCommandPanelStandalone(): Boolean {
         if (ShellCommandPanelTrampoline.isActive()) return true
-        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return false
+        val persist = onShellCommandsPersist ?: return false
         return runCatching {
             ShellCommandPanelTrampoline.launch(
                 context = context,
                 continuousPick = false,
                 onPrepare = {},
                 onDismiss = {},
-                onPersist = { commands ->
-                    deps.applicationScope.launch {
-                        deps.settingsRepository.setShellCommands(commands)
-                    }
-                },
+                onPersist = persist,
             )
             true
         }.getOrDefault(false)

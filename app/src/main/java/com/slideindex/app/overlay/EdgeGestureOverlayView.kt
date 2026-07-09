@@ -78,6 +78,7 @@ class EdgeGestureOverlayView(
         clickPassthroughHandler = onClickPassthroughCallback,
         overlayBrightness = overlayBrightness,
         side = side,
+        onShellCommandsPersist = onShellCommandsPersist,
     )
     private val pathRecognizer = SwipePathRecognizer(side, resources.displayMetrics.density)
     private val gestureSession = GestureSession(

@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
             context = this,
             permissionStates = permissionStates,
             scope = lifecycleScope,
+            deps = deps,
         )
         Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
         enableEdgeToEdge()

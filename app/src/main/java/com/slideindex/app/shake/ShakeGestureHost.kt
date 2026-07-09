@@ -291,7 +291,11 @@ class ShakeGestureHost(
 
     private fun actionExecutor(): ActionExecutor {
         val ctx = SlideIndexAccessibilityService.overlayHostContext() ?: appContext
-        return ActionExecutor(ctx, deps.appRepository)
+        return ActionExecutor(ctx, deps.appRepository, onShellCommandsPersist = { commands ->
+            deps.applicationScope.launch {
+                deps.settingsRepository.setShellCommands(commands)
+            }
+        })
     }
 
     private fun readCenterX(): Float {

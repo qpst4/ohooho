@@ -702,7 +702,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         syncLockScreenState()
-        edgeOverlayHost = EdgeOverlayHost(this, serviceScope).also { it.start() }
+        edgeOverlayHost = EdgeOverlayHost(this, serviceScope, deps).also { it.start() }
         registerScreenLockReceiver()
         Log.i(TAG, "onServiceConnected: edge overlays attached")
     }
@@ -714,7 +714,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        MessageReminderController.onConfigurationChanged(this, newConfig)
+        MessageReminderController.onConfigurationChanged(this, newConfig, deps)
         edgeOverlayHost?.refreshTriggerVisibility()
     }
 

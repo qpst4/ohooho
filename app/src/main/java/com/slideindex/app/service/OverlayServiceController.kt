@@ -1,6 +1,6 @@
 package com.slideindex.app.service
 
-import com.slideindex.app.di.AppEntryPoints
+import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -18,6 +18,7 @@ class OverlayServiceController(
     private val context: Context,
     private val permissionStates: NavPermissionStates,
     private val scope: CoroutineScope,
+    private val deps: AppDependencies,
 ) {
     fun sendPreviewIntent(
         action: String,
@@ -54,7 +55,6 @@ class OverlayServiceController(
 
     fun refreshServiceState() {
         scope.launch {
-            val deps = AppEntryPoints.dependencies(context)
             val settings = deps.settingsRepository.settings.first()
             if (settings.accessibilityKeepAliveEnabled &&
                 permissionStates.writeSecureSettingsGranted.value &&

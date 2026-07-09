@@ -1,7 +1,5 @@
 package com.slideindex.app.di
 
-import com.slideindex.app.di.AppEntryPoints
-import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import dagger.hilt.android.EntryPointAccessors
 

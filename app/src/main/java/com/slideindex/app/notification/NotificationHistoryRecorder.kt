@@ -1,7 +1,6 @@
 package com.slideindex.app.notification
 
-import com.slideindex.app.di.AppEntryPoints
-import android.app.Notification
+import com.slideindex.app.di.AppDependencies
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -30,6 +29,7 @@ object NotificationHistoryRecorder {
         context: Context,
         listener: NotificationListenerService,
         sbn: StatusBarNotification,
+        deps: AppDependencies,
     ): Boolean {
         val notification = sbn.notification ?: return false
         val extras = notification.extras ?: return false
@@ -40,7 +40,6 @@ object NotificationHistoryRecorder {
 
         NotificationSbnCache.cacheActive(sbn)
 
-        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return false
         val matchingRules = deps.notificationFilterRepository.findMatchingRules(sbn)
         val shouldHide = NotificationHider.shouldHide(context, deps.notificationFilterRepository, sbn)
 
@@ -113,10 +112,9 @@ object NotificationHistoryRecorder {
         return true
     }
 
-    fun onRemoved(context: Context, sbn: StatusBarNotification, reason: Int) {
+    fun onRemoved(context: Context, sbn: StatusBarNotification, reason: Int, deps: AppDependencies) {
         NotificationSbnCache.onRemoved(sbn, reason)
 
-        val deps = runCatching { AppEntryPoints.dependencies(context) }.getOrNull() ?: return
         val captured = NotificationHistoryIntentCapture.capture(sbn, context)
         val hasCapture = !captured.pendingIntentBase64.isNullOrBlank() ||
             !captured.intentUri.isNullOrBlank() ||
