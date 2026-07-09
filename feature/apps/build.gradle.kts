@@ -1,9 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
-    namespace = "com.slideindex.app.common"
+    namespace = "com.slideindex.app.feature.apps"
     compileSdk = 37
 
     defaultConfig {
@@ -17,8 +19,11 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
+    implementation(project(":feature:settings"))
     implementation(libs.core.ktx)
-    implementation(libs.tinypinyin)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

@@ -4,9 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import com.slideindex.app.util.FreeWindowLauncher
-import com.slideindex.app.util.PinyinHelper
 import com.slideindex.app.util.RecentPackageResolver
+import com.slideindex.app.util.PinyinHelper
 import com.slideindex.app.settings.AppSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -17,6 +16,7 @@ import kotlinx.coroutines.withContext
 @Singleton
 class AppRepository @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val appLaunchPort: AppLaunchPort,
 ) {
     @Volatile
     private var cachedApps: List<AppInfo> = emptyList()
@@ -154,7 +154,7 @@ class AppRepository @Inject constructor(
     fun launchApp(appInfo: AppInfo, settings: AppSettings, fullscreen: Boolean): Boolean {
         val intent = context.packageManager.getLaunchIntentForPackage(appInfo.packageName)
             ?: return false
-        FreeWindowLauncher.launch(context, intent, settings, fullscreen)
+        appLaunchPort.launch(intent, settings, fullscreen)
         return true
     }
 

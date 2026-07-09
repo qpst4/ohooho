@@ -1,0 +1,86 @@
+package com.slideindex.app.di
+
+import android.content.Context
+import android.content.Intent
+import com.slideindex.app.data.AppLaunchPort
+import com.slideindex.app.notification.NotificationListenerPort
+import com.slideindex.app.notification.NotificationShadeActions
+import com.slideindex.app.notification.NotificationFilterRule
+import com.slideindex.app.notification.NotificationHider
+import com.slideindex.app.notification.NotificationRuleExecutor
+import com.slideindex.app.service.MediaNotificationListener
+import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.util.FreeWindowLauncher
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class MediaNotificationListenerPort @Inject constructor() : NotificationListenerPort {
+    override fun listenerOrNull(): NotificationListenerService? = MediaNotificationListener.instance
+}
+
+@Singleton
+class AppNotificationShadeActions @Inject constructor() : NotificationShadeActions {
+    override fun hideFromShade(listener: NotificationListenerService, sbn: StatusBarNotification): Boolean =
+        NotificationHider.hideFromShade(listener, sbn)
+
+    override fun hideFromShade(
+        listener: NotificationListenerService,
+        key: String,
+        sbn: StatusBarNotification?,
+    ): Boolean = NotificationHider.hideFromShade(listener, key, sbn)
+
+    override fun snoozeMatchingActive(
+        context: Context,
+        listener: NotificationListenerService,
+        shouldHide: (StatusBarNotification) -> Boolean,
+    ) {
+        listener.activeNotifications?.forEach { sbn ->
+            if (sbn.packageName == context.packageName) return@forEach
+            if (shouldHide(sbn)) {
+                NotificationHider.hideFromShade(listener, sbn)
+            }
+        }
+    }
+
+    override fun executeRules(
+        context: Context,
+        listener: NotificationListenerService,
+        sbn: StatusBarNotification,
+        rules: List<NotificationFilterRule>,
+    ) {
+        NotificationRuleExecutor.execute(context, listener, sbn, rules)
+    }
+}
+
+@Singleton
+class FreeWindowAppLaunchPort @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : AppLaunchPort {
+    override fun launch(intent: Intent, settings: AppSettings, fullscreen: Boolean) {
+        FreeWindowLauncher.launch(context, intent, settings, fullscreen)
+    }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AppPortsModule {
+    @Binds
+    @Singleton
+    abstract fun bindNotificationListenerPort(impl: MediaNotificationListenerPort): NotificationListenerPort
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationShadeActions(impl: AppNotificationShadeActions): NotificationShadeActions
+
+    @Binds
+    @Singleton
+    abstract fun bindAppLaunchPort(impl: FreeWindowAppLaunchPort): AppLaunchPort
+}

@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import com.slideindex.app.service.MediaNotificationListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +23,8 @@ import javax.inject.Singleton
 @Singleton
 class NotificationFilterRepository @Inject constructor(
     @ApplicationContext context: Context,
+    private val listenerPort: NotificationListenerPort,
+    private val shadeActions: NotificationShadeActions,
 ) {
     private val appContext = context.applicationContext
     private val rulesFile = File(appContext.filesDir, RULES_FILE_NAME)
@@ -90,14 +91,14 @@ class NotificationFilterRepository @Inject constructor(
 
     fun hideItemFromShade(item: NotificationHistoryItem): Boolean {
         val key = item.notificationKey ?: return false
-        val listener = MediaNotificationListener.instance ?: return false
+        val listener = listenerPort.listenerOrNull() ?: return false
         val sbn = runCatching {
             listener.activeNotifications?.firstOrNull { it.key == key }
         }.getOrNull()
         return if (sbn != null) {
-            NotificationHider.hideFromShade(listener, sbn)
+            shadeActions.hideFromShade(listener, sbn)
         } else {
-            NotificationHider.hideFromShade(listener, key, sbn)
+            shadeActions.hideFromShade(listener, key, sbn)
         }
     }
 
@@ -129,7 +130,7 @@ class NotificationFilterRepository @Inject constructor(
 
     /** Re-apply persisted filter rules to currently active shade notifications. */
     fun snoozeMatchingActiveNotifications(listener: NotificationListenerService) {
-        NotificationHider.snoozeMatchingActive(appContext, listener)
+        shadeActions.snoozeMatchingActive(appContext, listener, ::matches)
     }
 
     fun exportRulesJson(): String = NotificationFilterCodec.encode(_rules.value)
@@ -150,10 +151,10 @@ class NotificationFilterRepository @Inject constructor(
 
     private fun applyRuleToActive(rule: NotificationFilterRule) {
         if (!rule.enabled || !rule.userCreated) return
-        val listener = MediaNotificationListener.instance ?: return
+        val listener = listenerPort.listenerOrNull() ?: return
         listener.activeNotifications?.forEach { sbn ->
             if (NotificationRuleMatcher.findMatching(listOf(rule), sbn, appContext).isNotEmpty()) {
-                NotificationRuleExecutor.execute(appContext, listener, sbn, listOf(rule))
+                shadeActions.executeRules(appContext, listener, sbn, listOf(rule))
             }
         }
     }
