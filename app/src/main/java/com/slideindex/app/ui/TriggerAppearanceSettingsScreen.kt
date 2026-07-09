@@ -25,9 +25,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.gesture.SwipePathRecognizer
-import com.slideindex.app.gesture.primaryTriggerHandle
-import com.slideindex.app.gesture.triggerCollectionEntries
-import com.slideindex.app.gesture.triggerHandle
+import com.slideindex.app.settings.primaryTriggerHandle
+import com.slideindex.app.settings.triggerCollectionEntries
+import com.slideindex.app.settings.triggerHandle
 import com.slideindex.app.ui.animationstyle.AnimationStylePreview
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings

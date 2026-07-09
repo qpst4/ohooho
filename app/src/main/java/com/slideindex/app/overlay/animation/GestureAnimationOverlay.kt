@@ -19,8 +19,8 @@ import com.slideindex.app.overlay.OverlayComposeOwner
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AnimationStyle
 import com.slideindex.app.settings.AppSettings
-import com.slideindex.app.gesture.primaryTriggerHandle
-import com.slideindex.app.gesture.triggerHandle
+import com.slideindex.app.settings.primaryTriggerHandle
+import com.slideindex.app.settings.triggerHandle
 import com.slideindex.app.settings.activeAnimationStyle
 import com.slideindex.app.settings.activeWaveStyle
 import com.slideindex.app.ui.theme.SlideIndexTheme

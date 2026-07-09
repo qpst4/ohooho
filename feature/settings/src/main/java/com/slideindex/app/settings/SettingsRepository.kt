@@ -25,24 +25,14 @@ import com.slideindex.app.gesture.TriggerHandleDesign
 import com.slideindex.app.gesture.TriggerDesignPreset
 import com.slideindex.app.gesture.TriggerDesignPresets
 import com.slideindex.app.gesture.coerceInLimits
-import com.slideindex.app.gesture.withSyncedTriggerHandleDesign
-import com.slideindex.app.gesture.allTriggerHandles
-import com.slideindex.app.gesture.triggerHandle
-import com.slideindex.app.gesture.withAddedTriggerHandlePair
-import com.slideindex.app.gesture.withRemovedTriggerHandle
-import com.slideindex.app.gesture.withSlotAction
-import com.slideindex.app.gesture.withSlotTriggerMode
-import com.slideindex.app.gesture.withTriggerAlignOppositeSide
-import com.slideindex.app.gesture.withUpdatedTriggerHandle
-import com.slideindex.app.gesture.withUpdatedTriggerHandleDistances
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.message.MessageAction
 import com.slideindex.app.message.MessageAppFilterCodec
 import com.slideindex.app.message.MessageAppFilterRule
 import com.slideindex.app.message.MessageSettings
-import com.slideindex.app.message.applyGestureActions
 import com.slideindex.app.message.MessageSettingsCodec
-import com.slideindex.app.message.MessageThemeCatalog
+import com.slideindex.app.message.MessageThemeIds
+import com.slideindex.app.otp.OtpKeywords
 import com.slideindex.app.otp.OtpMatchRuleCodec
 import com.slideindex.app.shake.ShakeGestureCodec
 import com.slideindex.app.shake.ShakeGestureSettings
@@ -149,7 +139,7 @@ class SettingsRepository(private val context: Context) {
             floatingPointerMatchJoystickToScreenAspect = prefs[FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] ?: false,
             floatingPointerJoystickDiameterPx = prefs[FLOATING_POINTER_JOYSTICK_SIZE] ?: 275f,
             floatingPointerPointerDiameterPx = prefs[FLOATING_POINTER_POINTER_SIZE] ?: 100f,
-            floatingPointerDesignId = prefs[FLOATING_POINTER_DESIGN_ID] ?: FloatingPointerDesign.RING.id,
+            floatingPointerDesignId = prefs[FLOATING_POINTER_DESIGN_ID] ?: FloatingPointerDesignIds.RING,
             floatingPointerRingThicknessPx = prefs[FLOATING_POINTER_RING_THICKNESS] ?: 12f,
             floatingPointerDotDiameterPx = prefs[FLOATING_POINTER_DOT_DIAMETER] ?: 15f,
             floatingPointerRingColorArgb = prefs[FLOATING_POINTER_RING_COLOR] ?: 0xFFFFFFFF.toInt(),
@@ -547,7 +537,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setFloatingPointerDesignId(designId: String) = edit {
-        it[FLOATING_POINTER_DESIGN_ID] = FloatingPointerDesign.fromId(designId).id
+        it[FLOATING_POINTER_DESIGN_ID] = designId.ifBlank { FloatingPointerDesignIds.RING }
     }
 
     suspend fun setFloatingPointerRingThicknessPx(value: Float) = edit {
@@ -702,7 +692,7 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOtpKeywordsRegex(value: String) = edit {
         it[OTP_KEYWORDS_REGEX] = value.ifBlank {
-            com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+            OtpKeywords.DEFAULT_KEYWORDS_REGEX
         }
     }
 
@@ -1134,10 +1124,10 @@ class SettingsRepository(private val context: Context) {
             styleId = prefs[MESSAGE_STYLE_ID] ?: base.styleId,
             primaryStyleEnabled = prefs[MESSAGE_PRIMARY_STYLE_ENABLED] ?: true,
             danmakuEnabled = prefs[MESSAGE_DANMAKU_ENABLED] ?: true,
-            themeId = MessageThemeCatalog.normalizeThemeId(
+            themeId = MessageThemeIds.normalizeThemeId(
                 prefs[MESSAGE_THEME_ID] ?: base.themeId,
             ),
-            danmakuThemeId = MessageThemeCatalog.normalizeThemeId(
+            danmakuThemeId = MessageThemeIds.normalizeThemeId(
                 prefs[MESSAGE_DANMAKU_THEME_ID] ?: base.danmakuThemeId,
             ),
             floatIconOpacity = prefs[MESSAGE_FLOAT_ICON_OPACITY]
@@ -1192,10 +1182,10 @@ class SettingsRepository(private val context: Context) {
 
     private fun resolveOtpKeywordsRegex(stored: String?): String {
         if (stored == null) {
-            return com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+            return OtpKeywords.DEFAULT_KEYWORDS_REGEX
         }
-        if (stored == com.slideindex.app.otp.VerificationCodeExtractor.LEGACY_DEFAULT_KEYWORDS_REGEX) {
-            return com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX
+        if (stored == OtpKeywords.LEGACY_DEFAULT_KEYWORDS_REGEX) {
+            return OtpKeywords.DEFAULT_KEYWORDS_REGEX
         }
         return stored
     }

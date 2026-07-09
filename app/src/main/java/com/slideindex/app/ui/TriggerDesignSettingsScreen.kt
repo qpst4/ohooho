@@ -31,9 +31,9 @@ import com.slideindex.app.gesture.TriggerCornerMode
 import com.slideindex.app.gesture.TriggerDesignKind
 import com.slideindex.app.gesture.TriggerDesignPreset
 import com.slideindex.app.gesture.TriggerHandleDesign
-import com.slideindex.app.gesture.primaryTriggerHandle
-import com.slideindex.app.gesture.triggerCollectionEntries
-import com.slideindex.app.gesture.triggerHandle
+import com.slideindex.app.settings.primaryTriggerHandle
+import com.slideindex.app.settings.triggerCollectionEntries
+import com.slideindex.app.settings.triggerHandle
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.animationstyle.AnimationStyleColorPickerDialog

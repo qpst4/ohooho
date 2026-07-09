@@ -44,6 +44,8 @@ import com.slideindex.app.settings.FreeWindowMode
 import com.slideindex.app.settings.effectiveLongPressDurationMs
 import com.slideindex.app.settings.resolvedFreeWindowMode
 import com.slideindex.app.settings.resolvedLaunchPolicy
+import com.slideindex.app.settings.titleRes
+import com.slideindex.app.settings.descRes
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable

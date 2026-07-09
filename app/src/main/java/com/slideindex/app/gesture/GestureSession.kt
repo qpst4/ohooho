@@ -9,6 +9,10 @@ import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.service.OverlayService
 
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.actionFor
+import com.slideindex.app.settings.primaryTriggerHandle
+import com.slideindex.app.settings.resolvedTriggerMode
+import com.slideindex.app.settings.triggerHandle
 
 import com.slideindex.app.util.ContinuousAdjustController
 

@@ -1,11 +1,11 @@
 package com.slideindex.app.settings
 
 import com.slideindex.app.gesture.GestureAngleConfig
-import com.slideindex.app.message.MessageSettings
-import com.slideindex.app.shake.ShakeGestureSettings
 import com.slideindex.app.gesture.GestureRule
 import com.slideindex.app.gesture.GestureTriggerMode
-import com.slideindex.app.gesture.primaryTriggerHandle
+import com.slideindex.app.message.MessageSettings
+import com.slideindex.app.otp.OtpKeywords
+import com.slideindex.app.shake.ShakeGestureSettings
 import com.slideindex.app.overlay.PanelSide
 
 data class AppSettings(
@@ -78,8 +78,8 @@ data class AppSettings(
     val floatingPointerJoystickDiameterPx: Float = 275f,
     /** Ring pointer outer diameter in screen pixels. */
     val floatingPointerPointerDiameterPx: Float = 100f,
-    /** Pointer design id; [FloatingPointerDesign.RING] by default for backward compatibility. */
-    val floatingPointerDesignId: String = FloatingPointerDesign.RING.id,
+    /** Pointer design id; ring style by default for backward compatibility. */
+    val floatingPointerDesignId: String = FloatingPointerDesignIds.RING,
     /** Ring pointer band thickness in screen pixels. */
     val floatingPointerRingThicknessPx: Float = 12f,
     /** Ring pointer center dot diameter in screen pixels. */
@@ -121,7 +121,7 @@ data class AppSettings(
     val floatingPointerRadialSlotActions: List<com.slideindex.app.gesture.GestureAction> =
         FloatingPointerRadialMenuCodec.defaultSlots(),
     val otpCopyToClipboard: Boolean = false,
-    val otpKeywordsRegex: String = com.slideindex.app.otp.VerificationCodeExtractor.DEFAULT_KEYWORDS_REGEX,
+    val otpKeywordsRegex: String = OtpKeywords.DEFAULT_KEYWORDS_REGEX,
     val otpUserMatchRules: List<com.slideindex.app.otp.OtpMatchRule> = emptyList(),
     val otpDisabledOfficialRuleIds: Set<String> = emptySet(),
     val otpAccessibilityAssistEnabled: Boolean = false,
@@ -132,24 +132,3 @@ data class AppSettings(
     val shakeGestureSettings: ShakeGestureSettings = ShakeGestureSettings(),
     val messageReminderSettings: MessageSettings = MessageSettings(),
 )
-
-fun AppSettings.edgeTriggerWidthDp(side: PanelSide): Float = when (side) {
-    PanelSide.LEFT -> leftEdgeTriggerWidthDp
-    PanelSide.RIGHT -> rightEdgeTriggerWidthDp
-}
-
-fun AppSettings.triggerTopFraction(side: PanelSide): Float =
-    primaryTriggerHandle(side).topFraction
-
-fun AppSettings.triggerHeightFraction(side: PanelSide): Float =
-    primaryTriggerHandle(side).heightFraction
-
-fun AppSettings.triggerBottomFraction(side: PanelSide): Float =
-    primaryTriggerHandle(side).bottomFraction
-
-fun AppSettings.interceptWindowWidthDp(side: PanelSide): Float {
-    if (!interceptSystemBackGesture) return edgeTriggerWidthDp(side)
-    val triggerWidth = edgeTriggerWidthDp(side)
-    val interceptWidth = if (limitMaxInterceptLength) 200f else 320f
-    return maxOf(triggerWidth, interceptWidth)
-}

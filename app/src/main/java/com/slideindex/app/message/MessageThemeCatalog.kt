@@ -333,7 +333,7 @@ object MessageThemeCatalog {
         return (cardThemes + sideThemes + danmakuThemes).firstOrNull { it.id == normalizedId }
     }
 
-    fun normalizeThemeId(themeId: String): String = legacyThemeIds[themeId] ?: themeId
+    fun normalizeThemeId(themeId: String): String = MessageThemeIds.normalizeThemeId(themeId)
 
 
 
@@ -363,15 +363,7 @@ object MessageThemeCatalog {
 
 
 
-    fun defaultThemeIdFor(style: MessageStyle): String = when (style) {
-
-        MessageStyle.Danmaku -> DEFAULT_DANMAKU_THEME_ID
-
-        MessageStyle.SideBubble -> DEFAULT_SIDE_THEME_ID
-
-        else -> DEFAULT_CARD_THEME_ID
-
-    }
+    fun defaultThemeIdFor(style: MessageStyle): String = MessageThemeIds.defaultThemeIdFor(style)
 
 
 

@@ -5,8 +5,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import com.slideindex.app.gesture.GestureZoneLayout
-import com.slideindex.app.gesture.primaryTriggerHandle
-import com.slideindex.app.gesture.triggerHandle
+import com.slideindex.app.settings.primaryTriggerHandle
+import com.slideindex.app.settings.triggerHandle
 import com.slideindex.app.settings.AppSettings
 
 internal object TriggerZonePreviewRenderer {

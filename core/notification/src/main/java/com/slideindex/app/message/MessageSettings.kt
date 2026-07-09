@@ -3,10 +3,10 @@ package com.slideindex.app.message
 data class MessageSettings(
     val enabled: Boolean = false,
     val styleId: String = MessageStyle.DarkCard.id,
-    val themeId: String = MessageThemeCatalog.defaultThemeIdFor(MessageStyle.DarkCard),
+    val themeId: String = MessageThemeIds.defaultThemeIdFor(MessageStyle.DarkCard),
     val primaryStyleEnabled: Boolean = true,
     val danmakuEnabled: Boolean = true,
-    val danmakuThemeId: String = MessageThemeCatalog.defaultThemeIdFor(MessageStyle.Danmaku),
+    val danmakuThemeId: String = MessageThemeIds.defaultThemeIdFor(MessageStyle.Danmaku),
     val floatIconOpacity: Float = 0.95f,
     val cardOpacity: Float = 0.95f,
     val sideBubbleOpacity: Float = 0.95f,
@@ -43,6 +43,6 @@ data class MessageSettings(
     fun filterRuleFor(packageName: String): MessageAppFilterRule =
         appFilterRules[packageName] ?: MessageAppFilterRule.default(packageName)
 
-    fun passesAppFilter(data: NotificationData): Boolean =
-        MessageAppFilterMatcher.passes(filterRuleFor(data.packageName), data.title, data.content)
+    fun passesAppFilter(packageName: String, title: String, content: String): Boolean =
+        MessageAppFilterMatcher.passes(filterRuleFor(packageName), title, content)
 }

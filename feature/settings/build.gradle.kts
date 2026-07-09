@@ -19,7 +19,9 @@ android {
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:gesture"))
+    implementation(project(":core:notification"))
     implementation(libs.core.ktx)
+    implementation(libs.datastore.preferences)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

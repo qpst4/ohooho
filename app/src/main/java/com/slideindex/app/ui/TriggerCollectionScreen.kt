@@ -46,9 +46,9 @@ import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.gesture.TriggerCollectionEntry
-import com.slideindex.app.gesture.actionFor
+import com.slideindex.app.settings.actionFor
 import com.slideindex.app.gesture.isEffective
-import com.slideindex.app.gesture.triggerCollectionEntries
+import com.slideindex.app.settings.triggerCollectionEntries
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.settings.AppSettings
 import kotlinx.coroutines.delay

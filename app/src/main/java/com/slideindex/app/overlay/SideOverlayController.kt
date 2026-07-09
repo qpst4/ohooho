@@ -7,7 +7,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import com.slideindex.app.data.AppRepository
 import com.slideindex.app.gesture.CollapsedWindowBounds
-import com.slideindex.app.gesture.triggerHandles
+import com.slideindex.app.settings.triggerHandles
 import com.slideindex.app.gesture.GestureZoneLayout
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.shell.ShellCommand
