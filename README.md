@@ -34,6 +34,15 @@ Android 边缘手势与系统增强工具，支持侧滑面板、摇一摇手势
 - 桌面 Widget 悬浮面板
 - 悬浮指针 / 虚拟摇杆 / 径向菜单
 - 屏幕录制
+- **设置导出/导入**（扩展页 → 设置备份）：将 DataStore 偏好导出为 JSON，换机或重装后可一键恢复（不含首次引导完成标记）
+
+### 首次启动引导
+
+首次打开应用时会显示分步引导，依次说明悬浮窗、无障碍、通知监听等核心权限的用途，并可直接跳转系统授权页。完成引导后不再显示；该状态不会写入设置备份文件。
+
+### 无障碍
+
+设置界面与主要交互控件已补充 `contentDescription`，便于 TalkBack 等读屏软件使用。
 
 ---
 
@@ -69,6 +78,8 @@ Android 边缘手势与系统增强工具，支持侧滑面板、摇一摇手势
 - `notification_history.json` — 通知历史记录
 
 用户设置（DataStore）与其他配置文件仍会正常备份。
+
+应用内还提供 **设置导出/导入**（JSON 格式，扩展页入口），可手动备份到任意存储位置；导入会覆盖当前偏好，但保留本机「已完成引导」标记。
 
 ---
 
@@ -162,7 +173,22 @@ CI 对 lint 报错失败（`abortOnError = true`）。密度相关检查（`Icon
 gradlew.bat testDebugUnitTest
 ```
 
-覆盖通知规则匹配、各 Codec 往返、手势几何分类、OTP 提取与解析、`NotificationShadeHider` 与 `PerformanceMonitor` 引用计数等纯逻辑测试；P1 起补充 `:core:autofill` 自动填充策略、`SettingsRepository` Mutator、主要 ViewModel 初始状态，以及 OTP/Xposed/无障碍相关 `:app` 单测。仪器化测试见 `MainActivityComposeFlowTest`（需连接设备或模拟器）。
+覆盖通知规则匹配、各 Codec 往返、手势几何分类、OTP 提取与解析、`NotificationShadeHider` 与 `PerformanceMonitor` 引用计数等纯逻辑测试；P1 起补充 `:core:autofill` 自动填充策略、`SettingsRepository` Mutator（含设置备份编解码）、主要 ViewModel 初始状态，以及 OTP/Xposed/无障碍相关 `:app` 单测。
+
+### 仪器化测试（Compose UI）
+
+```bash
+gradlew.bat connectedDebugAndroidTest
+```
+
+- `MainActivityComposeFlowTest` — 主导航各 Tab、设置备份页等 Compose 流程（测试启动时自动跳过首次引导）
+- `AppInstrumentationTest` — 应用级冒烟断言
+- `DeviceCompatibilityTest` — 设备/系统信息快照，便于多机型回归比对
+- 截图回归：`MainActivityComposeFlowTest` 内含 golden 截图用例（`ScreenshotGolden`），基线图位于 `app/src/androidTest/assets/screenshots/`
+
+CI 在 API **30** 与 **34** 两台模拟器上矩阵运行 `connectedDebugAndroidTest`（见下方 CI 章节）。
+
+> **注意：** CI 当前不跑测试（单元测试与仪器化测试仅在本地执行），以缩短 Actions 耗时。
 
 #### Windows 全量测试注意
 
@@ -275,10 +301,7 @@ app/src/main/java/com/slideindex/app/
 
 GitHub Actions 工作流（`.github/workflows/ci.yml`）在 push/PR 时自动执行：
 
-- `assembleDebug` — 编译 Debug APK
-- `lintDebug` — 静态检查（基于 baseline，仅拦截新问题）
-- `testDebugUnitTest` — 单元测试（按模块分批，降低 OOM 风险）
-- `instrumentation` — API 30 模拟器跑 `connectedDebugAndroidTest`（失败阻断 CI，报告上传为 artifact）
+- `assembleDebug` + `lintDebug` — 编译 Debug APK 与静态检查
 
 **Push 到 `main`/`master` 时**（已配置 Secrets 的情况下）额外执行：
 

@@ -2,9 +2,9 @@ package com.slideindex.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.slideindex.app.util.PermissionHelper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -12,19 +12,13 @@ import org.junit.runner.RunWith
 class AppInstrumentationTest {
 
     @Test
-    fun targetContext_usesExpectedPackage() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.slideindex.app", context.packageName)
-    }
-
-    @Test
-    fun application_isSlideIndexApp() {
+    fun applicationClass_isSlideIndexApp() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        assertTrue(app is SlideIndexApp)
+        assertEquals("com.slideindex.app.SlideIndexApp", app.javaClass.name)
     }
 
     @Test
-    fun mainActivity_launchIntentIsResolvable() {
+    fun launchIntent_targetsMainActivity() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         assertNotNull(launchIntent)

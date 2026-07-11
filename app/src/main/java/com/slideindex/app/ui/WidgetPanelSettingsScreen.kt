@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -108,7 +108,7 @@ fun WidgetPanelSettingsScreen(
         title = { SettingsAppBarTitle(stringResource(R.string.widget_panel_settings_title)) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
           }
         },
         scrollBehavior = scrollBehavior,
@@ -133,7 +133,7 @@ fun WidgetPanelSettingsScreen(
         SettingSwitchRow(
           title = stringResource(R.string.widget_panel_blur),
           subtitle = stringResource(R.string.widget_panel_blur_desc),
-          icon = { Icon(Icons.Default.Widgets, contentDescription = null) },
+          icon = { label -> Icon(Icons.Default.Widgets, contentDescription = label) },
           checked = settings.widgetPanelBlurEnabled,
           enabled = true,
           onCheckedChange = onBlurEnabledChange,
@@ -221,7 +221,7 @@ private fun WidgetPanelGridEditor(
         onValueChange = { updatePage(page.copy(overlayAlpha = it)) },
       )
       SettingsSliderRow(
-        title = "列数: ${page.columnCount}",
+        title = "鍒楁暟: ${page.columnCount}",
         value = page.columnCount.toFloat(),
         valueRange = 2f..20f,
         steps = 17,
@@ -230,7 +230,7 @@ private fun WidgetPanelGridEditor(
         onValueChange = { updatePage(WidgetPanelGridLogic.fitPageToGrid(page.copy(columnCount = it.toInt()))) },
       )
       SettingsSliderRow(
-        title = "行数: ${page.rowCount}",
+        title = "琛屾暟: ${page.rowCount}",
         value = page.rowCount.toFloat(),
         valueRange = 3f..40f,
         steps = 36,
@@ -239,7 +239,7 @@ private fun WidgetPanelGridEditor(
         onValueChange = { updatePage(WidgetPanelGridLogic.fitPageToGrid(page.copy(rowCount = it.toInt()))) },
       )
       SettingsSliderRow(
-        title = "显示行数: ${page.visibleRowCount}",
+        title = "鏄剧ず琛屾暟: ${page.visibleRowCount}",
         value = page.visibleRowCount.toFloat(),
         valueRange = 1f..40f,
         steps = 38,
@@ -248,7 +248,7 @@ private fun WidgetPanelGridEditor(
         onValueChange = { updatePage(page.copy(visibleRowCount = it.toInt())) },
       )
       SettingsSliderRow(
-        title = "容器上边距: ${page.marginTopDp}dp",
+        title = "瀹瑰櫒涓婅竟璺? ${page.marginTopDp}dp",
         value = page.marginTopDp.toFloat(),
         valueRange = 0f..500f,
         steps = 99,
@@ -371,7 +371,7 @@ fun WidgetPanelEntryCard(
     stringResource(R.string.widget_panel_entry_desc)
   }
   SettingNavigationRow(
-    icon = { Icon(Icons.Default.Widgets, contentDescription = null) },
+    icon = { label -> Icon(Icons.Default.Widgets, contentDescription = label) },
     title = stringResource(R.string.widget_panel_settings_title),
     subtitle = subtitle,
     enabled = enabled,

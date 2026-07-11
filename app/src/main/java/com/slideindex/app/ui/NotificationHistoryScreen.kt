@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import com.slideindex.app.ui.viewmodel.NotificationHistoryViewModel
 import androidx.activity.compose.BackHandler
@@ -180,7 +180,7 @@ fun NotificationHistoryScreen(
                 subtitle = { Text(stringResource(R.string.notification_history_subtitle)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 actions = {
@@ -346,7 +346,7 @@ fun NotificationHistoryEntryCard(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Notifications, contentDescription = label) },
         title = stringResource(R.string.notification_history_entry_title),
         subtitle = when {
             !listenerEnabled -> stringResource(R.string.notification_history_entry_permission_needed)

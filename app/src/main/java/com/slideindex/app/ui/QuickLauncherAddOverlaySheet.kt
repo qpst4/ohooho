@@ -153,7 +153,7 @@ fun QuickLauncherAddOverlaySheet(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 IconButton(onClick = requestDismiss) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
@@ -270,7 +270,7 @@ private fun QuickLauncherAddOverlaySheetContent(
                     },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                         }
                     },
                     scrollBehavior = scrollBehavior,

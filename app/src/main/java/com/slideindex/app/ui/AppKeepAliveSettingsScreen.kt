@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -146,7 +146,7 @@ fun AppKeepAliveEntryCard(
         else -> stringResource(R.string.app_keep_alive_entry_desc)
     }
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.BatteryChargingFull, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.BatteryChargingFull, contentDescription = label) },
         title = stringResource(R.string.app_keep_alive_title),
         subtitle = subtitle,
         onClick = onClick,

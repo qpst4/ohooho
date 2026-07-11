@@ -24,7 +24,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.slideindex.app.R
 import com.slideindex.app.ui.RegisterSettingsSegment
 import com.slideindex.app.ui.SettingIconContainer
 import com.slideindex.app.ui.SettingsCard
@@ -36,7 +38,7 @@ import com.slideindex.app.ui.settingsSegmentedColors
 fun SettingSwitchRow(
     title: String,
     subtitle: String? = null,
-    icon: (@Composable () -> Unit)? = null,
+    icon: (@Composable (accessibilityLabel: String) -> Unit)? = null,
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -49,7 +51,7 @@ fun SettingSwitchRow(
             colors = settingsSegmentedColors(),
             leadingContent = icon?.let {
                 {
-                    SettingIconContainer { it() }
+                    SettingIconContainer { it(title) }
                 }
             },
             trailingContent = {
@@ -87,7 +89,7 @@ fun SettingSwitchRow(
 fun SettingSwitchNavigationRow(
     title: String,
     subtitle: String,
-    icon: (@Composable () -> Unit)? = null,
+    icon: (@Composable (accessibilityLabel: String) -> Unit)? = null,
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -101,7 +103,7 @@ fun SettingSwitchNavigationRow(
             colors = settingsSegmentedColors(),
             leadingContent = icon?.let {
                 {
-                    SettingIconContainer { it() }
+                    SettingIconContainer { it(title) }
                 }
             },
             trailingContent = {
@@ -166,7 +168,7 @@ fun SettingLinkRow(
             trailingContent = {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_navigate_forward),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -197,7 +199,7 @@ fun SettingLinkRow(
 
 @Composable
 fun SettingToggleRow(
-    icon: @Composable () -> Unit,
+    icon: @Composable (accessibilityLabel: String) -> Unit,
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -211,7 +213,7 @@ fun SettingToggleRow(
             shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
             colors = settingsSegmentedColors(),
             leadingContent = {
-                SettingIconContainer { icon() }
+                SettingIconContainer { icon(title) }
             },
             trailingContent = {
                 Switch(
@@ -244,7 +246,7 @@ fun SettingToggleRow(
 
 @Composable
 fun SettingNavigationRow(
-    icon: @Composable () -> Unit,
+    icon: @Composable (accessibilityLabel: String) -> Unit,
     title: String,
     subtitle: String,
     enabled: Boolean = true,
@@ -258,7 +260,7 @@ fun SettingNavigationRow(
             shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
             colors = settingsSegmentedColors(),
             leadingContent = {
-                SettingIconContainer { icon() }
+                SettingIconContainer { icon(title) }
             },
             trailingContent = {
                 if (trailingContent != null) {
@@ -266,7 +268,7 @@ fun SettingNavigationRow(
                 } else {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_navigate_forward),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

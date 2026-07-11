@@ -63,7 +63,7 @@ fun ShakeActionSetSettingsScreen(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -122,7 +122,7 @@ fun ShakeIndependentSensitivityScreen(
                 title = { Text(stringResource(R.string.shake_gestures_independent_sensitivity)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -166,10 +166,11 @@ fun ShakeGestureActionRow(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = {
+        icon = { label ->
             ShakeGestureColoredIcon(
                 icon = shakeGestureIcon(type),
                 background = shakeGestureIconTint(type),
+                contentDescription = label,
             )
         },
         title = shakeGestureLabel(type),
@@ -183,7 +184,7 @@ fun ShakeGestureActionRow(
             ) {
                 Icon(
                     imageVector = gestureActionIcon(action),
-                    contentDescription = null,
+                    contentDescription = gestureActionLabel(action),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -194,7 +195,7 @@ fun ShakeGestureActionRow(
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_navigate_forward),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -208,6 +209,7 @@ fun ShakeGestureColoredIcon(
     icon: ImageVector,
     background: Color,
     contentColor: Color = Color.White,
+    contentDescription: String,
 ) {
     Surface(
         modifier = Modifier.size(40.dp),
@@ -221,7 +223,7 @@ fun ShakeGestureColoredIcon(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = contentDescription,
                 tint = contentColor,
                 modifier = Modifier.size(22.dp),
             )

@@ -39,7 +39,7 @@ fun NotificationFilterSettingsScreen(
                 title = { SettingsAppBarTitle(stringResource(R.string.notification_filter_settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,

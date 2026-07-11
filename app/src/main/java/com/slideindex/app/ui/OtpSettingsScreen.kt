@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 
 
@@ -89,7 +89,7 @@ fun OtpCopyToClipboardSection(
 
             subtitle = stringResource(R.string.otp_copy_to_clipboard_desc),
 
-            icon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+            icon = { label -> Icon(Icons.Default.ContentCopy, contentDescription = label) },
 
             checked = copyToClipboard,
 
@@ -251,7 +251,7 @@ fun OtpSettingsScreen(
 
                 SettingNavigationRow(
 
-                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.History, contentDescription = label) },
 
                     title = stringResource(R.string.otp_records_entry_title),
 
@@ -267,7 +267,7 @@ fun OtpSettingsScreen(
 
                 SettingNavigationRow(
 
-                    icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.TouchApp, contentDescription = label) },
 
                     title = stringResource(R.string.otp_auto_input_entry_title),
 
@@ -283,7 +283,7 @@ fun OtpSettingsScreen(
 
                 SettingNavigationRow(
 
-                    icon = { Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = null) },
+                    icon = { label -> Icon(Icons.AutoMirrored.Filled.Rule, contentDescription = label) },
 
                     title = stringResource(R.string.otp_match_rules_entry_title),
 
@@ -534,7 +534,7 @@ fun OtpHubEntryCard(onClick: () -> Unit) {
 
     SettingNavigationRow(
 
-        icon = { Icon(Icons.Default.Password, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Password, contentDescription = label) },
 
         title = stringResource(R.string.otp_hub_entry_title),
 

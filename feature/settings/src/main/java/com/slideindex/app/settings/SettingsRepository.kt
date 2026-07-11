@@ -24,6 +24,7 @@ import javax.inject.Singleton
 @Singleton
 class SettingsRepository @Inject constructor(
     private val editor: SettingsPreferencesEditor,
+    private val backupManager: SettingsBackupManager,
     private val edge: EdgeSettingsMutator,
     private val overlay: OverlaySettingsMutator,
     private val shake: ShakeSettingsMutator,
@@ -44,6 +45,14 @@ class SettingsRepository @Inject constructor(
     }
 
     fun readSnapshot(): AppSettings = cachedSettings
+
+    suspend fun exportSettings(appVersionName: String): Result<String> =
+        backupManager.exportSettings(appVersionName)
+
+    suspend fun importSettings(rawJson: String, replaceExisting: Boolean = true): Result<Int> =
+        backupManager.importSettings(rawJson, replaceExisting)
+
+    suspend fun setOnboardingCompleted(completed: Boolean) = edge.setOnboardingCompleted(completed)
 
     suspend fun setServiceEnabled(enabled: Boolean) = edge.setServiceEnabled(enabled)
     suspend fun setLeftEdgeEnabled(enabled: Boolean) = edge.setLeftEdgeEnabled(enabled)

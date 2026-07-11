@@ -119,7 +119,7 @@ fun WidgetPickerScreen(
         title = { SettingsAppBarTitle(stringResource(R.string.widget_picker_title)) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
           }
         },
         scrollBehavior = scrollBehavior,
@@ -187,7 +187,7 @@ private fun WidgetAppDetailScreen(
         title = { SettingsAppBarTitle(group.appLabel) },
         navigationIcon = {
           IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
           }
         },
         scrollBehavior = scrollBehavior,
@@ -234,7 +234,7 @@ private fun WidgetAppGroupSection(
       if (appIcon != null) {
         Image(
           bitmap = appIcon,
-          contentDescription = null,
+          contentDescription = stringResource(R.string.cd_app_icon),
           modifier = Modifier
             .size(28.dp)
             .clip(CircleShape),
@@ -243,7 +243,7 @@ private fun WidgetAppGroupSection(
       } else {
         Icon(
           Icons.Default.Widgets,
-          contentDescription = null,
+          contentDescription = stringResource(R.string.cd_widget_preview),
           modifier = Modifier.size(28.dp),
           tint = MaterialTheme.colorScheme.primary,
         )
@@ -323,7 +323,7 @@ private fun WidgetPreviewCard(
       if (bitmap != null) {
         Image(
           bitmap = bitmap.asImageBitmap(),
-          contentDescription = null,
+          contentDescription = stringResource(R.string.cd_widget_preview),
           modifier = Modifier
             .fillMaxSize()
             .padding(6.dp),
@@ -332,7 +332,7 @@ private fun WidgetPreviewCard(
       } else {
         Icon(
           Icons.Default.Widgets,
-          contentDescription = null,
+          contentDescription = stringResource(R.string.cd_widget_preview),
           modifier = Modifier.size(32.dp),
           tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )

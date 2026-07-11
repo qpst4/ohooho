@@ -74,7 +74,7 @@ fun GestureAngleSettingsScreen(
                 title = { SettingsAppBarTitle(stringResource(R.string.gesture_angle_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 actions = {
@@ -116,7 +116,7 @@ fun GestureAngleEntryCard(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Tune, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Tune, contentDescription = label) },
         title = stringResource(R.string.gesture_angle_entry_title),
         subtitle = stringResource(R.string.gesture_angle_entry_desc),
         enabled = enabled,

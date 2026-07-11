@@ -136,10 +136,10 @@ fun FloatingPointerRadialMenuSettingsScreen(
                             SettingSwitchRow(
                                 title = stringResource(R.string.floating_pointer_radial_always_visible),
                                 subtitle = stringResource(R.string.floating_pointer_radial_always_visible_desc),
-                                icon = {
+                                icon = { label ->
                                     Icon(
                                         imageVector = Icons.Default.Visibility,
-                                        contentDescription = null,
+                                        contentDescription = label,
                                     )
                                 },
                                 checked = settings.floatingPointerRadialAlwaysVisible,
@@ -169,10 +169,10 @@ fun FloatingPointerRadialMenuSettingsScreen(
                         repeat(FloatingPointerRadialMenuCodec.SLOT_COUNT) { index ->
                             val action = settings.floatingPointerRadialSlotActions.getOrElse(index) { GestureAction.None }
                             SettingNavigationRow(
-                                icon = {
+                                icon = { label ->
                                     Icon(
                                         imageVector = gestureActionIcon(action),
-                                        contentDescription = null,
+                                        contentDescription = label,
                                     )
                                 },
                                 title = radialSlotDirectionLabel(index),
@@ -190,7 +190,10 @@ fun FloatingPointerRadialMenuSettingsScreen(
                                             }
                                         },
                                     ) {
-                                        Icon(Icons.Default.Settings, contentDescription = null)
+                                        Icon(
+                                            Icons.Default.Settings,
+                                            contentDescription = stringResource(R.string.cd_radial_menu_settings),
+                                        )
                                     }
                                 },
                             )

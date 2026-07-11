@@ -136,7 +136,7 @@ fun OtpRulesListScreen(
                         navigationIcon = {
                             onBack?.let { back ->
                                 IconButton(onClick = back) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                                 }
                             }
                         },

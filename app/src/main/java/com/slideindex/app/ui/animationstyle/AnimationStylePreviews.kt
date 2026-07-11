@@ -24,7 +24,9 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.slideindex.app.R
 import com.slideindex.app.settings.GestureHintStyle
 
 @Composable
@@ -84,7 +86,7 @@ private fun BoxScope.WaveStylePreview() {
             .padding(start = 6.dp)
             .size(18.dp),
         painter = iconPainter,
-        contentDescription = null,
+        contentDescription = stringResource(R.string.cd_animation_preview),
         colorFilter = ColorFilter.tint(colorScheme.onPrimary),
     )
 }
@@ -143,7 +145,7 @@ private fun BoxScope.BubbleStylePreview() {
             .padding(start = 4.dp)
             .size(18.dp),
         painter = iconPainter,
-        contentDescription = null,
+        contentDescription = stringResource(R.string.cd_animation_preview),
         colorFilter = ColorFilter.tint(colorScheme.onPrimary),
     )
 }

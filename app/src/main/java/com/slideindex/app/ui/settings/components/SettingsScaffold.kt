@@ -27,8 +27,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.slideindex.app.R
 import com.slideindex.app.ui.Md3PickerSectionHeader
+import com.slideindex.app.ui.a11y.cdNavigateBack
 
 @Composable
 fun SettingsEmbeddedContent(
@@ -90,7 +93,7 @@ fun SettingsScreenScaffold(
                 navigationIcon = {
                     if (onBack != null) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = cdNavigateBack())
                         }
                     }
                 },

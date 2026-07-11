@@ -111,7 +111,7 @@ fun ShellCommandPanelScreen(
                 subtitle = { Text(stringResource(R.string.shell_panel_subtitle)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -151,11 +151,11 @@ fun ShellCommandPanelScreen(
                             android.widget.Toast.makeText(
                                 context,
                                 if (api >= ShizukuUserServiceHost.SERVICE_BUILD) {
-                                    "Shell 服务已重启（build=$api）"
+                                    "Shell ??????build=$api?"
                                 } else if (api > 0) {
-                                    "Shell 服务已连接（api=$api），若命令仍失败请重启 Shizuku"
+                                    "Shell ??????api=$api??????????? Shizuku"
                                 } else {
-                                    "Shell 服务重启失败，请完全关闭 Shizuku 后重试"
+                                    "Shell ???????????? Shizuku ???"
                                 },
                                 android.widget.Toast.LENGTH_SHORT,
                             ).show()
@@ -282,7 +282,7 @@ fun ShellCommandEntryCard(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Code, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Code, contentDescription = label) },
         title = stringResource(R.string.shell_panel_entry_title),
         subtitle = if (commandCount > 0) {
             stringResource(R.string.shell_panel_entry_desc_count, commandCount)
@@ -345,7 +345,7 @@ internal fun ShellStatusHeader(
                     IconButton(onClick = onRestartService) {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = "重启 Shell 服务",
+                            contentDescription = "?? Shell ??",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }

@@ -190,7 +190,7 @@ fun OtpRecordsScreen(
                     navigationIcon = {
                         onBack?.let { back ->
                             IconButton(onClick = back) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                             }
                         }
                     },
@@ -386,7 +386,7 @@ private fun OtpRecordsEmptyState(
     ) {
         Icon(
             imageVector = Icons.Default.MailOutline,
-            contentDescription = null,
+            contentDescription = stringResource(R.string.otp_records_empty_title),
             modifier = Modifier.size(72.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
         )

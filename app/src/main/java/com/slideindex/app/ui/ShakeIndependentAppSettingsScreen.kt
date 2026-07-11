@@ -86,7 +86,7 @@ fun ShakeIndependentAppSettingsScreen(
                 title = { Text(stringResource(R.string.shake_gestures_independent_app)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,

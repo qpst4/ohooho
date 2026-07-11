@@ -162,7 +162,7 @@ fun OtpHubScreen(
 
                     IconButton(onClick = onExit) {
 
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
 
                     }
 

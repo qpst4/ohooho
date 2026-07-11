@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 
 
@@ -180,7 +180,7 @@ fun HiddenAppsScreen(
 
                     IconButton(onClick = onBack) {
 
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
 
                     }
 
@@ -406,7 +406,7 @@ fun HiddenAppsEntryCard(
 
     SettingNavigationRow(
 
-        icon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.VisibilityOff, contentDescription = label) },
 
         title = stringResource(R.string.hidden_apps_entry_title),
 

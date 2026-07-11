@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -396,7 +397,9 @@ internal fun MessageNotificationIcon(
         if (displayIcon != null) {
             Image(
                 bitmap = displayIcon.asImageBitmap(),
-                contentDescription = null,
+                contentDescription = stringResource(
+                    if (iconBitmap != null) R.string.cd_notification_icon else R.string.cd_app_icon,
+                ),
                 modifier = Modifier
                     .size(sizeDp)
                     .clip(CircleShape),
@@ -405,7 +408,7 @@ internal fun MessageNotificationIcon(
             if (iconBitmap != null && appIconBitmap != null) {
                 Image(
                     bitmap = appIconBitmap.asImageBitmap(),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_app_icon),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .size(sizeDp * 0.34f)
@@ -416,7 +419,7 @@ internal fun MessageNotificationIcon(
         } else {
             Image(
                 painter = painterResource(R.drawable.ic_notification),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_notification_icon),
                 modifier = Modifier
                     .size(sizeDp)
                     .clip(CircleShape),

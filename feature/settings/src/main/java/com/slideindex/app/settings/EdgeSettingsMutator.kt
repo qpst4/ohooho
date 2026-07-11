@@ -21,6 +21,8 @@ class EdgeSettingsMutator @Inject constructor(
     private val editor: SettingsPreferencesEditor,
 ) {
     suspend fun setServiceEnabled(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.SERVICE_ENABLED] = enabled }
+    suspend fun setOnboardingCompleted(completed: Boolean) =
+        editor.edit { it[SettingsPreferenceKeys.ONBOARDING_COMPLETED] = completed }
     suspend fun setLeftEdgeEnabled(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.LEFT_EDGE_ENABLED] = enabled }
     suspend fun setRightEdgeEnabled(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.RIGHT_EDGE_ENABLED] = enabled }
 

@@ -27,7 +27,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.overlay.OverlayCompose
 import com.slideindex.app.overlay.OverlayComposeOwner
@@ -187,7 +189,7 @@ object ShakeFeedbackOverlay {
             ) {
                 Icon(
                     imageVector = gestureActionIcon(action),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_shake_feedback),
                     tint = Color.White,
                     modifier = Modifier.size(28.dp),
                 )

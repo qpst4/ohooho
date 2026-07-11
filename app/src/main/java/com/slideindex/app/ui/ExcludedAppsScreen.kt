@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 
 
@@ -184,7 +184,7 @@ fun ExcludedAppsScreen(
 
                     IconButton(onClick = onBack) {
 
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
 
                     }
 
@@ -428,7 +428,7 @@ fun ExcludedAppsEntryCard(
 
     SettingNavigationRow(
 
-        icon = { Icon(Icons.Default.Block, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Block, contentDescription = label) },
 
         title = stringResource(R.string.excluded_apps_entry_title),
 

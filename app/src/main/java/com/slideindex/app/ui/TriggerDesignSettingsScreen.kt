@@ -260,7 +260,7 @@ private fun TriggerDesignKindRow(
                 } else {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_navigate_forward),
                         modifier = Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

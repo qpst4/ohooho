@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -133,7 +133,7 @@ fun MainScreen(
                 SettingSwitchRow(
                     title = stringResource(R.string.gesture_switch),
                     subtitle = stringResource(R.string.gesture_switch_hint),
-                    icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.TouchApp, contentDescription = label) },
                     checked = gestureSwitchChecked,
                     enabled = true,
                     onCheckedChange = { enabled ->
@@ -159,7 +159,7 @@ fun MainScreen(
             SettingsSectionTitle(stringResource(R.string.settings_section_gestures))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.SwipeRight, contentDescription = label) },
                     title = stringResource(R.string.trigger_collection_title),
                     subtitle = stringResource(R.string.trigger_collection_desc),
                     onClick = onOpenTriggerCollection,
@@ -196,7 +196,7 @@ fun MainScreen(
             SettingsCard {
                 SettingSwitchRow(
                     title = stringResource(R.string.haptic_enabled),
-                    icon = { Icon(Icons.Default.Vibration, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.Vibration, contentDescription = label) },
                     checked = settings.hapticEnabled,
                     enabled = true,
                     onCheckedChange = onHapticEnabledChange,
@@ -216,7 +216,7 @@ fun MainScreen(
                     SettingSwitchRow(
                         title = stringResource(R.string.dynamic_color),
                         subtitle = stringResource(R.string.dynamic_color_desc),
-                        icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                        icon = { label -> Icon(Icons.Default.Palette, contentDescription = label) },
                         checked = settings.dynamicColorEnabled,
                         enabled = true,
                         onCheckedChange = onDynamicColorChange,

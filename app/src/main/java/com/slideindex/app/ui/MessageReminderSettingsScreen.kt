@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.slideindex.app.ui
 
@@ -105,7 +105,7 @@ fun MessageReminderSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.message_reminder_enabled),
                 subtitle = stringResource(R.string.message_reminder_enabled_desc),
-                icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.Notifications, contentDescription = label) },
                 checked = settings.enabled,
                 enabled = notificationListenerEnabled && overlayPermissionGranted,
                 onCheckedChange = onEnabledChange,
@@ -124,10 +124,11 @@ fun MessageReminderSettingsScreen(
         SettingsSectionTitle(stringResource(R.string.message_reminder_section_filter))
         SettingsCard {
             SettingNavigationRow(
-                icon = {
+                icon = { label ->
                     MessageReminderColoredIcon(
                         icon = Icons.Default.Checklist,
                         background = Color(0xFF4CAF50),
+                        contentDescription = label,
                     )
                 },
                 title = stringResource(R.string.message_reminder_allowed_apps),
@@ -142,10 +143,11 @@ fun MessageReminderSettingsScreen(
                 },
             )
             SettingNavigationRow(
-                icon = {
+                icon = { label ->
                     MessageReminderColoredIcon(
                         icon = Icons.Default.DoNotDisturbOn,
                         background = Color(0xFFF44336),
+                        contentDescription = label,
                     )
                 },
                 title = stringResource(R.string.message_reminder_dnd_apps),
@@ -156,10 +158,11 @@ fun MessageReminderSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.message_reminder_suppress_system_dnd),
                 subtitle = stringResource(R.string.message_reminder_suppress_system_dnd_desc),
-                icon = {
+                icon = { label ->
                     MessageReminderColoredIcon(
                         icon = Icons.Default.Bedtime,
                         background = Color(0xFF5C6BC0),
+                        contentDescription = label,
                     )
                 },
                 checked = settings.suppressWhenSystemDnd,
@@ -268,7 +271,7 @@ private fun MessageReminderNavigationTrailing(
         if (showChevron) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_navigate_forward),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -281,6 +284,7 @@ private fun MessageReminderColoredIcon(
     icon: ImageVector,
     background: Color,
     contentColor: Color = Color.White,
+    contentDescription: String,
 ) {
     Surface(
         modifier = Modifier.size(40.dp),
@@ -294,7 +298,7 @@ private fun MessageReminderColoredIcon(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = contentDescription,
                 tint = contentColor,
                 modifier = Modifier.size(22.dp),
             )
@@ -311,7 +315,7 @@ private fun MessageGestureActionRow(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        icon = { label -> Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary) },
         title = title,
         subtitle = messageActionLabel(action),
         enabled = enabled,
@@ -382,7 +386,7 @@ fun MessageReminderEntryCard(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Notifications, contentDescription = label) },
         title = stringResource(R.string.message_reminder_title),
         subtitle = if (settings != null) {
             messageStyleSummary(settings)

@@ -86,7 +86,7 @@ internal fun NotificationHistoryRow(
                 } else {
                     Icon(
                         imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.cd_notification_icon),
                         modifier = Modifier.size(40.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
@@ -171,7 +171,7 @@ internal fun NotificationHistoryRow(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Visibility,
-                            contentDescription = null,
+                            contentDescription = stringResource(R.string.notification_restore_action),
                             modifier = Modifier.size(18.dp),
                         )
                         Text(

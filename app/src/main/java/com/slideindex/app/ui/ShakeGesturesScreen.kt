@@ -118,7 +118,7 @@ fun ShakeGesturesScreen(
                 SettingSwitchRow(
                     title = stringResource(R.string.shake_gestures_title),
                     subtitle = stringResource(R.string.shake_gestures_subtitle),
-                    icon = { Icon(Icons.Default.ScreenRotation, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.ScreenRotation, contentDescription = label) },
                     checked = settings.enabled,
                     enabled = true,
                     onCheckedChange = onEnabledChange,
@@ -144,10 +144,11 @@ fun ShakeGesturesScreen(
                 SettingSwitchNavigationRow(
                     title = stringResource(R.string.shake_gestures_lock_screen),
                     subtitle = stringResource(R.string.shake_gestures_lock_screen_desc),
-                    icon = {
+                    icon = { label ->
                         ColoredSettingIcon(
                             icon = Icons.Default.Lock,
                             background = Color(0xFF5C6BC0),
+                            contentDescription = label,
                         )
                     },
                     checked = settings.lockScreenShakeEnabled,
@@ -158,10 +159,11 @@ fun ShakeGesturesScreen(
                 SettingSwitchNavigationRow(
                     title = stringResource(R.string.shake_gestures_independent_app),
                     subtitle = stringResource(R.string.shake_gestures_independent_app_desc),
-                    icon = {
+                    icon = { label ->
                         ColoredSettingIcon(
                             icon = Icons.Default.Apps,
                             background = Color(0xFFEF5350),
+                            contentDescription = label,
                         )
                     },
                     checked = settings.independentAppShakeEnabled,
@@ -194,10 +196,11 @@ fun ShakeGesturesScreen(
                 )
                 if (settings.independentSensitivityEnabled) {
                     SettingNavigationRow(
-                        icon = {
+                        icon = { label ->
                             ShakeGestureColoredIcon(
                                 icon = Icons.Default.ScreenRotation,
                                 background = Color(0xFF26A69A),
+                                contentDescription = label,
                             )
                         },
                         title = stringResource(R.string.shake_gestures_independent_sensitivity),
@@ -242,10 +245,11 @@ fun ShakeGesturesScreen(
                     onCheckedChange = onDisableInLandscapeChange,
                 )
                 SettingNavigationRow(
-                    icon = {
+                    icon = { label ->
                         ColoredSettingIcon(
                             icon = Icons.Default.Block,
                             background = Color(0xFFFF9800),
+                            contentDescription = label,
                         )
                     },
                     title = stringResource(R.string.shake_gestures_app_blacklist),
@@ -266,7 +270,7 @@ fun ShakeGesturesScreen(
                             }
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.cd_navigate_forward),
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -313,8 +317,8 @@ private fun ShakeActionRow(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = {
-            ColoredSettingIcon(icon = icon, background = iconTint)
+        icon = { label ->
+            ColoredSettingIcon(icon = icon, background = iconTint, contentDescription = label)
         },
         title = title,
         subtitle = gestureActionLabel(action),
@@ -327,7 +331,7 @@ private fun ShakeActionRow(
             ) {
                 Icon(
                     imageVector = gestureActionIcon(action),
-                    contentDescription = null,
+                    contentDescription = gestureActionLabel(action),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -338,7 +342,7 @@ private fun ShakeActionRow(
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_navigate_forward),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -352,6 +356,7 @@ private fun ColoredSettingIcon(
     icon: ImageVector,
     background: Color,
     contentColor: Color = Color.White,
+    contentDescription: String,
 ) {
     Surface(
         modifier = Modifier.size(40.dp),
@@ -365,7 +370,7 @@ private fun ColoredSettingIcon(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = contentDescription,
                 tint = contentColor,
                 modifier = Modifier.size(22.dp),
             )

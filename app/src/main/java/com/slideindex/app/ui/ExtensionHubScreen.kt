@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.slideindex.app.ui
 
@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -37,6 +40,7 @@ fun ExtensionHubScreen(
     onOpenShellCommands: () -> Unit,
     onOpenWidgetPanel: () -> Unit,
     onOpenFloatingPointer: () -> Unit,
+    onOpenSettingsBackup: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -91,9 +95,20 @@ fun ExtensionHubScreen(
                     enabled = gestureActive,
                     onClick = onOpenFloatingPointer,
                 )
+                SettingsBackupEntryCard(onClick = onOpenSettingsBackup)
             }
 
             Spacer(modifier = Modifier.height(8.dp + bottomContentPadding))
         }
     }
+}
+
+@Composable
+fun SettingsBackupEntryCard(onClick: () -> Unit) {
+    SettingNavigationRow(
+        icon = { label -> Icon(Icons.Default.Backup, contentDescription = label) },
+        title = stringResource(R.string.settings_backup_entry_title),
+        subtitle = stringResource(R.string.settings_backup_entry_desc),
+        onClick = onClick,
+    )
 }

@@ -1,4 +1,4 @@
-package com.slideindex.app.ui.messagestyle
+﻿package com.slideindex.app.ui.messagestyle
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CropSquare
@@ -54,7 +54,7 @@ fun MessageStyleEntryCard(
     onClick: () -> Unit,
 ) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.CropSquare, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.CropSquare, contentDescription = label) },
         title = stringResource(R.string.message_style_title),
         subtitle = messageStyleSummary(settings),
         enabled = enabled,

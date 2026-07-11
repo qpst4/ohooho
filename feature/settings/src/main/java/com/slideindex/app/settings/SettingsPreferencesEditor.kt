@@ -21,7 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import kotlinx.coroutines.flow.Flow
-
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 
@@ -47,15 +47,12 @@ class SettingsPreferencesEditor @Inject constructor(
 
 
     suspend fun edit(block: (MutablePreferences) -> Unit): Result<Unit> = runCatching {
-
         context.dataStore.edit { prefs ->
-
             block(prefs)
-
         }
-
     }
 
+    suspend fun readRawPreferences(): Preferences = context.dataStore.data.first()
 }
 
 

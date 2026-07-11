@@ -116,7 +116,7 @@ fun LayoutSettingsEntryCard(
         stringResource(R.string.layout_settings_entry_desc)
     }
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.SortByAlpha, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.SortByAlpha, contentDescription = label) },
         title = stringResource(R.string.layout_settings_entry_title),
         subtitle = subtitle,
         enabled = enabled,
@@ -140,7 +140,7 @@ fun QuickLauncherEntryCard(
         stringResource(R.string.quick_launcher_entry_desc)
     }
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.Apps, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Apps, contentDescription = label) },
         title = stringResource(R.string.quick_launcher_editor_title),
         subtitle = subtitle,
         enabled = enabled,

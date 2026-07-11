@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -18,26 +18,26 @@ fun HideTriggerSettingsRows(
     onHideOnLockScreenChange: (Boolean) -> Unit,
     onHideOnLauncherChange: (Boolean) -> Unit,
 ) {
-    // "横屏模式" enables edge triggers in landscape; stored as hideTriggerInLandscape (hide when false).
+    // "妯睆妯″紡" enables edge triggers in landscape; stored as hideTriggerInLandscape (hide when false).
     SettingSwitchRow(
         title = stringResource(R.string.hide_trigger_landscape),
-        icon = { Icon(Icons.Default.ScreenRotation, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.ScreenRotation, contentDescription = label) },
         checked = !settings.hideTriggerInLandscape,
         enabled = enabled,
         onCheckedChange = { landscapeModeEnabled -> onHideInLandscapeChange(!landscapeModeEnabled) },
     )
-    // "锁屏界面" enables edge triggers on lock screen; stored as hideTriggerOnLockScreen (hide when true).
+    // "閿佸睆鐣岄潰" enables edge triggers on lock screen; stored as hideTriggerOnLockScreen (hide when true).
     SettingSwitchRow(
         title = stringResource(R.string.hide_trigger_lock_screen),
-        icon = { Icon(Icons.Default.Lock, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Lock, contentDescription = label) },
         checked = !settings.hideTriggerOnLockScreen,
         enabled = enabled,
         onCheckedChange = { lockScreenEnabled -> onHideOnLockScreenChange(!lockScreenEnabled) },
     )
-    // "系统桌面" enables edge triggers on home launcher; stored as hideTriggerOnLauncher (hide when true).
+    // "绯荤粺妗岄潰" enables edge triggers on home launcher; stored as hideTriggerOnLauncher (hide when true).
     SettingSwitchRow(
         title = stringResource(R.string.hide_trigger_launcher),
-        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Home, contentDescription = label) },
         checked = !settings.hideTriggerOnLauncher,
         enabled = enabled,
         onCheckedChange = { launcherEnabled -> onHideOnLauncherChange(!launcherEnabled) },

@@ -47,6 +47,7 @@ sealed interface AppNavKey : NavKey {
 
     // Extension tab
     @Serializable data object ExtensionHub : AppNavKey
+    @Serializable data object ExtensionBackup : AppNavKey
     @Serializable data object QuickLauncher : AppNavKey
     @Serializable data object ShellCommands : AppNavKey
     @Serializable data object WidgetPanel : AppNavKey

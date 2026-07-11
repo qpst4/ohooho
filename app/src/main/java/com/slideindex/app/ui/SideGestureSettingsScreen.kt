@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -81,19 +81,19 @@ fun SideGestureSettingsScreen(
             SettingsSectionTitle(stringResource(R.string.side_gestures_behavior_section))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.Brush, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.Brush, contentDescription = label) },
                     title = stringResource(R.string.trigger_design_entry),
                     subtitle = triggerDesignSummary(selectedHandle.design),
                     onClick = onOpenDesignSettings,
                 )
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.Animation, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.Animation, contentDescription = label) },
                     title = stringResource(R.string.trigger_appearance_entry),
                     subtitle = triggerAppearanceSummary(settings, side),
                     onClick = onOpenAppearanceSettings,
                 )
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.SwipeRight, contentDescription = label) },
                     title = stringResource(R.string.default_trigger_mode),
                     subtitle = triggerModeLabel(settings.defaultTriggerModeFor(side), includeDefault = false),
                     onClick = { pickingDefaultMode = true },
@@ -180,7 +180,7 @@ private fun GestureSlotRow(
         icon = {
             Icon(
                 imageVector = gestureActionIcon(action),
-                contentDescription = null,
+                contentDescription = label,
             )
         },
         title = label,
@@ -248,10 +248,10 @@ private fun SlotConfigOverlay(
             SettingsSectionTitle(stringResource(R.string.slot_action_type))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = {
+                    icon = { label ->
                         Icon(
                             imageVector = gestureActionIcon(selectedAction),
-                            contentDescription = null,
+                            contentDescription = label,
                         )
                     },
                     title = gestureActionLabel(selectedAction),
@@ -262,7 +262,7 @@ private fun SlotConfigOverlay(
             SettingsSectionTitle(stringResource(R.string.slot_trigger_mode))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.SwipeRight, contentDescription = label) },
                     title = slotTriggerModeTitle(selectedMode, sideDefaultMode),
                     subtitle = slotTriggerModeSubtitle(selectedMode, sideDefaultMode),
                     onClick = { pickingMode = true },
@@ -394,13 +394,13 @@ private fun triggerLabel(side: PanelSide, trigger: GestureTriggerType): String =
 @Composable
 fun SideGesturesEntryCard(onOpenLeft: () -> Unit, onOpenRight: () -> Unit) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.SwipeRight, contentDescription = label) },
         title = stringResource(R.string.side_gestures_entry_left),
         subtitle = stringResource(R.string.side_gestures_entry_desc),
         onClick = onOpenLeft,
     )
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.SwipeRight, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.SwipeRight, contentDescription = label) },
         title = stringResource(R.string.side_gestures_entry_right),
         subtitle = stringResource(R.string.side_gestures_entry_desc),
         onClick = onOpenRight,

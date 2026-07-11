@@ -29,6 +29,8 @@ import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -45,6 +47,7 @@ data class PendingPermissionItem(
 fun SettingIconContainer(
     modifier: Modifier = Modifier,
     emphasized: Boolean = false,
+    contentDescription: String? = null,
     content: @Composable () -> Unit,
 ) {
     val shape = if (emphasized) {
@@ -53,7 +56,15 @@ fun SettingIconContainer(
         MaterialTheme.shapes.small
     }
     Surface(
-        modifier = modifier.size(40.dp),
+        modifier = modifier
+            .size(40.dp)
+            .then(
+                if (contentDescription != null) {
+                    Modifier.semantics { this.contentDescription = contentDescription }
+                } else {
+                    Modifier
+                },
+            ),
         shape = shape,
         color = if (emphasized) {
             MaterialTheme.colorScheme.primaryContainer

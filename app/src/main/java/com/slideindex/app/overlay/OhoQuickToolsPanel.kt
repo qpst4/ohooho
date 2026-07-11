@@ -62,6 +62,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -202,7 +203,7 @@ private fun TopBrightnessRow(
         ) {
             Icon(
                 painter = painterResource(R.drawable.ic_brightness_auto),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_auto_brightness),
                 tint = iconTint,
                 modifier = Modifier.size(18.dp),
             )
@@ -248,13 +249,22 @@ private fun MediaControlCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MediaGlyphButton(Icons.Default.SkipPrevious) { onEvent(OhoPanelEvent.MediaPrevious) }
+            MediaGlyphButton(Icons.Default.SkipPrevious, stringResource(R.string.cd_media_previous)) {
+                onEvent(OhoPanelEvent.MediaPrevious)
+            }
             MediaGlyphButton(
                 if (mediaIsPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                stringResource(if (mediaIsPlaying) R.string.cd_media_pause else R.string.cd_media_play),
             ) { onEvent(OhoPanelEvent.MediaPlayPause) }
-            MediaGlyphButton(Icons.Default.SkipNext) { onEvent(OhoPanelEvent.MediaNext) }
-            MediaGlyphButton(Icons.Default.KeyboardArrowUp) { onEvent(OhoPanelEvent.ChevronUp) }
-            MediaGlyphButton(Icons.Default.KeyboardArrowDown) { onEvent(OhoPanelEvent.ChevronDown) }
+            MediaGlyphButton(Icons.Default.SkipNext, stringResource(R.string.cd_media_next)) {
+                onEvent(OhoPanelEvent.MediaNext)
+            }
+            MediaGlyphButton(Icons.Default.KeyboardArrowUp, stringResource(R.string.cd_navigate_forward)) {
+                onEvent(OhoPanelEvent.ChevronUp)
+            }
+            MediaGlyphButton(Icons.Default.KeyboardArrowDown, stringResource(R.string.cd_navigate_forward)) {
+                onEvent(OhoPanelEvent.ChevronDown)
+            }
         }
     }
 }
@@ -300,20 +310,20 @@ private fun MediaAppButton(
         when {
             iconBitmap != null -> Image(
                 bitmap = iconBitmap!!.asImageBitmap(),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_app_icon),
                 modifier = Modifier
                     .size(26.dp)
                     .clip(CircleShape),
             )
             needsMediaAccess -> Icon(
                 imageVector = Icons.Default.Settings,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_settings),
                 tint = Color.White,
                 modifier = Modifier.size(16.dp),
             )
             else -> Icon(
                 imageVector = Icons.Default.MusicNote,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.cd_media_play),
                 tint = OhoColors.TileInactiveIcon,
                 modifier = Modifier.size(16.dp),
             )
@@ -322,7 +332,11 @@ private fun MediaAppButton(
 }
 
 @Composable
-private fun RowScope.MediaGlyphButton(icon: ImageVector, onClick: () -> Unit) {
+private fun RowScope.MediaGlyphButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .weight(1f)
@@ -331,7 +345,7 @@ private fun RowScope.MediaGlyphButton(icon: ImageVector, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(imageVector = icon, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -424,35 +438,51 @@ private fun OhoTileGlyph(
     when (tile) {
         OhoTile.QUICK_PANEL -> Icon(
             imageVector = OhoPanelIcons.NotificationShade,
-            contentDescription = null,
+            contentDescription = ohoTileContentDescription(tile),
             tint = tint,
             modifier = Modifier.size(iconSize),
         )
         OhoTile.SCREEN_RECORD -> Icon(
             imageVector = OhoPanelIcons.ScreenRecord,
-            contentDescription = null,
+            contentDescription = ohoTileContentDescription(tile),
             tint = tint,
             modifier = Modifier.size(iconSize),
         )
         OhoTile.DO_NOT_DISTURB -> Icon(
             painter = painterResource(if (active) R.drawable.ic_dnd_on else R.drawable.ic_dnd_off),
-            contentDescription = null,
+            contentDescription = ohoTileContentDescription(tile),
             tint = tint,
             modifier = Modifier.size(iconSize),
         )
         OhoTile.SOUND -> Icon(
             painter = painterResource(RingerModeIconRenderer.iconResFor(ringerMode ?: AudioManager.RINGER_MODE_NORMAL)),
-            contentDescription = null,
+            contentDescription = ohoTileContentDescription(tile),
             tint = tint,
             modifier = Modifier.size(iconSize),
         )
         else -> Icon(
             imageVector = ohoTileIcon(tile),
-            contentDescription = null,
+            contentDescription = ohoTileContentDescription(tile),
             tint = tint,
             modifier = Modifier.size(iconSize),
         )
     }
+}
+
+@Composable
+private fun ohoTileContentDescription(tile: OhoTile): String = when (tile) {
+    OhoTile.WIFI -> stringResource(R.string.gesture_action_toggle_wifi)
+    OhoTile.MOBILE_DATA -> stringResource(R.string.gesture_action_toggle_mobile_data)
+    OhoTile.SOUND -> stringResource(R.string.gesture_action_toggle_mute)
+    OhoTile.BLUETOOTH -> stringResource(R.string.cd_bluetooth_toggle)
+    OhoTile.AUTO_ROTATE -> stringResource(R.string.cd_auto_rotate_toggle)
+    OhoTile.QUICK_PANEL -> stringResource(R.string.gesture_action_open_notifications)
+    OhoTile.SCREENSHOT -> stringResource(R.string.gesture_action_screenshot)
+    OhoTile.LOCK -> stringResource(R.string.gesture_action_lock_screen)
+    OhoTile.FLASHLIGHT -> stringResource(R.string.gesture_action_flashlight)
+    OhoTile.DO_NOT_DISTURB -> stringResource(R.string.gesture_action_toggle_dnd)
+    OhoTile.SCREEN_RECORD -> stringResource(R.string.gesture_action_screen_record)
+    OhoTile.CLOSE -> stringResource(R.string.gesture_action_close_current_app)
 }
 
 private fun ohoTileIcon(tile: OhoTile): ImageVector = when (tile) {

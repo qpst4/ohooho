@@ -138,7 +138,7 @@ fun AnimationStyleIconTypePicker(
                         .clickable(enabled = enabled) { onTypeSelected(iconType) }
                         .padding(10.dp),
                     painter = waveStyleIconPainter(iconType),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_animation_preview),
                     colorFilter = ColorFilter.tint(Color.White),
                 )
             }

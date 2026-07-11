@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -73,7 +73,7 @@ fun FreeWindowSettingsScreen(
                 title = { SettingsAppBarTitle(stringResource(R.string.free_window_settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -91,7 +91,7 @@ fun FreeWindowSettingsScreen(
             SettingsSectionTitle(stringResource(R.string.settings_section_service))
             SettingsCard {
                 SettingToggleRow(
-                    icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.PowerSettingsNew, contentDescription = label) },
                     title = stringResource(R.string.free_window_enabled),
                     subtitle = stringResource(R.string.free_window_enabled_desc),
                     checked = settings.freeWindowEnabled,
@@ -103,7 +103,7 @@ fun FreeWindowSettingsScreen(
             SettingsSectionTitle(stringResource(R.string.settings_section_launch))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.TouchApp, contentDescription = label) },
                     title = stringResource(R.string.launch_policy_title),
                     subtitle = stringResource(selectedPolicy.titleRes),
                     onClick = { showPolicyDialog = true },
@@ -155,14 +155,14 @@ fun FreeWindowSettingsScreen(
             SettingsSectionTitle(stringResource(R.string.settings_section_free_window))
             SettingsCard {
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.Layers, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.Layers, contentDescription = label) },
                     title = stringResource(R.string.free_window_launch_mode),
                     subtitle = stringResource(selectedMode.titleRes),
                     enabled = settings.freeWindowEnabled,
                     onClick = { showModeDialog = true },
                 )
                 SettingNavigationRow(
-                    icon = { Icon(Icons.Default.Tune, contentDescription = null) },
+                    icon = { label -> Icon(Icons.Default.Tune, contentDescription = label) },
                     title = stringResource(R.string.free_window_adjust_layout),
                     subtitle = stringResource(R.string.free_window_adjust_layout_desc),
                     enabled = settings.freeWindowEnabled,
@@ -215,7 +215,7 @@ fun FreeWindowSettingsScreen(
 @Composable
 fun FreeWindowEntryCard(onClick: () -> Unit) {
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.CropFree, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.CropFree, contentDescription = label) },
         title = stringResource(R.string.free_window_entry_title),
         subtitle = stringResource(R.string.free_window_entry_desc),
         onClick = onClick,

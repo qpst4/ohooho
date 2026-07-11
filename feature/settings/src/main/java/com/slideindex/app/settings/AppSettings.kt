@@ -133,4 +133,5 @@ data class AppSettings(
     val shakeGestureSettings: ShakeGestureSettings = ShakeGestureSettings(),
     val messageReminderSettings: MessageSettings = MessageSettings(),
     val debugPerformanceMonitorEnabled: Boolean = false,
+    val onboardingCompleted: Boolean = false,
 )

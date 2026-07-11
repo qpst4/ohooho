@@ -10,10 +10,12 @@ import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
 import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
+import com.slideindex.app.ui.SettingsBackupScreen
 import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
+import com.slideindex.app.ui.viewmodel.SettingsBackupViewModel
 
 fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
     entry<AppNavKey.ExtensionHub> {
@@ -29,6 +31,16 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onOpenShellCommands = { ctx.navigate(AppNavKey.ShellCommands) },
             onOpenWidgetPanel = { ctx.navigate(AppNavKey.WidgetPanel) },
             onOpenFloatingPointer = { ctx.navigate(AppNavKey.FloatingPointer) },
+            onOpenSettingsBackup = { ctx.navigate(AppNavKey.ExtensionBackup) },
+        )
+    }
+
+    entry<AppNavKey.ExtensionBackup> {
+        val viewModel: SettingsBackupViewModel = hiltViewModel()
+        SettingsBackupScreen(
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
+            onExport = viewModel::exportSettings,
+            onImport = viewModel::importSettings,
         )
     }
 

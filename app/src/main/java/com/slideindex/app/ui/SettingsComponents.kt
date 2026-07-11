@@ -59,7 +59,7 @@ fun SettingsHintText(text: String, modifier: Modifier = Modifier) =
 fun SettingSwitchRow(
     title: String,
     subtitle: String? = null,
-    icon: (@Composable () -> Unit)? = null,
+    icon: (@Composable (accessibilityLabel: String) -> Unit)? = null,
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -69,7 +69,7 @@ fun SettingSwitchRow(
 fun SettingSwitchNavigationRow(
     title: String,
     subtitle: String,
-    icon: (@Composable () -> Unit)? = null,
+    icon: (@Composable (accessibilityLabel: String) -> Unit)? = null,
     checked: Boolean,
     enabled: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -86,7 +86,7 @@ fun SettingLinkRow(
 
 @Composable
 fun SettingToggleRow(
-    icon: @Composable () -> Unit,
+    icon: @Composable (accessibilityLabel: String) -> Unit,
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -96,7 +96,7 @@ fun SettingToggleRow(
 
 @Composable
 fun SettingNavigationRow(
-    icon: @Composable () -> Unit,
+    icon: @Composable (accessibilityLabel: String) -> Unit,
     title: String,
     subtitle: String,
     enabled: Boolean = true,

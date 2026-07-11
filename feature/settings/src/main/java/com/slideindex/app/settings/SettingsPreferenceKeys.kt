@@ -172,4 +172,5 @@ internal object SettingsPreferenceKeys {
             booleanPreferencesKey("message_suppress_when_system_dnd")
     val MESSAGE_APP_FILTER_RULES = stringSetPreferencesKey("message_app_filter_rules")
     val DEBUG_PERFORMANCE_MONITOR = booleanPreferencesKey("debug_performance_monitor")
+    val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 }

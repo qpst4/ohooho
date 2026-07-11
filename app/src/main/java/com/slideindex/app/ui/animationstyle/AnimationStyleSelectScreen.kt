@@ -1,4 +1,4 @@
-package com.slideindex.app.ui.animationstyle
+﻿package com.slideindex.app.ui.animationstyle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +31,7 @@ fun GestureAnimationSettingsRows(
     SettingSwitchNavigationRow(
         title = stringResource(R.string.gesture_animation_title),
         subtitle = gestureHintStyleLabel(settings.gestureHintStyle()),
-        icon = { Icon(Icons.Default.Animation, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.Animation, contentDescription = label) },
         checked = settings.gestureHintEnabled,
         enabled = enabled,
         onCheckedChange = onGestureHintEnabledChange,

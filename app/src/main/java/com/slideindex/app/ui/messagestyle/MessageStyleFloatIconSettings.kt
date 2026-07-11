@@ -153,14 +153,14 @@ private fun FloatIconPreviewBall(
     ) {
         Image(
             painter = painterResource(R.drawable.ic_notification),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_notification_icon),
             modifier = Modifier
                 .size((ballSize.coerceAtMost(52.dp) - 4.dp) * 0.66f)
                 .clip(CircleShape),
         )
         Image(
             painter = painterResource(R.drawable.ic_launcher),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.cd_app_icon),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .size((ballSize.coerceAtMost(52.dp) - 4.dp) * 0.34f)

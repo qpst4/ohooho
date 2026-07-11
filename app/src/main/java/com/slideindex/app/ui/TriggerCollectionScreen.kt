@@ -218,7 +218,9 @@ private fun TriggerEntryList(
                     } else {
                         Icons.Default.ExpandMore
                     },
-                    contentDescription = null,
+                    contentDescription = stringResource(
+                        if (sideExpanded) R.string.cd_collapse_section else R.string.cd_expand_section,
+                    ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
@@ -325,7 +327,7 @@ private fun TriggerSideRow(
                 )
                 Icon(
                     imageVector = Icons.Default.SwipeRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_trigger_preview),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = if (side == PanelSide.RIGHT) {
                         Modifier.graphicsLayer { scaleX = -1f }
@@ -352,7 +354,7 @@ private fun TriggerSideRow(
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.cd_navigate_forward),
                     modifier = Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
@@ -63,7 +63,7 @@ fun OtpAutoInputSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.otp_auto_input_enabled_title),
                 subtitle = stringResource(R.string.otp_auto_input_enabled_desc),
-                icon = { Icon(Icons.Default.Keyboard, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.Keyboard, contentDescription = label) },
                 checked = settings.otpAutoInputEnabled,
                 enabled = accessibilityGranted,
                 onCheckedChange = { enabled ->
@@ -77,7 +77,7 @@ fun OtpAutoInputSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.otp_copy_to_clipboard_title),
                 subtitle = stringResource(R.string.otp_copy_to_clipboard_desc),
-                icon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.ContentCopy, contentDescription = label) },
                 checked = settings.otpCopyToClipboard,
                 enabled = true,
                 onCheckedChange = onCopyToClipboardChange,
@@ -116,7 +116,7 @@ fun OtpAutoInputSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.otp_lsposed_sms_title),
                 subtitle = stringResource(R.string.otp_lsposed_sms_desc_short),
-                icon = { Icon(Icons.Default.Security, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.Security, contentDescription = label) },
                 checked = settings.otpLsposedSmsCaptureEnabled,
                 enabled = true,
                 onCheckedChange = onLsposedSmsChange,
@@ -124,7 +124,7 @@ fun OtpAutoInputSettingsScreen(
             SettingSwitchRow(
                 title = stringResource(R.string.otp_lsposed_inject_title),
                 subtitle = stringResource(R.string.otp_lsposed_inject_desc_short),
-                icon = { Icon(Icons.Default.Keyboard, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.Keyboard, contentDescription = label) },
                 checked = settings.otpLsposedSystemInjectEnabled,
                 enabled = accessibilityGranted && settings.otpAutoInputEnabled,
                 onCheckedChange = onLsposedSystemInjectChange,

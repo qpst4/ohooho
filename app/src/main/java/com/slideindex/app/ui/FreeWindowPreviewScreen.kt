@@ -60,7 +60,7 @@ fun FreeWindowPreviewScreen(
                 title = { SettingsAppBarTitle(stringResource(R.string.free_window_preview_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
             )
@@ -75,7 +75,7 @@ fun FreeWindowPreviewScreen(
                     .fillMaxWidth()
                     .padding(20.dp),
             ) {
-                Icon(Icons.Default.Check, contentDescription = null)
+                Icon(Icons.Default.Check, contentDescription = stringResource(R.string.cd_action_confirm))
                 Text(
                     text = stringResource(R.string.free_window_preview_save),
                     modifier = Modifier.padding(start = 8.dp),

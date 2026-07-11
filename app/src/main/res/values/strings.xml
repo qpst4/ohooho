@@ -1008,4 +1008,58 @@
     <string name="otp_hub_tab_rules">规则</string>
     <string name="otp_hub_tab_records">记录</string>
     <string name="otp_hub_tab_extensions">扩展</string>
+
+    <!-- Accessibility -->
+    <string name="cd_navigate_back">返回</string>
+    <string name="cd_navigate_forward">前进</string>
+    <string name="cd_action_confirm">确认</string>
+    <string name="cd_export_settings">导出设置</string>
+    <string name="cd_import_settings">导入设置</string>
+    <string name="cd_notification_icon">通知图标</string>
+    <string name="cd_app_icon">应用图标</string>
+    <string name="cd_animation_preview">动画预览</string>
+    <string name="cd_auto_brightness">自动亮度</string>
+    <string name="cd_media_play">播放</string>
+    <string name="cd_media_pause">暂停</string>
+    <string name="cd_media_previous">上一首</string>
+    <string name="cd_media_next">下一首</string>
+    <string name="cd_widget_preview">小组件预览</string>
+    <string name="cd_trigger_preview">触发器预览</string>
+    <string name="cd_shake_feedback">摇一摇反馈</string>
+    <string name="cd_radial_menu_settings">径向菜单设置</string>
+    <string name="cd_settings">设置</string>
+    <string name="cd_delete">删除</string>
+    <string name="cd_copy">复制</string>
+    <string name="cd_bluetooth_toggle">蓝牙开关</string>
+    <string name="cd_auto_rotate_toggle">自动旋转开关</string>
+    <string name="cd_expand_section">展开</string>
+    <string name="cd_collapse_section">收起</string>
+
+    <!-- Settings backup -->
+    <string name="settings_backup_title">设置备份</string>
+    <string name="settings_backup_subtitle">导出或导入应用配置，便于换机恢复</string>
+    <string name="settings_backup_section_actions">备份操作</string>
+    <string name="settings_backup_hint">备份包含手势、摇一摇、通知与扩展功能等设置，不包含验证码记录与通知历史。</string>
+    <string name="settings_backup_export">导出设置</string>
+    <string name="settings_backup_import">导入设置</string>
+    <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
+    <string name="settings_backup_entry_title">设置备份</string>
+    <string name="settings_backup_entry_desc">导出或导入 JSON 配置文件</string>
+    <string name="settings_backup_export_failed">导出失败，请稍后重试</string>
+    <string name="settings_backup_import_success">已导入 %1$d 项设置</string>
+    <string name="settings_backup_import_failed">导入失败，请检查文件格式</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_get_started">开始使用</string>
+    <string name="onboarding_progress">第 %1$d / %2$d 步</string>
+    <string name="onboarding_welcome_title">欢迎使用边栏</string>
+    <string name="onboarding_welcome_body">边栏通过边缘手势、摇一摇和通知增强，帮助你更高效地使用手机。接下来需要授予几项系统权限。</string>
+    <string name="onboarding_overlay_title">悬浮窗权限</string>
+    <string name="onboarding_overlay_body">用于显示边缘触发条、侧滑面板和消息提醒等悬浮界面。</string>
+    <string name="onboarding_grant_overlay">授予悬浮窗权限</string>
+    <string name="onboarding_done_title">准备就绪</string>
+    <string name="onboarding_done_body">核心权限已配置完成。你可以在首页继续调整手势，或在扩展页导入已有配置。</string>
+    <string name="onboarding_permission_granted">已授权</string>
 </resources>

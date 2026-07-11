@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +26,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
+import com.slideindex.app.ui.a11y.cdBottomNavExtension
+import com.slideindex.app.ui.a11y.cdBottomNavHome
+import com.slideindex.app.ui.a11y.cdBottomNavNotification
+import com.slideindex.app.ui.a11y.cdBottomNavShake
 
 enum class MainBottomNavDestination {
     Home,
@@ -60,25 +64,25 @@ fun FloatingBottomNavBar(
             FloatingBottomNavItem(
                 selected = selected == MainBottomNavDestination.Home,
                 onClick = { onDestinationSelected(MainBottomNavDestination.Home) },
-                icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                icon = { Icon(Icons.Default.Home, contentDescription = cdBottomNavHome()) },
                 label = stringResource(R.string.main_nav_home),
             )
             FloatingBottomNavItem(
                 selected = selected == MainBottomNavDestination.Shake,
                 onClick = { onDestinationSelected(MainBottomNavDestination.Shake) },
-                icon = { Icon(Icons.Default.ScreenRotation, contentDescription = null) },
+                icon = { Icon(Icons.Default.ScreenRotation, contentDescription = cdBottomNavShake()) },
                 label = stringResource(R.string.main_nav_shake),
             )
             FloatingBottomNavItem(
                 selected = selected == MainBottomNavDestination.Notification,
                 onClick = { onDestinationSelected(MainBottomNavDestination.Notification) },
-                icon = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                icon = { Icon(Icons.Default.Notifications, contentDescription = cdBottomNavNotification()) },
                 label = stringResource(R.string.main_nav_notification),
             )
             FloatingBottomNavItem(
                 selected = selected == MainBottomNavDestination.Extension,
                 onClick = { onDestinationSelected(MainBottomNavDestination.Extension) },
-                icon = { Icon(Icons.Default.Widgets, contentDescription = null) },
+                icon = { Icon(Icons.Default.Widgets, contentDescription = cdBottomNavExtension()) },
                 label = stringResource(R.string.main_nav_extension),
             )
         }

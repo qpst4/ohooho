@@ -68,10 +68,10 @@ fun PointerSwipeConfigDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 SettingNavigationRow(
-                    icon = {
+                    icon = { label ->
                         androidx.compose.material3.Icon(
                             imageVector = pointerSwipeDirectionIcon(direction),
-                            contentDescription = null,
+                            contentDescription = label,
                         )
                     },
                     title = stringResource(R.string.pointer_swipe_direction_title),

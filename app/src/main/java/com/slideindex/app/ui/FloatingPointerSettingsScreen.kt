@@ -1,4 +1,4 @@
-package com.slideindex.app.ui
+﻿package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
@@ -103,7 +103,7 @@ fun FloatingPointerSettingsScreen(
         SettingsSectionTitle(stringResource(R.string.floating_pointer_settings_section_appearance))
         SettingsCard {
             SettingNavigationRow(
-                icon = { Icon(Icons.Default.MyLocation, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.MyLocation, contentDescription = label) },
                 title = stringResource(R.string.floating_pointer_pointer_settings_title),
                 subtitle = stringResource(
                     R.string.floating_pointer_pointer_settings_summary,
@@ -113,7 +113,7 @@ fun FloatingPointerSettingsScreen(
                 onClick = onOpenPointerSettings,
             )
             SettingNavigationRow(
-                icon = { Icon(Icons.Default.TouchApp, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.TouchApp, contentDescription = label) },
                 title = stringResource(R.string.floating_pointer_joystick_settings_title),
                 subtitle = stringResource(
                     R.string.floating_pointer_joystick_settings_summary,
@@ -122,7 +122,7 @@ fun FloatingPointerSettingsScreen(
                 onClick = onOpenJoystickSettings,
             )
             SettingNavigationRow(
-                icon = { Icon(Icons.Default.RadioButtonChecked, contentDescription = null) },
+                icon = { label -> Icon(Icons.Default.RadioButtonChecked, contentDescription = label) },
                 title = stringResource(R.string.floating_pointer_radial_settings_title),
                 subtitle = if (settings.floatingPointerRadialMenuEnabled) {
                     stringResource(R.string.floating_pointer_radial_settings_summary_enabled)
@@ -155,7 +155,7 @@ fun FloatingPointerEntryCard(
         stringResource(R.string.floating_pointer_entry_desc)
     }
     SettingNavigationRow(
-        icon = { Icon(Icons.Default.MyLocation, contentDescription = null) },
+        icon = { label -> Icon(Icons.Default.MyLocation, contentDescription = label) },
         title = stringResource(R.string.floating_pointer_settings_title),
         subtitle = subtitle,
         enabled = enabled,

@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -38,6 +39,8 @@ import com.slideindex.app.di.AppDependencies
 import com.slideindex.app.overlay.FloatingPointerAreaPreviewOverlay
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.ui.FloatingBottomNavBar
+import com.slideindex.app.ui.OnboardingDialog
+import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.ui.MainBottomNavDestination
 import com.slideindex.app.ui.MainBottomNavHeight
 import com.slideindex.app.ui.MainBottomNavOuterPadding
@@ -116,6 +119,8 @@ fun MainNavHost(
     } else {
         16.dp
     }
+    val context = LocalContext.current
+    val overlayGranted = PermissionHelper.canDrawOverlays(context)
 
     CompositionLocalProvider(LocalAppDependencies provides deps) {
     SlideIndexTheme(
@@ -171,6 +176,24 @@ fun MainNavHost(
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = snackbarBottomPadding),
+            )
+            OnboardingDialog(
+                visible = !settings.onboardingCompleted,
+                permissions = permissions,
+                overlayGranted = overlayGranted,
+                onRequestOverlay = { navContext.openOverlaySettings() },
+                onRequestAccessibility = { navContext.openAccessibilitySettings() },
+                onRequestNotification = { navContext.requestNotificationPermission() },
+                onComplete = {
+                    navContext.launch {
+                        deps.settingsRepository.setOnboardingCompleted(true)
+                    }
+                },
+                onSkip = {
+                    navContext.launch {
+                        deps.settingsRepository.setOnboardingCompleted(true)
+                    }
+                },
             )
         }
     }

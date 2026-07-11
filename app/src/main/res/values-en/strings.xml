@@ -1008,4 +1008,55 @@
     <string name="widget_picker_empty">No widgets available</string>
     <string name="shell_panel_title">Shell command panel</string>
     <string name="otp_lsposed_scope_hint">On Meizu / Flyme, match XposedSmsCode and enable the 4 LSPosed-recommended scopes: Phone services, Telephony storage, Flyme system services, and System framework. Do not enable this app itself. Restart the phone after changing scope.</string>
+
+    <string name="cd_navigate_back">Navigate back</string>
+    <string name="cd_navigate_forward">Navigate forward</string>
+    <string name="cd_action_confirm">Confirm</string>
+    <string name="cd_export_settings">Export settings</string>
+    <string name="cd_import_settings">Import settings</string>
+    <string name="cd_notification_icon">Notification icon</string>
+    <string name="cd_app_icon">App icon</string>
+    <string name="cd_animation_preview">Animation preview</string>
+    <string name="cd_auto_brightness">Auto brightness</string>
+    <string name="cd_media_play">Play</string>
+    <string name="cd_media_pause">Pause</string>
+    <string name="cd_media_previous">Previous track</string>
+    <string name="cd_media_next">Next track</string>
+    <string name="cd_widget_preview">Widget preview</string>
+    <string name="cd_trigger_preview">Trigger preview</string>
+    <string name="cd_shake_feedback">Shake feedback</string>
+    <string name="cd_radial_menu_settings">Radial menu settings</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_copy">Copy</string>
+    <string name="cd_bluetooth_toggle">Bluetooth toggle</string>
+    <string name="cd_auto_rotate_toggle">Auto-rotate toggle</string>
+    <string name="cd_expand_section">Expand</string>
+    <string name="cd_collapse_section">Collapse</string>
+
+    <string name="settings_backup_title">Settings backup</string>
+    <string name="settings_backup_subtitle">Export or import app configuration for device migration</string>
+    <string name="settings_backup_section_actions">Backup actions</string>
+    <string name="settings_backup_hint">Backups include gestures, shake, notification, and extension settings. OTP records and notification history are excluded.</string>
+    <string name="settings_backup_export">Export settings</string>
+    <string name="settings_backup_import">Import settings</string>
+    <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
+    <string name="settings_backup_entry_title">Settings backup</string>
+    <string name="settings_backup_entry_desc">Export or import a JSON configuration file</string>
+    <string name="settings_backup_export_failed">Export failed. Please try again later.</string>
+    <string name="settings_backup_import_success">Imported %1$d settings</string>
+    <string name="settings_backup_import_failed">Import failed. Please check the file format.</string>
+
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_progress">Step %1$d of %2$d</string>
+    <string name="onboarding_welcome_title">Welcome to SlideIndex</string>
+    <string name="onboarding_welcome_body">SlideIndex enhances your phone with edge gestures, shake actions, and notification tools. A few system permissions are required next.</string>
+    <string name="onboarding_overlay_title">Display over other apps</string>
+    <string name="onboarding_overlay_body">Needed for edge triggers, side panels, and floating message reminders.</string>
+    <string name="onboarding_grant_overlay">Grant overlay permission</string>
+    <string name="onboarding_done_title">You are all set</string>
+    <string name="onboarding_done_body">Core permissions are configured. Tune gestures on Home or import an existing backup from Extensions.</string>
+    <string name="onboarding_permission_granted">Granted</string>
 </resources>
