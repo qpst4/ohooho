@@ -29,8 +29,7 @@ internal class QuickLauncherManagementTouchHandler(
     fun isTapGesture(touchX: Float, localY: Float): Boolean {
         val dx = touchX - ctrl.quickLauncherPageSwipeStartX
         val dy = localY - ctrl.quickLauncherPageSwipeStartY
-        val slop = touch.host.dp(24f)
-        return dx * dx + dy * dy <= slop * slop
+        return isWithinTapSlop(dx, dy, touch.host.dp(24f))
     }
 
     fun toolbarCommitAllowed(): Boolean {
@@ -63,5 +62,10 @@ internal class QuickLauncherManagementTouchHandler(
             toolbarCommitAllowed = true,
             allowSlideRelease = true,
         )
+    }
+
+    companion object {
+        internal fun isWithinTapSlop(dx: Float, dy: Float, slopPx: Float): Boolean =
+            dx * dx + dy * dy <= slopPx * slopPx
     }
 }

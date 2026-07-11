@@ -78,13 +78,12 @@ internal class QuickLauncherScrollHandler(
 
     fun finishPageDrag() {
         val panelWidth = ctrl.quickLauncherPanelWidthForPaging()
-        val threshold = panelWidth * PAGE_COMMIT_FRACTION
-        val offset = ctrl.quickLauncherPageDragOffset
-        val delta = when {
-            offset <= -threshold && ctrl.quickLauncherPageIndex < ctrl.quickLauncherPageCount - 1 -> 1
-            offset >= threshold && ctrl.quickLauncherPageIndex > 0 -> -1
-            else -> 0
-        }
+        val delta = computePageCommitDelta(
+            offset = ctrl.quickLauncherPageDragOffset,
+            panelWidth = panelWidth,
+            pageIndex = ctrl.quickLauncherPageIndex,
+            pageCount = ctrl.quickLauncherPageCount,
+        )
         if (delta != 0) {
             ctrl.quickLauncherPageIndex += delta
             ctrl.quickLauncherPageChangedThisGesture = true
@@ -186,29 +185,13 @@ internal class QuickLauncherScrollHandler(
         }
     }
 
-    private fun edgePageZoneFor(touchX: Float, panelRect: RectF): Int {
-        val edge = host.dp(EDGE_AUTO_PAGE_THRESHOLD_DP)
-        val innerThreshold = when (host.side()) {
-            PanelSide.LEFT -> panelRect.right - edge
-            PanelSide.RIGHT -> panelRect.left + edge
-        }
-        val outerThreshold = when (host.side()) {
-            PanelSide.LEFT -> panelRect.left + edge
-            PanelSide.RIGHT -> panelRect.right - edge
-        }
-        return when (host.side()) {
-            PanelSide.LEFT -> when {
-                touchX <= outerThreshold -> -1
-                touchX >= innerThreshold -> 1
-                else -> 0
-            }
-            PanelSide.RIGHT -> when {
-                touchX >= outerThreshold -> -1
-                touchX <= innerThreshold -> 1
-                else -> 0
-            }
-        }
-    }
+    private fun edgePageZoneFor(touchX: Float, panelRect: RectF): Int =
+        computeEdgePageZone(
+            touchX = touchX,
+            panelRect = panelRect,
+            side = host.side(),
+            edgePx = host.dp(EDGE_AUTO_PAGE_THRESHOLD_DP),
+        )
 
     companion object {
         private const val PAGE_SWIPE_DIRECTION_LOCK_DP = 8f
@@ -216,5 +199,47 @@ internal class QuickLauncherScrollHandler(
         private const val PAGE_EDGE_RESISTANCE = 0.35f
         private const val PAGE_SNAP_DURATION_MS = 180L
         private const val EDGE_AUTO_PAGE_THRESHOLD_DP = 14f
+
+        internal fun computePageCommitDelta(
+            offset: Float,
+            panelWidth: Float,
+            pageIndex: Int,
+            pageCount: Int,
+        ): Int {
+            val threshold = panelWidth * PAGE_COMMIT_FRACTION
+            return when {
+                offset <= -threshold && pageIndex < pageCount - 1 -> 1
+                offset >= threshold && pageIndex > 0 -> -1
+                else -> 0
+            }
+        }
+
+        internal fun computeEdgePageZone(
+            touchX: Float,
+            panelRect: RectF,
+            side: PanelSide,
+            edgePx: Float,
+        ): Int {
+            val innerThreshold = when (side) {
+                PanelSide.LEFT -> panelRect.right - edgePx
+                PanelSide.RIGHT -> panelRect.left + edgePx
+            }
+            val outerThreshold = when (side) {
+                PanelSide.LEFT -> panelRect.left + edgePx
+                PanelSide.RIGHT -> panelRect.right - edgePx
+            }
+            return when (side) {
+                PanelSide.LEFT -> when {
+                    touchX <= outerThreshold -> -1
+                    touchX >= innerThreshold -> 1
+                    else -> 0
+                }
+                PanelSide.RIGHT -> when {
+                    touchX >= outerThreshold -> -1
+                    touchX <= innerThreshold -> 1
+                    else -> 0
+                }
+            }
+        }
     }
 }

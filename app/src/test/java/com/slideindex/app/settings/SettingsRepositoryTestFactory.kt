@@ -4,7 +4,7 @@ import android.content.Context
 
 private val testSettingsLock = Any()
 
-suspend fun clearTestSettings(context: Context) = synchronized(testSettingsLock) {
+suspend fun clearTestSettings(context: Context) {
     val editor = SettingsPreferencesEditor(context)
     editor.edit { prefs ->
         prefs.asMap().keys.toList().forEach { key -> prefs.remove(key) }

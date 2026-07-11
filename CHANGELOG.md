@@ -4,6 +4,13 @@ All notable changes to SlideIndex are documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **P3 测试：** ViewModel 写入路径扩展（`ExtensionSettings`、`OtpSettings`、`OtpRecords.deleteRecord`）；`TaskSwitcherLongPressHandler` / `QuickLauncherScrollHandler` / `QuickLauncherManagementTouchHandler` 纯逻辑单测；`TaskManagerTaskOperations` 边界单测。
+
+### Changed
+- **P3 维护成本：** `TaskShellParser` 拆为 `Patterns` / `Titles` / `Entries` / `Lookup` / `Support`（门面 83 行）；`NotificationHistoryIntentCapture` 拆 `Serialization` + `Extraction`；`AdjustLevelIndicator` 拆 `Types` / `Layout` / `Renderer`；`WidgetCanvasLayout` 拆 `TouchHandler` + `Geometry`；`QuickLauncherEditorScreen` / `QuickLauncherGridEditor` 拆 `ui/quicklauncher/*`；`QuickLauncherPanelController` 拆 `Toolbar` + `ManagementHandler`。
+- CI `instrumentation` job 改为阻断失败，并上传 `instrumentation-results` artifact。
+
 ## [1.2.0] - 2026-07-11
 
 ### Added

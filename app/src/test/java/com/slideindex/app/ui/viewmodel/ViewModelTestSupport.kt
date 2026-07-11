@@ -3,6 +3,8 @@ package com.slideindex.app.ui.viewmodel
 import android.os.Looper
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.ui.feedback.UserMessage
+import com.slideindex.app.ui.feedback.UserMessageBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -40,3 +42,9 @@ internal suspend fun awaitSettings(
     }
 
 abstract class ViewModelCoroutineTest
+
+internal suspend fun awaitUserError(bus: UserMessageBus): UserMessage.Error {
+    val message = bus.messages.first()
+    require(message is UserMessage.Error) { "Expected error message but got $message" }
+    return message
+}

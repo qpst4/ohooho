@@ -278,7 +278,7 @@ GitHub Actions 工作流（`.github/workflows/ci.yml`）在 push/PR 时自动执
 - `assembleDebug` — 编译 Debug APK
 - `lintDebug` — 静态检查（基于 baseline，仅拦截新问题）
 - `testDebugUnitTest` — 单元测试（按模块分批，降低 OOM 风险）
-- `instrumentation` — API 30 模拟器跑 `connectedDebugAndroidTest`（`continue-on-error`，不阻断主 CI）
+- `instrumentation` — API 30 模拟器跑 `connectedDebugAndroidTest`（失败阻断 CI，报告上传为 artifact）
 
 **Push 到 `main`/`master` 时**（已配置 Secrets 的情况下）额外执行：
 

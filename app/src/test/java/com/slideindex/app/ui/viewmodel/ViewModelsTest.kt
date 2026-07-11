@@ -21,7 +21,9 @@ import com.slideindex.app.ui.feedback.UserMessage
 import com.slideindex.app.ui.feedback.UserMessageBus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,6 +34,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [30])
@@ -89,18 +92,36 @@ class KeepAliveSettingsViewModelTest : ViewModelCoroutineTest() {
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [30])
-class ExtensionHubViewModelTest {
+class ExtensionHubViewModelTest : ViewModelCoroutineTest() {
     @Test
-    fun settings_initialValue_matchesDefaults() {
+    fun settings_initialValue_matchesDefaults() = runViewModelTest {
         val context = RuntimeEnvironment.getApplication()
+        clearTestSettings(context)
+        val repository = testSettingsRepository(context)
         val viewModel = ExtensionHubViewModel(
-            settingsRepository = testSettingsRepository(context),
+            settingsRepository = repository,
             userMessageBus = UserMessageBus(),
             context,
         )
 
         assertFalse(viewModel.settings.value.serviceEnabled)
         assertEquals(AppSettings().quickLauncherColumnsPerPage, viewModel.settings.value.quickLauncherColumnsPerPage)
+    }
+
+    @Test
+    fun settings_reflectRepositoryUpdates() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        clearTestSettings(context)
+        val repository = testSettingsRepository(context)
+        val viewModel = ExtensionHubViewModel(repository, UserMessageBus(), context)
+        val settingsCollector = launch { viewModel.settings.collect { } }
+        primeSettingsFlow(repository)
+
+        repository.setServiceEnabled(true)
+
+        assertTrue(awaitSettings(repository) { it.serviceEnabled }.serviceEnabled)
+        assertTrue(viewModel.settings.first { it.serviceEnabled }.serviceEnabled)
+        settingsCollector.cancel()
     }
 }
 
@@ -115,6 +136,19 @@ class ExtensionSettingsViewModelTest : ViewModelCoroutineTest() {
         val viewModel = ExtensionSettingsViewModel(repository, UserMessageBus(), context)
 
         assertEquals(AppSettings().quickLauncherColumnsPerPage, viewModel.settings.value.quickLauncherColumnsPerPage)
+    }
+
+    @Test
+    fun setQuickLauncherColumnsPerPage_persistsToSettingsFlow() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        clearTestSettings(context)
+        val repository = testSettingsRepository(context)
+        val viewModel = ExtensionSettingsViewModel(repository, UserMessageBus(), context)
+        primeSettingsFlow(repository)
+
+        viewModel.setQuickLauncherColumnsPerPage(5)
+
+        assertEquals(5, awaitSettings(repository) { it.quickLauncherColumnsPerPage == 5 }.quickLauncherColumnsPerPage)
     }
 }
 
@@ -211,6 +245,69 @@ class OtpSettingsViewModelTest : ViewModelCoroutineTest() {
 
         assertFalse(viewModel.settings.value.otpAutoInputEnabled)
     }
+
+    @Test
+    fun setOtpAutoInputEnabled_persistsToSettingsFlow() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        clearTestSettings(context)
+        val repository = testSettingsRepository(context)
+        val viewModel = OtpSettingsViewModel(
+            settingsRepository = repository,
+            userMessageBus = UserMessageBus(),
+            context,
+            otpOfficialRulesLoader = OtpOfficialRulesLoader(context),
+            otpRecordsRepository = OtpRecordsRepository(context),
+        )
+        primeSettingsFlow(repository)
+
+        viewModel.setOtpAutoInputEnabled(true)
+
+        assertTrue(awaitSettings(repository) { it.otpAutoInputEnabled }.otpAutoInputEnabled)
+    }
+
+    @Test
+    fun recordTestOtp_persistsRecord() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val recordsRepository = OtpRecordsRepository(context)
+        val viewModel = OtpSettingsViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = UserMessageBus(),
+            context,
+            otpOfficialRulesLoader = OtpOfficialRulesLoader(context),
+            otpRecordsRepository = recordsRepository,
+        )
+        delay(200)
+
+        viewModel.recordTestOtp(code = "654321", sampleText = "code 654321", ruleName = "test-rule")
+        delay(200)
+
+        assertEquals(1, recordsRepository.records.value.size)
+        assertEquals("654321", recordsRepository.records.value.first().code)
+        assertTrue(recordsRepository.records.value.first().isTest)
+    }
+
+    @Test
+    fun recordTestOtp_onFailure_emitsError() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val bus = UserMessageBus()
+        val viewModel = OtpSettingsViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = bus,
+            context,
+            otpOfficialRulesLoader = OtpOfficialRulesLoader(context),
+            otpRecordsRepository = OtpRecordsRepository(context),
+        )
+        val message = async(Dispatchers.Unconfined) { awaitUserError(bus) }
+        context.filesDir.setWritable(false)
+
+        try {
+            viewModel.recordTestOtp(code = "000000", sampleText = "code", ruleName = null)
+            delay(200)
+            assertTrue(message.await().text.isNotEmpty())
+        } finally {
+            context.filesDir.setWritable(true)
+        }
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -232,13 +329,91 @@ class OtpRecordsViewModelTest : ViewModelCoroutineTest() {
 
         assertTrue(viewModel.records.value.isEmpty())
     }
+
+    @Test
+    fun deleteRecord_removesFromRepository() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = OtpRecordsRepository(context)
+        repository.recordSuspend(
+            code = "654321",
+            packageName = "com.test.app",
+            title = "Test",
+            text = "code 654321",
+            isTest = true,
+        )
+        val recordId = repository.records.first { it.isNotEmpty() }.first().id
+
+        val viewModel = OtpRecordsViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = UserMessageBus(),
+            context,
+            otpRecordsRepository = repository,
+            appRepository = AppRepository(context, NoOpAppLaunchPort),
+        )
+
+        viewModel.deleteRecord(recordId)
+        delay(200)
+
+        assertTrue(repository.records.value.none { it.id == recordId })
+    }
+
+    @Test
+    fun deleteRecord_onFailure_emitsError() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val repository = OtpRecordsRepository(context)
+        repository.recordSuspend(
+            code = "111111",
+            packageName = "com.test.app",
+            title = "Test",
+            text = "code 111111",
+            isTest = true,
+        )
+        val recordId = repository.records.first { it.isNotEmpty() }.first().id
+        val bus = UserMessageBus()
+        val viewModel = OtpRecordsViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = bus,
+            context,
+            otpRecordsRepository = repository,
+            appRepository = AppRepository(context, NoOpAppLaunchPort),
+        )
+        val message = async(Dispatchers.Unconfined) { awaitUserError(bus) }
+        context.filesDir.setWritable(false)
+
+        try {
+            viewModel.deleteRecord(recordId)
+            delay(200)
+            assertTrue(message.await().text.isNotEmpty())
+        } finally {
+            context.filesDir.setWritable(true)
+        }
+    }
+
+    @Test
+    fun loadApps_onFailure_emitsError() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val bus = UserMessageBus()
+        val viewModel = OtpRecordsViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = bus,
+            context,
+            otpRecordsRepository = OtpRecordsRepository(context),
+            appRepository = AppRepository(ThrowingPackageManagerContext(context), NoOpAppLaunchPort),
+        )
+        val message = async(Dispatchers.Unconfined) { awaitUserError(bus) }
+
+        viewModel.loadApps()
+        delay(100)
+
+        assertTrue(message.await().text.isNotEmpty())
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [30])
-class NotificationHubViewModelTest {
+class NotificationHubViewModelTest : ViewModelCoroutineTest() {
     @Test
-    fun visibleHistoryCount_startsAtZero() {
+    fun visibleHistoryCount_startsAtZero() = runViewModelTest {
         val context = RuntimeEnvironment.getApplication()
         val viewModel = NotificationHubViewModel(
             settingsRepository = testSettingsRepository(context),
@@ -249,6 +424,64 @@ class NotificationHubViewModelTest {
         )
 
         assertEquals(0, viewModel.visibleHistoryCount.value)
+    }
+
+    @Test
+    fun visibleHistoryCount_reflectsRecordedItems() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val historyRepository = notificationHistoryRepository(context)
+        val viewModel = NotificationHubViewModel(
+            settingsRepository = testSettingsRepository(context),
+            userMessageBus = UserMessageBus(),
+            context,
+            notificationHistoryRepository = historyRepository,
+            notificationFilterRepository = notificationFilterRepository(context),
+        )
+        val countCollector = launch { viewModel.visibleHistoryCount.collect { } }
+        delay(100)
+
+        historyRepository.record(
+            NotificationHistoryItem(
+                id = "hub-item-1",
+                packageName = "com.test",
+                title = "Title",
+                text = "Body",
+                postedAtMs = 1L,
+                intentUri = null,
+                notificationKey = "key-1",
+            ),
+        )
+
+        assertEquals(1, viewModel.visibleHistoryCount.first { it == 1 })
+        countCollector.cancel()
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [30])
+class SettingsViewModelWriteTest : ViewModelCoroutineTest() {
+    @Test
+    fun launchSettingsWrite_onFailure_emitsError() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val bus = UserMessageBus()
+        val viewModel = TestSettingsViewModel(testSettingsRepository(context), bus, context)
+        val message = async(Dispatchers.Unconfined) { awaitUserError(bus) }
+
+        viewModel.triggerFailingWrite()
+
+        assertTrue(message.await().text.isNotEmpty())
+    }
+
+    @Test
+    fun launchRepositoryWrite_onFailure_emitsError() = runViewModelTest {
+        val context = RuntimeEnvironment.getApplication()
+        val bus = UserMessageBus()
+        val viewModel = TestSettingsViewModel(testSettingsRepository(context), bus, context)
+        val message = async(Dispatchers.Unconfined) { awaitUserError(bus) }
+
+        viewModel.triggerFailingRepositoryWrite()
+
+        assertTrue(message.await().text.isNotEmpty())
     }
 }
 
@@ -373,4 +606,22 @@ private object NoOpNotificationHistoryLaunchPort : NotificationHistoryLaunchPort
     override fun startPendingIntentTrampoline(pendingIntentBase64: String, fallbackIntent: Intent?) = false
 
     override fun launchReplayIntent(intent: Intent, packageName: String, extrasBase64: String?) = false
+}
+
+private class TestSettingsViewModel(
+    settingsRepository: com.slideindex.app.settings.SettingsRepository,
+    userMessageBus: UserMessageBus,
+    context: Context,
+) : SettingsViewModel(settingsRepository, userMessageBus, context) {
+    fun triggerFailingWrite() = launchSettingsWrite { Result.failure(IOException("settings failed")) }
+
+    fun triggerFailingRepositoryWrite() = launchRepositoryWrite { Result.failure(IOException("repo failed")) }
+}
+
+private class ThrowingPackageManagerContext(
+    base: Context,
+) : android.content.ContextWrapper(base) {
+    override fun getPackageManager(): android.content.pm.PackageManager {
+        throw IOException("package manager failed")
+    }
 }

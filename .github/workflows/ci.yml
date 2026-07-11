@@ -95,7 +95,6 @@ jobs:
   instrumentation:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    continue-on-error: true
 
     steps:
       - name: Checkout
@@ -124,3 +123,11 @@ jobs:
             ./gradlew :app:connectedDebugAndroidTest \
               --no-daemon \
               -Pandroid.testInstrumentationRunnerArguments.class=com.slideindex.app.MainActivityComposeFlowTest,com.slideindex.app.MainActivitySmokeTest,com.slideindex.app.AppInstrumentationTest
+
+      - name: Upload instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumentation-results
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore

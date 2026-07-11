@@ -6,7 +6,8 @@ import androidx.annotation.Keep
 class TaskManagerUserService() : ITaskManagerService.Stub() {
 
     private val shell = TaskManagerShellExecutor
-    private val tasks = TaskManagerTaskOperations(shell)
+    private val shellRunner = ShellCommandRunner { args -> shell.shellCommand(*args) }
+    private val tasks = TaskManagerTaskOperations(shellRunner)
     private val shortcuts = TaskManagerShortcutResolver(shell)
     private val freeWindow = TaskManagerFreeWindowOperations(shell, tasks)
 

@@ -47,20 +47,28 @@ internal class TaskSwitcherLongPressHandler(
     }
 
     fun syncRowLongPress(pick: TaskSwitcherPick, eventTime: Long) {
-        if (!host.gestureSession().taskSwitcherContinuousPickActive()) return
-        if (ctrl.taskSwitcherContextMenuActive()) return
-        if (ctrl.taskSwitcherRowLongPressTriggered) return
+        if (shouldSkipRowLongPressSync(
+                host.gestureSession().taskSwitcherContinuousPickActive(),
+                ctrl.taskSwitcherContextMenuActive(),
+                ctrl.taskSwitcherRowLongPressTriggered,
+            )
+        ) {
+            return
+        }
         if (pick.row >= 0) {
-            if (pick.row == ctrl.taskSwitcherClosePressIndex &&
-                (ctrl.taskSwitcherCloseLongPressRunnable != null || ctrl.taskSwitcherCloseLongPressTriggered)
+            if (!shouldArmRowLongPress(
+                    pickRow = pick.row,
+                    closePressIndex = ctrl.taskSwitcherClosePressIndex,
+                    closeLongPressScheduled = ctrl.taskSwitcherCloseLongPressRunnable != null,
+                    closeLongPressTriggered = ctrl.taskSwitcherCloseLongPressTriggered,
+                    currentRowPressIndex = ctrl.taskSwitcherRowPressIndex,
+                )
             ) {
                 return
             }
-            if (ctrl.taskSwitcherRowPressIndex != pick.row) {
-                ctrl.taskSwitcherRowPressIndex = pick.row
-                ctrl.taskSwitcherRowPressDownTime = eventTime
-                scheduleRowLongPress(pick.row)
-            }
+            ctrl.taskSwitcherRowPressIndex = pick.row
+            ctrl.taskSwitcherRowPressDownTime = eventTime
+            scheduleRowLongPress(pick.row)
         } else {
             cancelRowLongPress()
             ctrl.taskSwitcherRowPressIndex = -1
@@ -133,9 +141,34 @@ internal class TaskSwitcherLongPressHandler(
     }
 
     private fun closeDwellMs(): Long =
-        if (host.gestureSession().taskSwitcherContinuousPickActive()) {
-            TaskSwitcherOverlayController.TASK_SWITCHER_CLOSE_CONTINUOUS_DWELL_MS
-        } else {
-            TaskSwitcherOverlayController.TASK_SWITCHER_CLOSE_DWELL_MS
+        closeLongPressDwellMs(host.gestureSession().taskSwitcherContinuousPickActive())
+
+    companion object {
+        internal fun closeLongPressDwellMs(continuousPickActive: Boolean): Long =
+            if (continuousPickActive) {
+                TaskSwitcherOverlayController.TASK_SWITCHER_CLOSE_CONTINUOUS_DWELL_MS
+            } else {
+                TaskSwitcherOverlayController.TASK_SWITCHER_CLOSE_DWELL_MS
+            }
+
+        internal fun shouldSkipRowLongPressSync(
+            continuousPickActive: Boolean,
+            contextMenuActive: Boolean,
+            rowLongPressTriggered: Boolean,
+        ): Boolean = !continuousPickActive || contextMenuActive || rowLongPressTriggered
+
+        internal fun shouldArmRowLongPress(
+            pickRow: Int,
+            closePressIndex: Int,
+            closeLongPressScheduled: Boolean,
+            closeLongPressTriggered: Boolean,
+            currentRowPressIndex: Int,
+        ): Boolean {
+            if (pickRow < 0) return false
+            if (pickRow == closePressIndex && (closeLongPressScheduled || closeLongPressTriggered)) {
+                return false
+            }
+            return pickRow != currentRowPressIndex
         }
+    }
 }

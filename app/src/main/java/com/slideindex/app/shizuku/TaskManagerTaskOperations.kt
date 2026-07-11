@@ -2,13 +2,47 @@ package com.slideindex.app.shizuku
 
 import android.util.Log
 
+internal fun interface ShellCommandRunner {
+    fun shellCommand(vararg cmd: String): Boolean
+}
+
+internal interface RecentsReader {
+    fun listTasks(): List<SystemRecentsAccess.Task>
+    fun removeTask(taskId: Int): Boolean
+    fun frontTask(): SystemRecentsAccess.Task?
+    fun findTaskId(identifier: String): Int?
+    fun switchToTask(taskId: Int): Boolean
+    fun matchesPackage(task: SystemRecentsAccess.Task, packageName: String): Boolean
+}
+
+private object DefaultShellRunner : ShellCommandRunner {
+    override fun shellCommand(vararg cmd: String): Boolean =
+        TaskManagerShellExecutor.shellCommand(*cmd)
+}
+
+private object SystemRecentsReader : RecentsReader {
+    override fun listTasks(): List<SystemRecentsAccess.Task> = SystemRecentsAccess.listTasks()
+
+    override fun removeTask(taskId: Int): Boolean = SystemRecentsAccess.removeTask(taskId)
+
+    override fun frontTask(): SystemRecentsAccess.Task? = SystemRecentsAccess.frontTask()
+
+    override fun findTaskId(identifier: String): Int? = SystemRecentsAccess.findTaskId(identifier)
+
+    override fun switchToTask(taskId: Int): Boolean = SystemRecentsAccess.switchToTask(taskId)
+
+    override fun matchesPackage(task: SystemRecentsAccess.Task, packageName: String): Boolean =
+        SystemRecentsAccess.matchesPackage(task, packageName)
+}
+
 internal class TaskManagerTaskOperations(
-    private val shell: TaskManagerShellExecutor = TaskManagerShellExecutor,
+    private val shell: ShellCommandRunner = DefaultShellRunner,
+    private val recents: RecentsReader = SystemRecentsReader,
 ) {
 
     fun removeTaskById(taskIdStr: String?): Boolean {
         val id = taskIdStr?.toIntOrNull()?.takeIf { it > 0 } ?: return false
-        if (SystemRecentsAccess.removeTask(id)) {
+        if (recents.removeTask(id)) {
             Log.i(TAG, "removeTaskById($id) via system API succeeded")
             return true
         }
@@ -52,8 +86,8 @@ internal class TaskManagerTaskOperations(
 
     fun getTaskIdsForPackage(packageName: String?): Array<String> {
         if (packageName.isNullOrBlank()) return emptyArray()
-        return SystemRecentsAccess.listTasks()
-            .filter { SystemRecentsAccess.matchesPackage(it, packageName) }
+        return recents.listTasks()
+            .filter { recents.matchesPackage(it, packageName) }
             .map { it.taskId }
             .filter { it > 0 }
             .distinct()
@@ -62,19 +96,16 @@ internal class TaskManagerTaskOperations(
     }
 
     fun getRecentTaskPackages(): Array<String> {
-        return SystemRecentsAccess.listTasks()
+        return recents.listTasks()
             .map { it.packageName }
             .distinct()
             .toTypedArray()
     }
 
     fun getRecentTasks(): Array<String> {
-        val entries = SystemRecentsAccess.listTasks()
+        val entries = recents.listTasks()
         Log.i(TAG, "getRecentTasks -> ${entries.size}")
-        return entries.map { task ->
-            val topComponent = task.component.takeIf { it.contains('/') }.orEmpty()
-            "${task.taskId}\t${task.component}\t${task.title.orEmpty()}\t$topComponent"
-        }.toTypedArray()
+        return entries.map(::formatRecentTaskRow).toTypedArray()
     }
 
     fun switchToTask(
@@ -85,12 +116,12 @@ internal class TaskManagerTaskOperations(
         val rawId = identifier?.trim().orEmpty()
         val knownTaskId = taskIdStr?.toIntOrNull()?.takeIf { it > 0 }
         val resolvedId = knownTaskId
-            ?: if (rawId.isNotEmpty()) SystemRecentsAccess.findTaskId(rawId) else null
+            ?: if (rawId.isNotEmpty()) recents.findTaskId(rawId) else null
         if (resolvedId == null || resolvedId <= 0) {
             Log.w(TAG, "switchToTask unresolved taskIdStr=$taskIdStr identifier=$rawId")
             return false
         }
-        return SystemRecentsAccess.switchToTask(resolvedId)
+        return recents.switchToTask(resolvedId)
     }
 
     fun showVoiceAssistant(): Boolean {
@@ -121,9 +152,14 @@ internal class TaskManagerTaskOperations(
     }
 
     fun readFrontTask(): ShellTaskEntry? =
-        SystemRecentsAccess.frontTask()?.let { SystemRecentsAccess.toShellEntry(it) }
+        recents.frontTask()?.let { SystemRecentsAccess.toShellEntry(it) }
 
     companion object {
         private const val TAG = "TaskManagerUserService"
+
+        internal fun formatRecentTaskRow(task: SystemRecentsAccess.Task): String {
+            val topComponent = task.component.takeIf { it.contains('/') }.orEmpty()
+            return "${task.taskId}\t${task.component}\t${task.title.orEmpty()}\t$topComponent"
+        }
     }
 }
