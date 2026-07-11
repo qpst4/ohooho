@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
@@ -39,6 +40,7 @@ fun SettingsBackupScreen(
     onImport: (android.net.Uri) -> Unit,
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
@@ -67,7 +69,7 @@ fun SettingsBackupScreen(
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = {
-                    val defaultName = context.getString(
+                    val defaultName = resources.getString(
                         R.string.settings_backup_default_filename,
                         System.currentTimeMillis(),
                     )
