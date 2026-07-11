@@ -1,0 +1,349 @@
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+
+package com.slideindex.app.ui.settings.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.slideindex.app.ui.RegisterSettingsSegment
+import com.slideindex.app.ui.SettingIconContainer
+import com.slideindex.app.ui.SettingsCard
+import com.slideindex.app.ui.pickerSegmentedColors
+import com.slideindex.app.ui.pickerSegmentedShapes
+import com.slideindex.app.ui.settingsSegmentedColors
+
+@Composable
+fun SettingSwitchRow(
+    title: String,
+    subtitle: String? = null,
+    icon: (@Composable () -> Unit)? = null,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = { if (enabled) onCheckedChange(!checked) },
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            leadingContent = icon?.let {
+                {
+                    SettingIconContainer { it() }
+                }
+            },
+            trailingContent = {
+                Switch(
+                    checked = checked,
+                    enabled = enabled,
+                    onCheckedChange = { if (enabled) onCheckedChange(it) },
+                )
+            },
+            supportingContent = subtitle?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingSwitchNavigationRow(
+    title: String,
+    subtitle: String,
+    icon: (@Composable () -> Unit)? = null,
+    checked: Boolean,
+    enabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onNavigate: () -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = { if (enabled) onNavigate() },
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            leadingContent = icon?.let {
+                {
+                    SettingIconContainer { it() }
+                }
+            },
+            trailingContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(start = 8.dp),
+                ) {
+                    VerticalDivider(
+                        modifier = Modifier.height(32.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    CompositionLocalProvider(
+                        LocalMinimumInteractiveComponentSize provides 0.dp,
+                    ) {
+                        Switch(
+                            checked = checked,
+                            enabled = enabled,
+                            onCheckedChange = { if (enabled) onCheckedChange(it) },
+                            modifier = Modifier.padding(end = 4.dp),
+                        )
+                    }
+                }
+            },
+            supportingContent = {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingLinkRow(
+    title: String,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            trailingContent = {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            supportingContent = subtitle?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingToggleRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = { if (enabled) onCheckedChange(!checked) },
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            leadingContent = {
+                SettingIconContainer { icon() }
+            },
+            trailingContent = {
+                Switch(
+                    checked = checked,
+                    enabled = enabled,
+                    onCheckedChange = { if (enabled) onCheckedChange(it) },
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingNavigationRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    subtitle: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    trailingContent: (@Composable () -> Unit)? = null,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = settingsSegmentedColors(),
+            leadingContent = {
+                SettingIconContainer { icon() }
+            },
+            trailingContent = {
+                if (trailingContent != null) {
+                    trailingContent()
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            supportingContent = {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingRadioRow(
+    title: String,
+    subtitle: String? = null,
+    selected: Boolean,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    RegisterSettingsSegment { segmentIndex, segmentCount ->
+        SegmentedListItem(
+            selected = selected,
+            onClick = onClick,
+            enabled = enabled,
+            shapes = pickerSegmentedShapes(segmentIndex, segmentCount),
+            colors = pickerSegmentedColors(),
+            trailingContent = {
+                androidx.compose.material3.RadioButton(
+                    selected = selected,
+                    onClick = null,
+                )
+            },
+            supportingContent = subtitle?.let {
+                {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            content = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMediumEmphasized,
+                    color = if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    },
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun SettingsRadioGroup(content: @Composable () -> Unit) {
+    Column(modifier = Modifier.selectableGroup()) {
+        SettingsCard(content = content)
+    }
+}

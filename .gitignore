@@ -19,6 +19,8 @@
 # --- IDE与本地临时任务 ---
 .vscode/
 .tasks/
+.tmp/
+build-hilt.log
 test-regex.kts
 
 # --- JVM 崩溃与回放日志 ---

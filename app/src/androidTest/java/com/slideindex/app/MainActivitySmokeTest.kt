@@ -9,7 +9,7 @@ class MainActivitySmokeTest {
 
     @Test
     fun applicationClass_isSlideIndexApp() {
-        // Instrumentation smoke: verifies test APK wiring and app class on device/emulator.
+        // Kept for legacy smoke wiring; real UI flow is covered by MainActivityComposeFlowTest.
         assert(true)
     }
 }

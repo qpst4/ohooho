@@ -1,0 +1,26 @@
+package com.slideindex.app.ui
+
+import android.content.Context
+import androidx.compose.runtime.Composable
+import com.slideindex.app.gesture.GestureAction
+
+@Composable
+fun gestureActionLabel(action: GestureAction): String =
+    com.slideindex.app.ui.gesturepicker.gestureActionLabel(action)
+
+@Composable
+fun gestureActionDescription(action: GestureAction): String? =
+    com.slideindex.app.ui.gesturepicker.gestureActionDescription(action)
+
+@Composable
+fun gestureActionPermissionHint(action: GestureAction, context: Context): String? =
+    com.slideindex.app.ui.gesturepicker.gestureActionPermissionHint(action, context)
+
+fun filterGestureActions(
+    context: Context,
+    actions: List<GestureAction>,
+    query: String,
+): List<GestureAction> = com.slideindex.app.ui.gesturepicker.filterGestureActions(context, actions, query)
+
+fun requestPermissionForAdjustAction(context: Context, action: GestureAction) =
+    com.slideindex.app.ui.gesturepicker.requestPermissionForAdjustAction(context, action)

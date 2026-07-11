@@ -1,283 +1,202 @@
 package com.slideindex.app.gesture
 
-
-
 import com.slideindex.app.overlay.OverlayPanelMode
-
 import com.slideindex.app.overlay.PanelSide
-
 import com.slideindex.app.service.OverlayService
-
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.actionFor
 import com.slideindex.app.settings.primaryTriggerHandle
 import com.slideindex.app.settings.resolvedTriggerMode
 import com.slideindex.app.settings.triggerHandle
-
 import com.slideindex.app.util.ContinuousAdjustController
 
-
-
 class GestureSession(
-
     private val side: PanelSide,
-
     private val zoneLayout: GestureZoneLayout,
-
     private val indexSession: SlideAlongRailSession,
-
     private val pathRecognizer: SwipePathRecognizer,
-
     private val actionExecutor: ActionExecutor,
-
     private val callbacks: Callbacks,
-
 ) {
 
     interface Callbacks {
-
         fun onSessionStart(mode: OverlayPanelMode)
-
         fun onOpenShellCommandPanel(continuousPick: Boolean)
-
         fun onShellCommandPanelContinuousRelease()
-
         fun onShowAdjustPanel(
             mode: ContinuousAdjustController.Mode,
             fraction: Float,
             anchorRawY: Float,
             deferWindowLayout: Boolean = false,
         )
-
         fun onSessionEnd()
-
         fun onRequestInvalidate()
-
         fun hapticGestureStart()
-
         fun hapticLongThreshold()
-
         fun hapticConfirmLaunch()
-
         fun scheduleDelayed(runnable: Runnable, delayMs: Long)
-
         fun cancelDelayed(runnable: Runnable)
-
     }
 
-
-
-    private var settings = AppSettings()
+    internal var sessionSettings = AppSettings()
+    internal val sessionSide: PanelSide get() = side
+    internal val sessionIndexSession: SlideAlongRailSession get() = indexSession
+    internal val sessionPathRecognizer: SwipePathRecognizer get() = pathRecognizer
+    internal val sessionActionExecutor: ActionExecutor get() = actionExecutor
+    internal val sessionCallbacks: Callbacks get() = callbacks
+    internal val sessionContinuousPick = GestureSessionContinuousPick()
+    internal val sessionLongPressCheckRunnable: Runnable get() = longPressCheckRunnable
 
     private var active = false
-
-    private var panelMode = OverlayPanelMode.NONE
-
-    private var indexMode = false
-
-    private var adjustMode: ContinuousAdjustController.Mode? = null
-
-    /** Screen Y frozen when adjust mode starts; indicator layout must not follow the finger. */
-    private var adjustLayoutAnchorRawY = 0f
-
-    private var moveTimeActionFired = false
-
-    private var wasAboveShortThreshold = false
-
-    private var wasAboveLongThreshold = false
-
-    private var longPressHapticFired = false
+    internal var sessionPanelMode = OverlayPanelMode.NONE
+    internal var sessionIndexMode = false
+    internal var sessionAdjustMode: ContinuousAdjustController.Mode? = null
+    internal var sessionAdjustLayoutAnchorRawY = 0f
+    internal var sessionMoveTimeActionFired = false
+    internal var sessionActiveHandleId = TriggerHandle.DEFAULT_ID
 
     private var lastRawX = 0f
-
     private var lastRawY = 0f
-
     private var lastLocalX = 0f
-
     private var lastLocalY = 0f
 
-    private var activeHandleId = TriggerHandle.DEFAULT_ID
+    private val thresholdTracker: GestureSessionThresholdTracker
+    private val longPressCheckRunnable: Runnable
 
-    private val longPressCheckRunnable = Runnable {
-        if (!active || panelMode != OverlayPanelMode.NONE) return@Runnable
-        maybeHapticLongPress(lastRawX, lastRawY)
-        if (!pathRecognizer.isLongPressArmed()) return@Runnable
-        val classification = pathRecognizer.classifyPartial(lastRawX, lastRawY, classifyOptions()) ?: return@Runnable
-        when (settings.resolvedTriggerMode(side, classification.trigger, activeHandleId)) {
-            GestureTriggerMode.IMMEDIATE -> {
-                if (!moveTimeActionFired &&
-                    pathRecognizer.hasMetThreshold(classification.trigger, lastRawX, lastRawY)
-                ) {
-                    dispatchMoveTimeGesture(
-                        classification,
-                        lastRawX,
-                        lastRawY,
-                        lastLocalX,
-                        lastLocalY,
-                    )
+    init {
+        thresholdTracker = GestureSessionThresholdTracker(
+            pathRecognizer = pathRecognizer,
+            callbacks = callbacks,
+            cancelLongPressCheck = { callbacks.cancelDelayed(longPressCheckRunnable) },
+        )
+        longPressCheckRunnable = Runnable {
+            if (!active || sessionPanelMode != OverlayPanelMode.NONE) return@Runnable
+            thresholdTracker.maybeHapticLongPress(lastRawX, lastRawY)
+            if (!pathRecognizer.isLongPressArmed()) return@Runnable
+            val classification = pathRecognizer.classifyPartial(lastRawX, lastRawY, classifyOptions()) ?: return@Runnable
+            when (sessionSettings.resolvedTriggerMode(side, classification.trigger, sessionActiveHandleId)) {
+                GestureTriggerMode.IMMEDIATE -> {
+                    if (!sessionMoveTimeActionFired &&
+                        pathRecognizer.hasMetThreshold(classification.trigger, lastRawX, lastRawY)
+                    ) {
+                        dispatchMoveTimeGesture(
+                            classification,
+                            lastRawX,
+                            lastRawY,
+                            lastLocalX,
+                            lastLocalY,
+                        )
+                    }
                 }
+                GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT, GestureTriggerMode.CONTINUOUS -> Unit
             }
-            GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT, GestureTriggerMode.CONTINUOUS -> Unit
         }
     }
 
-
-
     fun applySettings(newSettings: AppSettings) {
-
-        settings = newSettings
-
+        sessionSettings = newSettings
         indexSession.applySettings(newSettings)
-
         pathRecognizer.applyAngles(newSettings.gestureAngleConfig)
-
         applyActiveHandleDistances()
-
     }
 
     private fun applyActiveHandleDistances() {
-        val handle = settings.triggerHandle(side, activeHandleId)
-            ?: settings.primaryTriggerHandle(side)
+        val handle = sessionSettings.triggerHandle(side, sessionActiveHandleId)
+            ?: sessionSettings.primaryTriggerHandle(side)
         pathRecognizer.applyDistances(handle.shortSwipeDistanceDp, handle.longSwipeDistanceDp)
     }
 
-
-
     fun isActive(): Boolean = active
 
+    fun panelMode(): OverlayPanelMode = sessionPanelMode
 
+    fun isAdjustMode(): Boolean = sessionAdjustMode != null
 
-    fun panelMode(): OverlayPanelMode = panelMode
-
-
-
-    fun isAdjustMode(): Boolean = adjustMode != null
-
-    fun adjustModeOrNull(): ContinuousAdjustController.Mode? = adjustMode
+    fun adjustModeOrNull(): ContinuousAdjustController.Mode? = sessionAdjustMode
 
     /** True after an IMMEDIATE action fired on this touch; blocks further in-gesture tracking. */
-    fun isMoveTimeActionLocked(): Boolean = moveTimeActionFired
+    fun isMoveTimeActionLocked(): Boolean = sessionMoveTimeActionFired
 
     /** Ends the initiating IMMEDIATE swipe while keeping the opened panel active. */
     fun releaseImmediateGestureLock(): Boolean {
-        if (!moveTimeActionFired) return false
-        moveTimeActionFired = false
+        if (!sessionMoveTimeActionFired) return false
+        sessionMoveTimeActionFired = false
         callbacks.onRequestInvalidate()
         return true
     }
 
-    private var taskSwitcherContinuousPick = false
+    fun taskSwitcherContinuousPickActive(): Boolean = sessionContinuousPick.taskSwitcherActive()
 
-    fun taskSwitcherContinuousPickActive(): Boolean = taskSwitcherContinuousPick
-
-    private var quickLauncherContinuousPick = false
-
-    fun quickLauncherContinuousPickActive(): Boolean = quickLauncherContinuousPick
+    fun quickLauncherContinuousPickActive(): Boolean = sessionContinuousPick.quickLauncherActive()
 
     fun clearQuickLauncherContinuousPick() {
-        quickLauncherContinuousPick = false
+        sessionContinuousPick.clearQuickLauncher()
     }
 
-    private var shellCommandContinuousPick = false
-
-    fun shellCommandContinuousPickActive(): Boolean = shellCommandContinuousPick
+    fun shellCommandContinuousPickActive(): Boolean = sessionContinuousPick.shellActive()
 
     fun clearShellContinuousPick() {
-        shellCommandContinuousPick = false
+        sessionContinuousPick.clearShell()
     }
 
-    fun adjustAnchorRawY(): Float = adjustLayoutAnchorRawY
+    fun adjustAnchorRawY(): Float = sessionAdjustLayoutAnchorRawY
 
-    fun activeHandleId(): String = activeHandleId
-
-
+    fun activeHandleId(): String = sessionActiveHandleId
 
     fun onTouchDown(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
-
         if (active) return false
-
         if (!zoneLayout.containsTriggerAtScreen(rawX, rawY, localX, localY)) return false
 
-        activeHandleId = zoneLayout.findTriggerHandleAtScreen(rawX, rawY)
+        sessionActiveHandleId = zoneLayout.findTriggerHandleAtScreen(rawX, rawY)
             ?: zoneLayout.findTriggerHandleAt(localX, localY)
             ?: TriggerHandle.DEFAULT_ID
 
         applyActiveHandleDistances()
 
         active = true
-
-        indexMode = false
-
-        adjustMode = null
-        adjustLayoutAnchorRawY = 0f
-
-        panelMode = OverlayPanelMode.NONE
-
-        moveTimeActionFired = false
-
-        wasAboveShortThreshold = false
-
-        wasAboveLongThreshold = false
-
-        longPressHapticFired = false
+        sessionIndexMode = false
+        sessionAdjustMode = null
+        sessionAdjustLayoutAnchorRawY = 0f
+        sessionPanelMode = OverlayPanelMode.NONE
+        sessionMoveTimeActionFired = false
+        thresholdTracker.reset()
+        sessionContinuousPick.reset()
 
         lastRawX = rawX
-
         lastRawY = rawY
-
         lastLocalX = localX
-
         lastLocalY = localY
 
         OverlayService.captureGestureForegroundPackage()
-
         pathRecognizer.onTouchDown(rawX, rawY)
-
         callbacks.scheduleDelayed(longPressCheckRunnable, SwipePathRecognizer.LONG_PRESS_MS)
-
         return true
-
     }
 
-
-
     fun onTouchMove(rawX: Float, rawY: Float, localX: Float, localY: Float) {
-
         if (!active) return
 
         lastRawX = rawX
-
         lastRawY = rawY
-
         lastLocalX = localX
-
         lastLocalY = localY
 
-        val currentAdjustMode = adjustMode
+        val currentAdjustMode = sessionAdjustMode
         if (currentAdjustMode != null) {
             actionExecutor.updateContinuousAdjust(currentAdjustMode, rawY)
             callbacks.onRequestInvalidate()
             return
         }
 
-        if (panelMode != OverlayPanelMode.NONE) {
-
-            if (indexMode && !moveTimeActionFired) {
-
+        if (sessionPanelMode != OverlayPanelMode.NONE) {
+            if (sessionIndexMode && !sessionMoveTimeActionFired) {
                 indexSession.updateSelection(localX, localY)
-
                 callbacks.onRequestInvalidate()
-
             }
-
             return
-
         }
 
-        // After an IMMEDIATE action fires, keep consuming the same touch but do not
-        // re-classify the path (e.g. vertical slides in the trigger strip firing
-        // CONTINUOUS actions like adjust volume/brightness or open index).
-        if (moveTimeActionFired) return
+        if (sessionMoveTimeActionFired) return
 
         pathRecognizer.onTouchMove(rawX, rawY)
 
@@ -285,93 +204,60 @@ class GestureSession(
             callbacks.cancelDelayed(longPressCheckRunnable)
         }
 
-        maybeHapticLongPress(rawX, rawY)
-
-        trackDistanceHaptics(rawX, rawY)
+        thresholdTracker.maybeHapticLongPress(rawX, rawY)
+        thresholdTracker.trackDistanceHaptics(rawX, rawY)
 
         val classification = pathRecognizer.classifyPartial(rawX, rawY, classifyOptions()) ?: return
 
-        when (settings.resolvedTriggerMode(side, classification.trigger, activeHandleId)) {
-
+        when (sessionSettings.resolvedTriggerMode(side, classification.trigger, sessionActiveHandleId)) {
             GestureTriggerMode.IMMEDIATE -> {
-
-                if (!moveTimeActionFired &&
-
+                if (!sessionMoveTimeActionFired &&
                     pathRecognizer.hasMetThreshold(classification.trigger, rawX, rawY)
-
                 ) {
-
                     dispatchMoveTimeGesture(classification, rawX, rawY, localX, localY)
-
                 }
-
             }
-
             GestureTriggerMode.CONTINUOUS -> {
-
                 trackContinuousGesture(classification, rawX, rawY, localX, localY)
-
             }
-
             GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT -> Unit
-
         }
-
     }
 
-
-
     fun onTouchUp(rawX: Float, rawY: Float, localX: Float, localY: Float) {
-
         if (!active) return
 
-        when (panelMode) {
-
+        when (sessionPanelMode) {
             OverlayPanelMode.INDEX -> {
-
-                // IMMEDIATE open: first finger-up only ends the triggering swipe; keep the
-                // index panel open so the user can continue selecting on a new touch.
                 if (releaseImmediateGestureLock()) return
 
                 val app = indexSession.highlightedApp
-
                 val longPressArmed = indexSession.longPressArmed
-
                 endSession()
-
                 app?.let {
-
                     callbacks.hapticConfirmLaunch()
-
                     actionExecutor.execute(
-
                         GestureAction.LaunchApp(it.packageName),
-
-                        settings,
-
+                        sessionSettings,
                         longPressArmed,
-
                     )
-
                 }
-
             }
 
             OverlayPanelMode.QUICK_LAUNCHER, OverlayPanelMode.TASK_SWITCHER,
             OverlayPanelMode.SHELL_COMMANDS -> Unit
 
             OverlayPanelMode.NONE -> {
-
-                if (shellCommandContinuousPick) {
-                    shellCommandContinuousPick = false
+                if (sessionContinuousPick.shell) {
+                    sessionContinuousPick.clearShell()
                     callbacks.onShellCommandPanelContinuousRelease()
                     endSession()
                     return
                 }
 
-                if (adjustMode != null) {
-                    val mode = adjustMode!!
-                    val anchorRawY = adjustLayoutAnchorRawY
+                if (sessionAdjustMode != null) {
+                    val mode = sessionAdjustMode!!
+                    val anchorRawY = sessionAdjustLayoutAnchorRawY
                     val previewFraction = actionExecutor.adjustFraction()
                     actionExecutor.endContinuousAdjust()
                     val fraction = if (mode == ContinuousAdjustController.Mode.BRIGHTNESS) {
@@ -384,60 +270,41 @@ class GestureSession(
                     return
                 }
 
-                if (moveTimeActionFired) {
-
+                if (sessionMoveTimeActionFired) {
                     endSession()
-
                     return
-
                 }
 
-                maybeHapticLongPress(rawX, rawY)
+                thresholdTracker.maybeHapticLongPress(rawX, rawY)
 
                 val gestureStartRawY = pathRecognizer.gestureStartRawY()
-
                 val classification = pathRecognizer.classifyOnUp(rawX, rawY, classifyOptions()) ?: run {
-
                     endSession()
-
                     return
-
                 }
 
-                val mode = settings.resolvedTriggerMode(side, classification.trigger, activeHandleId)
-
+                val mode = sessionSettings.resolvedTriggerMode(side, classification.trigger, sessionActiveHandleId)
                 if (mode == GestureTriggerMode.IMMEDIATE) {
-
                     endSession()
-
                     return
-
                 }
 
-                val action = settings.actionFor(side, classification.trigger, activeHandleId)
-                if (mode == GestureTriggerMode.CONTINUOUS && !indexMode &&
-                    (moveTimeActionFired || action.supportsContinuousTracking(classification.trigger))
+                val action = sessionSettings.actionFor(side, classification.trigger, sessionActiveHandleId)
+                if (mode == GestureTriggerMode.CONTINUOUS && !sessionIndexMode &&
+                    (sessionMoveTimeActionFired || action.supportsContinuousTracking(classification.trigger))
                 ) {
-
                     endSession()
-
                     return
-
                 }
 
                 handleClassifiedGesture(classification, rawX, rawY, localX, localY, gestureStartRawY)
-
             }
-
         }
-
     }
 
-
-
-    fun openPanel(mode: OverlayPanelMode) {
-        panelMode = mode
-        indexMode = false
+    internal fun openPanel(mode: OverlayPanelMode) {
+        sessionPanelMode = mode
+        sessionIndexMode = false
         callbacks.onSessionStart(mode)
         callbacks.onRequestInvalidate()
     }
@@ -457,17 +324,17 @@ class GestureSession(
                 enterIndexMode(localX, localY)
             }
             is GestureAction.QuickLauncher -> {
-                quickLauncherContinuousPick = false
+                sessionContinuousPick.quickLauncher = false
                 active = true
                 openPanel(OverlayPanelMode.QUICK_LAUNCHER)
             }
             is GestureAction.TaskSwitcher -> {
-                taskSwitcherContinuousPick = false
+                sessionContinuousPick.taskSwitcher = false
                 active = true
                 openPanel(OverlayPanelMode.TASK_SWITCHER)
             }
             is GestureAction.ShellCommandPanel -> {
-                shellCommandContinuousPick = false
+                sessionContinuousPick.shell = false
                 callbacks.onOpenShellCommandPanel(continuousPick = false)
             }
             GestureAction.AdjustVolume -> {
@@ -484,30 +351,24 @@ class GestureSession(
         }
     }
 
-
-
     fun endSession() {
-        if (!active && panelMode == OverlayPanelMode.NONE && adjustMode == null) return
+        if (!active && sessionPanelMode == OverlayPanelMode.NONE && sessionAdjustMode == null) return
         forceReset(notifySessionEnd = true)
     }
 
     fun forceReset(notifySessionEnd: Boolean = true) {
         val shouldNotify = notifySessionEnd &&
-            (active || panelMode != OverlayPanelMode.NONE || adjustMode != null)
+            (active || sessionPanelMode != OverlayPanelMode.NONE || sessionAdjustMode != null)
 
         active = false
-        indexMode = false
-        adjustMode = null
-        adjustLayoutAnchorRawY = 0f
-        panelMode = OverlayPanelMode.NONE
-        moveTimeActionFired = false
-        taskSwitcherContinuousPick = false
-        quickLauncherContinuousPick = false
-        shellCommandContinuousPick = false
-        wasAboveShortThreshold = false
-        wasAboveLongThreshold = false
-        longPressHapticFired = false
-        activeHandleId = TriggerHandle.DEFAULT_ID
+        sessionIndexMode = false
+        sessionAdjustMode = null
+        sessionAdjustLayoutAnchorRawY = 0f
+        sessionPanelMode = OverlayPanelMode.NONE
+        sessionMoveTimeActionFired = false
+        sessionContinuousPick.reset()
+        thresholdTracker.reset()
+        sessionActiveHandleId = TriggerHandle.DEFAULT_ID
 
         callbacks.cancelDelayed(longPressCheckRunnable)
         actionExecutor.endContinuousAdjust()
@@ -524,186 +385,23 @@ class GestureSession(
         forceReset(notifySessionEnd = true)
     }
 
-
-
-    private fun classifyOptions(): SwipePathRecognizer.ClassifyOptions =
-
-        if (settings.actionFor(side, GestureTriggerType.SHORT_SINGLE_TAP, activeHandleId) is GestureAction.ClickPassthrough) {
-
+    internal fun classifyOptions(): SwipePathRecognizer.ClassifyOptions =
+        if (sessionSettings.actionFor(side, GestureTriggerType.SHORT_SINGLE_TAP, sessionActiveHandleId) is GestureAction.ClickPassthrough) {
             SwipePathRecognizer.ClassifyOptions.LENIENT_SINGLE_TAP
-
         } else {
-
             SwipePathRecognizer.ClassifyOptions.DEFAULT
-
         }
 
-    private fun trackDistanceHaptics(rawX: Float, rawY: Float) {
-        val distance = pathRecognizer.swipeDistance(rawX, rawY)
-        val aboveShort = distance >= pathRecognizer.shortThresholdPx()
-        val aboveLong = distance >= pathRecognizer.longThresholdPx()
-        if (aboveShort && !wasAboveShortThreshold) {
-            callbacks.cancelDelayed(longPressCheckRunnable)
-            pathRecognizer.disqualifyLongPress()
-            callbacks.hapticGestureStart()
-        }
-        if (aboveLong && !wasAboveLongThreshold) {
-            callbacks.hapticLongThreshold()
-        }
-        wasAboveShortThreshold = aboveShort
-        wasAboveLongThreshold = aboveLong
-    }
-
-    private fun maybeHapticLongPress(rawX: Float, rawY: Float) {
-        if (longPressHapticFired) return
-        pathRecognizer.refreshLongPress(rawX, rawY)
-        if (pathRecognizer.isLongPressArmed()) {
-            longPressHapticFired = true
-            callbacks.hapticLongThreshold()
-        }
-    }
-
-
-
-    private fun dispatchMoveTimeGesture(
-
-        classification: SwipeClassification,
-
-        rawX: Float,
-
-        rawY: Float,
-
-        localX: Float,
-
-        localY: Float,
-
-    ) {
-
-        val action = settings.actionFor(side, classification.trigger, activeHandleId)
-
-        if (action == GestureAction.None || action is GestureAction.ClickPassthrough) return
-
-        moveTimeActionFired = true
-        callbacks.cancelDelayed(longPressCheckRunnable)
-        pathRecognizer.disqualifyLongPress()
-
-        handleClassifiedGesture(
-
-            classification = classification,
-
-            rawX = rawX,
-
-            rawY = rawY,
-
-            localX = localX,
-
-            localY = localY,
-
-            gestureStartRawY = pathRecognizer.gestureStartRawY(),
-
-        )
-
-    }
-
-
-
-    private fun trackContinuousGesture(
-
-        classification: SwipeClassification,
-
-        rawX: Float,
-
-        rawY: Float,
-
-        localX: Float,
-
-        localY: Float,
-
-    ) {
-
-        val action = settings.actionFor(side, classification.trigger, activeHandleId)
-
-        if (!action.supportsContinuousTracking(classification.trigger)) return
-
-        when (action) {
-
-            is GestureAction.OpenIndex -> {
-
-                if (!indexMode) {
-
-                    enterIndexMode(localX, localY)
-
-                } else {
-
-                    indexSession.updateSelection(localX, localY)
-
-                    callbacks.onRequestInvalidate()
-
-                }
-
-            }
-
-            GestureAction.TaskSwitcher -> {
-                if (panelMode != OverlayPanelMode.TASK_SWITCHER) {
-                    taskSwitcherContinuousPick = true
-                    openPanel(OverlayPanelMode.TASK_SWITCHER)
-                }
-            }
-
-            GestureAction.QuickLauncher -> {
-                if (panelMode != OverlayPanelMode.QUICK_LAUNCHER) {
-                    quickLauncherContinuousPick = true
-                    openPanel(OverlayPanelMode.QUICK_LAUNCHER)
-                }
-            }
-
-            GestureAction.ShellCommandPanel -> {
-                if (!shellCommandContinuousPick) {
-                    shellCommandContinuousPick = true
-                    callbacks.onOpenShellCommandPanel(continuousPick = true)
-                }
-            }
-
-            GestureAction.AdjustVolume -> enterAdjustMode(ContinuousAdjustController.Mode.VOLUME, rawY)
-
-            GestureAction.AdjustBrightness -> enterAdjustMode(ContinuousAdjustController.Mode.BRIGHTNESS, rawY)
-
-            GestureAction.FloatingPointer -> {
-                if (!moveTimeActionFired &&
-                    pathRecognizer.hasMetThreshold(classification.trigger, rawX, rawY)
-                ) {
-                    moveTimeActionFired = true
-                    callbacks.cancelDelayed(longPressCheckRunnable)
-                    pathRecognizer.disqualifyLongPress()
-                    callbacks.hapticConfirmLaunch()
-                    actionExecutor.execute(
-                        GestureAction.FloatingPointer,
-                        settings,
-                        anchorRawX = rawX,
-                        anchorRawY = rawY,
-                        continueTouch = true,
-                    )
-                }
-            }
-
-            else -> Unit
-
-        }
-
-    }
-
-
-
-    private fun enterAdjustMode(mode: ContinuousAdjustController.Mode, rawY: Float) {
-        if (adjustMode == mode) {
+    internal fun enterAdjustMode(mode: ContinuousAdjustController.Mode, rawY: Float) {
+        if (sessionAdjustMode == mode) {
             actionExecutor.updateContinuousAdjust(mode, rawY)
             return
         }
         if (actionExecutor.beginContinuousAdjust(mode, rawY)) {
-            val enteringAdjust = adjustMode == null
-            adjustMode = mode
+            val enteringAdjust = sessionAdjustMode == null
+            sessionAdjustMode = mode
             if (enteringAdjust) {
-                adjustLayoutAnchorRawY = rawY
+                sessionAdjustLayoutAnchorRawY = rawY
                 callbacks.onSessionStart(OverlayPanelMode.NONE)
             }
             actionExecutor.updateContinuousAdjust(mode, rawY)
@@ -711,180 +409,12 @@ class GestureSession(
         }
     }
 
-
-
-    private fun enterIndexMode(localX: Float, localY: Float) {
-
-        indexMode = true
-
-        panelMode = OverlayPanelMode.INDEX
-
+    internal fun enterIndexMode(localX: Float, localY: Float) {
+        sessionIndexMode = true
+        sessionPanelMode = OverlayPanelMode.INDEX
         callbacks.onSessionStart(OverlayPanelMode.INDEX)
-
         indexSession.updateSelection(localX, localY)
-
         callbacks.onRequestInvalidate()
-
-    }
-
-
-
-    private fun handleClassifiedGesture(
-
-        classification: SwipeClassification,
-
-        rawX: Float,
-
-        rawY: Float,
-
-        localX: Float,
-
-        localY: Float,
-
-        gestureStartRawY: Float,
-
-    ) {
-
-        val action = settings.actionFor(side, classification.trigger, activeHandleId)
-
-        when (action) {
-
-            is GestureAction.OpenIndex -> enterIndexMode(localX, localY)
-
-            GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> {
-                val adjustControllerMode = when (action) {
-                    GestureAction.AdjustVolume -> ContinuousAdjustController.Mode.VOLUME
-                    GestureAction.AdjustBrightness -> ContinuousAdjustController.Mode.BRIGHTNESS
-                }
-                val triggerMode = settings.resolvedTriggerMode(side, classification.trigger, activeHandleId)
-                when (triggerMode) {
-                    GestureTriggerMode.CONTINUOUS -> endSession()
-                    GestureTriggerMode.IMMEDIATE -> {
-                        val fraction = actionExecutor.readCurrentAdjustFraction(adjustControllerMode)
-                        callbacks.hapticConfirmLaunch()
-                        callbacks.onShowAdjustPanel(adjustControllerMode, fraction, rawY, deferWindowLayout = true)
-                    }
-                    GestureTriggerMode.ON_RELEASE, GestureTriggerMode.DEFAULT -> {
-                        val fraction = actionExecutor.readCurrentAdjustFraction(adjustControllerMode)
-                        callbacks.hapticConfirmLaunch()
-                        callbacks.onShowAdjustPanel(adjustControllerMode, fraction, rawY)
-                        endSession()
-                    }
-                }
-            }
-
-            is GestureAction.QuickLauncher -> {
-                quickLauncherContinuousPick = false
-                callbacks.hapticConfirmLaunch()
-                openPanel(OverlayPanelMode.QUICK_LAUNCHER)
-            }
-
-            is GestureAction.ShellCommandPanel -> {
-                shellCommandContinuousPick = false
-                callbacks.hapticConfirmLaunch()
-                callbacks.onOpenShellCommandPanel(continuousPick = false)
-            }
-
-            is GestureAction.TaskSwitcher -> {
-                taskSwitcherContinuousPick = false
-                callbacks.hapticConfirmLaunch()
-                openPanel(OverlayPanelMode.TASK_SWITCHER)
-            }
-
-            is GestureAction.LaunchApp -> {
-
-                callbacks.hapticConfirmLaunch()
-
-                actionExecutor.execute(action, settings)
-
-                endSession()
-
-            }
-
-            is GestureAction.LaunchShortcut -> {
-
-                callbacks.hapticConfirmLaunch()
-
-                actionExecutor.execute(action, settings)
-
-                endSession()
-
-            }
-
-            GestureAction.Back, GestureAction.Home, GestureAction.Recents -> {
-
-                actionExecutor.execute(action, settings)
-
-                endSession()
-
-            }
-
-            GestureAction.CloseCurrentApp, GestureAction.FreeWindowCurrentApp -> {
-
-                callbacks.hapticConfirmLaunch()
-
-                actionExecutor.execute(action, settings)
-
-                endSession()
-
-            }
-
-            GestureAction.ClickPassthrough -> {
-
-                callbacks.hapticConfirmLaunch()
-
-                actionExecutor.dispatchClickPassthrough(rawX, rawY, ::endSession)
-
-            }
-
-            GestureAction.Flashlight, GestureAction.LaunchAssistant -> {
-
-                callbacks.hapticConfirmLaunch()
-
-                actionExecutor.execute(action, settings)
-
-                endSession()
-
-            }
-
-            GestureAction.ToggleMute,
-            GestureAction.ToggleDnd,
-            GestureAction.ScreenRecord,
-            GestureAction.ToggleWifi,
-            GestureAction.ToggleMobileData,
-            GestureAction.SwitchInputMethod,
-            GestureAction.MediaPlayPause,
-            GestureAction.MediaPrevious,
-            GestureAction.MediaNext,
-            GestureAction.PreviousApp,
-            GestureAction.OpenNotifications,
-            GestureAction.OpenQuickSettings,
-            GestureAction.LockScreen,
-            GestureAction.Screenshot,
-            GestureAction.PowerMenu,
-            GestureAction.KeepScreenOn,
-            GestureAction.ScrollToTop,
-            GestureAction.ScrollToBottom,
-            GestureAction.QuickToolsOverlay,
-            GestureAction.WidgetPopupOverlay,
-            GestureAction.FloatingPointer,
-            is GestureAction.SimulatePointerSwipe,
-            -> {
-                callbacks.hapticConfirmLaunch()
-                actionExecutor.execute(
-                    action,
-                    settings,
-                    anchorRawX = rawX,
-                    anchorRawY = rawY,
-                    continueTouch = moveTimeActionFired,
-                )
-                endSession()
-            }
-
-            GestureAction.None -> endSession()
-
-        }
-
     }
 
     /** @return true if the overlay session should end after this quick-launcher tap. */
@@ -894,43 +424,5 @@ class GestureSession(
         localY: Float,
         rawY: Float,
         confirmHaptic: Boolean = true,
-    ): Boolean {
-        when (action) {
-            GestureAction.OpenIndex -> {
-                enterIndexMode(localX, localY)
-                return false
-            }
-            GestureAction.QuickLauncher -> return false
-            GestureAction.TaskSwitcher -> {
-                taskSwitcherContinuousPick = false
-                if (confirmHaptic) callbacks.hapticConfirmLaunch()
-                openPanel(OverlayPanelMode.TASK_SWITCHER)
-                return false
-            }
-            GestureAction.ShellCommandPanel -> {
-                shellCommandContinuousPick = false
-                if (confirmHaptic) callbacks.hapticConfirmLaunch()
-                callbacks.onOpenShellCommandPanel(continuousPick = false)
-                return false
-            }
-            GestureAction.AdjustVolume, GestureAction.AdjustBrightness -> {
-                val mode = when (action) {
-                    GestureAction.AdjustVolume -> ContinuousAdjustController.Mode.VOLUME
-                    GestureAction.AdjustBrightness -> ContinuousAdjustController.Mode.BRIGHTNESS
-                    else -> return true
-                }
-                val fraction = actionExecutor.applyAdjustOnce(mode, rawY, rawY)
-                    ?: actionExecutor.readCurrentAdjustFraction(mode)
-                if (confirmHaptic) callbacks.hapticConfirmLaunch()
-                callbacks.onShowAdjustPanel(mode, fraction, rawY)
-                return true
-            }
-            else -> {
-                if (confirmHaptic) callbacks.hapticConfirmLaunch()
-                actionExecutor.execute(action, settings, anchorRawY = rawY)
-                return true
-            }
-        }
-    }
-
+    ): Boolean = dispatchQuickLauncherAction(action, localX, localY, rawY, confirmHaptic)
 }

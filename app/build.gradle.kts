@@ -23,8 +23,8 @@ android {
         applicationId = "com.slideindex.app"
         minSdk = 30
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -87,6 +87,7 @@ dependencies {
     implementation(project(":core:gesture"))
     implementation(project(":core:notification"))
     implementation(project(":core:monitoring"))
+    implementation(project(":core:overlay-layout"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:otp"))
     implementation(project(":feature:notification"))
@@ -134,6 +135,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.activity.compose)
     androidTestImplementation(libs.compose.ui.test.junit4)
 
     compileOnly(libs.libxposed.api)

@@ -58,6 +58,8 @@ import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
 import com.slideindex.app.overlay.TaskSwitcherMenuItem
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.ui.quicklauncher.QuickLauncherActionRow
+import com.slideindex.app.ui.quicklauncher.QuickLauncherToggleRow
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.AppShortcutLoader.toQuickLauncherItem
 import com.slideindex.app.util.PinyinHelper

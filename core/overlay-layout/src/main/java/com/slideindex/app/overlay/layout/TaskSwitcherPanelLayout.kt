@@ -1,16 +1,15 @@
-package com.slideindex.app.overlay
+package com.slideindex.app.overlay.layout
 
 import android.graphics.RectF
-import com.slideindex.app.util.RecentAppEntry
 
-internal data class TaskSwitcherRowLayout(
-    val entry: RecentAppEntry,
+data class TaskSwitcherRowLayout(
+    val entry: TaskSwitcherRowEntry,
     val rowRect: RectF,
     val closeRect: RectF,
     val freeWindowRect: RectF,
 )
 
-internal data class TaskSwitcherPanelLayout(
+data class TaskSwitcherPanelLayout(
     val panelRect: RectF,
     val listRect: RectF,
     val rows: List<TaskSwitcherRowLayout>,

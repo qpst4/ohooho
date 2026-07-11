@@ -1,0 +1,114 @@
+package com.slideindex.app.shake
+
+internal object ShakeGestureClassifier {
+    fun clampSensitivity(value: Float): Float = value.coerceIn(1f, 10f)
+
+    fun effectiveThreshold(uiValue: Float): Float = clampSensitivity(uiValue)
+
+    fun detectDirection(
+        axisX: Float,
+        axisY: Float,
+        axisZ: Float,
+        absX: Float,
+        absY: Float,
+        absZ: Float,
+        globalSensitivity: Float,
+        independentEnabled: Boolean,
+        perDirectionSensitivity: Map<ShakeGestureType, Float>,
+        axisScale: Float = 1f,
+    ): ShakeGestureType? {
+        if (independentEnabled) {
+            return detectPerDirection(
+                axisX = axisX,
+                axisY = axisY,
+                axisZ = axisZ,
+                globalSensitivity = globalSensitivity,
+                perDirectionSensitivity = perDirectionSensitivity,
+                axisScale = axisScale,
+            )
+        }
+
+        val sensitivity = effectiveThreshold(globalSensitivity) * axisScale
+        val flipYMargin = 1.5f * axisScale
+        val swingMargin = 1.0f * axisScale
+        val tiltBackMargin = 0.5f * axisScale
+        val swingSideMargin = 0.5f * axisScale
+
+        if (absY > sensitivity) {
+            return when {
+                axisY > sensitivity + flipYMargin -> ShakeGestureType.RIGHT_FLIP
+                axisY < -sensitivity - flipYMargin -> ShakeGestureType.LEFT_FLIP
+                else -> null
+            }
+        }
+
+        val swingThreshold = sensitivity - swingMargin
+        if (absX > swingThreshold) {
+            return when {
+                axisX > swingThreshold -> ShakeGestureType.FORWARD_FLIP
+                axisX < -sensitivity - tiltBackMargin -> ShakeGestureType.BACKWARD_FLIP
+                else -> null
+            }
+        }
+
+        if (absZ > swingThreshold) {
+            return when {
+                axisZ > sensitivity + swingSideMargin -> ShakeGestureType.LEFT_FLICK
+                axisZ < -sensitivity - swingSideMargin -> ShakeGestureType.RIGHT_FLICK
+                else -> null
+            }
+        }
+
+        return null
+    }
+
+    private fun detectPerDirection(
+        axisX: Float,
+        axisY: Float,
+        axisZ: Float,
+        globalSensitivity: Float,
+        perDirectionSensitivity: Map<ShakeGestureType, Float>,
+        axisScale: Float = 1f,
+    ): ShakeGestureType? {
+        val flipRight = sensitivityFor(ShakeGestureType.RIGHT_FLIP, globalSensitivity, perDirectionSensitivity) * axisScale
+        val flipLeft = sensitivityFor(ShakeGestureType.LEFT_FLIP, globalSensitivity, perDirectionSensitivity) * axisScale
+        val tiltFront = sensitivityFor(ShakeGestureType.FORWARD_FLIP, globalSensitivity, perDirectionSensitivity) * axisScale
+        val tiltBack = sensitivityFor(ShakeGestureType.BACKWARD_FLIP, globalSensitivity, perDirectionSensitivity) * axisScale
+        val swingLeft = sensitivityFor(ShakeGestureType.LEFT_FLICK, globalSensitivity, perDirectionSensitivity) * axisScale
+        val swingRight = sensitivityFor(ShakeGestureType.RIGHT_FLICK, globalSensitivity, perDirectionSensitivity) * axisScale
+        val swingMargin = 1.0f * axisScale
+
+        if (axisY > flipRight || axisY < -flipLeft) {
+            return when {
+                axisY > flipRight -> ShakeGestureType.RIGHT_FLIP
+                axisY < -flipLeft -> ShakeGestureType.LEFT_FLIP
+                else -> null
+            }
+        }
+
+        if (axisX > tiltFront - swingMargin || axisX < -tiltBack + swingMargin) {
+            return when {
+                axisX > tiltFront -> ShakeGestureType.FORWARD_FLIP
+                axisX < -tiltBack -> ShakeGestureType.BACKWARD_FLIP
+                else -> null
+            }
+        }
+
+        if (axisZ > swingLeft - swingMargin || axisZ < -swingRight + swingMargin) {
+            return when {
+                axisZ > swingLeft -> ShakeGestureType.LEFT_FLICK
+                axisZ < -swingRight -> ShakeGestureType.RIGHT_FLICK
+                else -> null
+            }
+        }
+
+        return null
+    }
+
+    private fun sensitivityFor(
+        type: ShakeGestureType,
+        globalSensitivity: Float,
+        perDirectionSensitivity: Map<ShakeGestureType, Float>,
+    ): Float =
+        clampSensitivity(perDirectionSensitivity[type] ?: globalSensitivity)
+}

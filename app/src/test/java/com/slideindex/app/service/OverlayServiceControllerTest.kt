@@ -2,6 +2,7 @@ package com.slideindex.app.service
 
 import androidx.compose.runtime.mutableStateOf
 import com.slideindex.app.settings.SettingsRepository
+import com.slideindex.app.settings.testSettingsRepository
 import com.slideindex.app.ui.navigation.NavPermissionStates
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +59,7 @@ class OverlayServiceControllerTest {
             context = app,
             permissionStates = states,
             scope = CoroutineScope(Dispatchers.Unconfined),
-            settingsRepository = SettingsRepository(app),
+            settingsRepository = testSettingsRepository(app),
         )
 
         controller.refreshPermissionState()
@@ -82,6 +83,6 @@ class OverlayServiceControllerTest {
                 notificationListenerEnabled = mutableStateOf(false),
             ),
             scope = CoroutineScope(Dispatchers.Unconfined),
-            settingsRepository = SettingsRepository(context),
+            settingsRepository = testSettingsRepository(context),
         )
 }

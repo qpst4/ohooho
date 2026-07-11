@@ -162,7 +162,23 @@ gradlew.bat lintDebug
 gradlew.bat testDebugUnitTest
 ```
 
-覆盖通知规则匹配、各 Codec 往返、手势几何分类、OTP 提取与解析、`NotificationShadeHider` 与 `PerformanceMonitor` 引用计数等纯逻辑测试。
+覆盖通知规则匹配、各 Codec 往返、手势几何分类、OTP 提取与解析、`NotificationShadeHider` 与 `PerformanceMonitor` 引用计数等纯逻辑测试；P1 起补充 `:core:autofill` 自动填充策略、`SettingsRepository` Mutator、主要 ViewModel 初始状态，以及 OTP/Xposed/无障碍相关 `:app` 单测。仪器化测试见 `MainActivityComposeFlowTest`（需连接设备或模拟器）。
+
+#### Windows 全量测试注意
+
+在 Windows 上，**Android Studio 的 Gradle Sync** 会锁定 `R.jar`、Kotlin 编译缓存等构建产物，命令行跑全量单测时可能出现 `Couldn't delete ... R.jar` 或 configuration cache 锁超时。
+
+建议顺序：
+
+1. **关闭 Android Studio**（或至少停止 Gradle Sync / Build）
+2. `gradlew.bat --stop`
+3. 再执行全量测试：
+
+```powershell
+gradlew.bat :app:testDebugUnitTest :feature:shake:testDebugUnitTest --no-configuration-cache --no-daemon
+```
+
+若仍失败，可删除对应模块的 `build/` 子目录后重试（勿在 IDE 打开项目时操作）。
 
 ### 在 Android Studio 中打开
 
@@ -182,16 +198,17 @@ gradlew.bat testDebugUnitTest
 | `:core:common` | 跨模块共享类型（`PanelSide`、`GestureAnimationPosition`）、`QuickLauncherGridLogic`、`ShellCommand`、`PinyinHelper`、Widget 面板模型/编解码/`WidgetGridMetrics`、`OtpMatchRule`/`OtpRecord`/`OtpKeywords`/`VerificationCodeExtractor`、`TaskExclusions`/`RecentPackageResolver`/`ShortcutDisplayRules`/`ShortcutShellParser`、`TaskShellParser`/`AbxXmlParser`/`ShortcutSystemXmlParser` 等 util 纯逻辑 |
 | `:feature:apps` | 已安装应用目录：`AppInfo`/`AppRepository`（`PackageManager` + `AppLaunchPort`） |
 | `:feature:notification` | 通知过滤与历史：`NotificationFilterRepository`、`NotificationFilterPreferences`、`NotificationHistoryRepository`、`NotificationHistoryRecorder`、`NotificationRuleExecutor`；端口 `NotificationListenerPort`/`NotificationShadeActions`/`NotificationHistoryLaunchPort`/`NotificationIntentLaunchPort`/`NotificationOtpSideEffects`/`NotificationRuleUiStrings` 由 `:app` 绑定 |
+| `:core:overlay-layout` | Overlay 网格布局纯逻辑：`OverlayPanelLayoutHost`、`OverlayGridLayout`（`gridLayoutInfo` / `visualColumn`）、`QuickLauncherPanelLayoutEngine`；单测位于本模块 |
 | `:core:monitoring` | Debug 性能监控（Overlay FPS、主线程阻塞） |
 | `:core:autofill` | OTP 自动输入纯逻辑：`OtpAutoInputBroadcastContract`（广播 Action/Extra 契约）、`OtpAutoInputNodeHelper`（无障碍节点查找）、`OtpAutoInputFallbackPolicy`（系统注入 vs 无障碍回退策略） |
 | `:core:gesture` | 手势纯逻辑：动作/规则/触发器编解码、路径识别、`GestureShortcutPayload`、快速启动器模型、`ShakeGestureSettings` |
 | `:core:notification` | 通知纯逻辑：规则匹配、历史/过滤编解码、Intent 捕获、`NotificationShadePolicy`、消息提醒过滤/`MessageAction`/`MessageStyle`/`MessageSettings`/`NotificationData`/`MessageDisplayPlan` 编解码、`MessageThemeIds`/`MessageThemeColors` |
-| `:feature:settings` | 设置核心：`AppSettings`、`SettingsRepository`（DataStore + Hilt `@Inject`）、`SettingsPreferenceKeys`（偏好键常量）、`WidgetPanelPersistence`、手势/边缘/样式扩展、`AppLaunchPolicy`/`FreeWindowMode`、`AnimationStyles`、动画编解码、`HapticStrength`、`GestureHintStyle`、`FloatingPointerRadialMenuCodec` 等 |
+| `:feature:settings` | 设置核心：`AppSettings`、`SettingsRepository`（薄门面 + Hilt `@Inject`）、按域 Mutator（`EdgeSettingsMutator` / `OverlaySettingsMutator` / `ShakeSettingsMutator` / `MessageSettingsMutator` / `OtpSettingsMutator`）、`SettingsPreferencesEditor` / `SettingsSnapshotReader` / `SettingsTriggerStore`、`SettingsPreferenceKeys`、`WidgetPanelPersistence`、手势/边缘/样式扩展等 |
 | `:feature:shake` | 摇一摇：`ShakeGestureDetector`、`ShakeVibrationHelper`、`ShakeGestureHost`（Hilt）；端口 `ShakeRuntimePort`/`ShakeActionPort`/`ShakeFeedbackPort` 由 `:app` 绑定 |
 | `:feature:message` | 消息提醒编排：`MessageReminderOrchestrator`、`MessageActionExecutor`、`MessageNotificationFilter`、`MessageSwipeGesture`、`MessageThemeExtensions`；端口 `MessageOverlayPort`/`MessageThemePort`/`MessageForegroundPort`/`MessageEnvironmentPort` 由 `:app` 绑定 |
 | `:feature:otp` | OTP 持久化：`OtpRecordsRepository`（本地 JSON）、`OtpOfficialRulesLoader`（内置规则资产） |
 
-`:app` 仍保留依赖 Android 资源的 UI 层、消息 Overlay 窗口（`MessageCardOverlayWindow` 等）、`MessageThemeCatalog`/`MessageThemeUi`、`NotificationShadeHider` 等 shade 运行时桥接（经 `NotificationListenerPort` 注入）、`ShakeFeedbackOverlay`、`OtpAutoFillController` / LSPosed 模块入口等无障碍与系统集成逻辑。Overlay 巨型类已拆为 coordinator + layout/renderer/touch：`TaskSwitcherLayoutEngine`/`TaskSwitcherRenderer`、`QuickLauncherPanelLayoutEngine`/`QuickLauncherRenderer`/`QuickLauncherTouchHandler`、`FloatingPointerSession`/`FloatingPointerBounds`/`FloatingPointerDisplay`。
+`:app` 仍保留依赖 Android 资源的 UI 层、消息 Overlay 窗口（`MessageCardOverlayWindow` 等）、`MessageThemeCatalog`/`MessageThemeUi`、`NotificationShadeHider` 等 shade 运行时桥接（经 `NotificationListenerPort` 注入）、`ShakeFeedbackOverlay`、`OtpAutoFillController` / LSPosed 模块入口等无障碍与系统集成逻辑。Overlay 巨型类已拆为 coordinator + layout/renderer/touch：`TaskSwitcherOverlayController` + `TaskSwitcherTouchHandler`/`TaskSwitcherLayoutEngine`/`TaskSwitcherRenderer`、`QuickLauncherPanelLayoutEngine`（`:core:overlay-layout`）/`QuickLauncherRenderer`/`QuickLauncherTouchHandler`、`FloatingPointerSession`/`FloatingPointerBounds`/`FloatingPointerDisplay`。
 
 ### LSPosed / Xposed 模块（可选）
 
@@ -216,7 +233,7 @@ APK 内嵌 **LibXposed** 模块（`SlideIndexLibXposedModule`），用于在已 
 - Trampoline Activity、`OverlayService`、`SlideIndexAccessibilityService`、`MediaNotificationListener`、`PackageChangeReceiver` 等使用 `@AndroidEntryPoint` 注入 `AppDependencies`
 - UI 通过 `@HiltViewModel` / `hiltViewModel()` 获取 ViewModel
 - 部分 Overlay 窗口（悬浮指针、Widget 面板、Oho 快捷工具等）通过 Hilt **`OverlayEntryPoint`** + `OverlayDependencyAccess.overlayDependencies()` 获取 `OverlayDependencies`（与 `AppDependencies` 同源）；`SlideIndexAccessibilityService` 仅保留 `overlayHostContext()` 供 Context
-- Compose 主界面通过 `LocalAppDependencies` / `rememberAppDependencies()` 向下传递依赖；单元测试直接构造所需 Repository（如 `SettingsRepository`），不再依赖 `AppEntryPoints`
+- Compose 主界面通过 `LocalAppDependencies` / `rememberAppDependencies()` 向下传递依赖；单元测试通过 `testSettingsRepository(context)` 构造 `SettingsRepository`，不再依赖 `AppEntryPoints`
 
 ### 性能监控（Debug）
 
@@ -260,7 +277,8 @@ GitHub Actions 工作流（`.github/workflows/ci.yml`）在 push/PR 时自动执
 
 - `assembleDebug` — 编译 Debug APK
 - `lintDebug` — 静态检查（基于 baseline，仅拦截新问题）
-- `testDebugUnitTest` — 单元测试
+- `testDebugUnitTest` — 单元测试（按模块分批，降低 OOM 风险）
+- `instrumentation` — API 30 模拟器跑 `connectedDebugAndroidTest`（`continue-on-error`，不阻断主 CI）
 
 **Push 到 `main`/`master` 时**（已配置 Secrets 的情况下）额外执行：
 

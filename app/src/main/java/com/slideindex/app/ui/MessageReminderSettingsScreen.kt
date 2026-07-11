@@ -43,6 +43,8 @@ import com.slideindex.app.message.MessageAction
 import com.slideindex.app.message.MessageSettings
 import com.slideindex.app.message.MessageSettingsCodec
 import com.slideindex.app.overlay.MessageOverlayHost
+import com.slideindex.app.ui.messagestyle.MessageStyleEntryCard
+import com.slideindex.app.ui.messagestyle.messageStyleSummary
 import com.slideindex.app.util.PermissionHelper
 
 @Composable

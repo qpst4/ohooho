@@ -4,8 +4,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -13,7 +13,8 @@ import org.robolectric.annotation.Config
 class SettingsRepositoryResultTest {
     @Test
     fun setServiceEnabled_returnsSuccessAndPersists() = runBlocking {
-        val repository = SettingsRepository(RuntimeEnvironment.getApplication())
+        val context = RuntimeEnvironment.getApplication()
+        val repository = testSettingsRepository(context)
 
         val result = repository.setServiceEnabled(true)
 

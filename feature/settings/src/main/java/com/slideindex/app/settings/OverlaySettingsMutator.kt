@@ -1,0 +1,276 @@
+package com.slideindex.app.settings
+
+import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.launcher.QuickLauncherItemCodec
+import com.slideindex.app.shell.ShellCommand
+import com.slideindex.app.shell.ShellCommandCodec
+import com.slideindex.app.widget.WidgetPanelCodec
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class OverlaySettingsMutator @Inject constructor(
+    private val editor: SettingsPreferencesEditor,
+) {
+    suspend fun setThemeColor(argb: Int) = editor.edit { it[SettingsPreferenceKeys.THEME_COLOR] = argb }
+
+    suspend fun setDynamicColorEnabled(enabled: Boolean) =
+        editor.edit { it[SettingsPreferenceKeys.DYNAMIC_COLOR_ENABLED] = enabled }
+
+    suspend fun setFreeWindowEnabled(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.FREE_WINDOW_ENABLED] = enabled }
+    suspend fun setFreeWindowModeId(id: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FREE_WINDOW_MODE] = FreeWindowMode.fromId(id).id
+    }
+    suspend fun setFreeWindowLayout(
+        widthFraction: Float,
+        heightFraction: Float,
+        leftFraction: Float,
+        topFraction: Float,
+    ) = editor.edit {
+        it[SettingsPreferenceKeys.FREE_WINDOW_WIDTH] = widthFraction.coerceIn(0.35f, 0.95f)
+        it[SettingsPreferenceKeys.FREE_WINDOW_HEIGHT] = heightFraction.coerceIn(0.35f, 0.9f)
+        it[SettingsPreferenceKeys.FREE_WINDOW_LEFT] = leftFraction.coerceIn(0f, 0.65f)
+        it[SettingsPreferenceKeys.FREE_WINDOW_TOP] = topFraction.coerceIn(0f, 0.65f)
+    }
+    suspend fun setAppLaunchPolicyId(id: Int) = editor.edit {
+        it[SettingsPreferenceKeys.APP_LAUNCH_POLICY] = AppLaunchPolicy.fromId(id).id
+    }
+    suspend fun setLongPressLaunchDurationMs(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.LONG_PRESS_LAUNCH_DURATION] = value.coerceIn(250, 900)
+    }
+
+    suspend fun setFloatingPointerJoystickAreaWidthPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_WIDTH] = value.coerceIn(120f, 800f)
+    }
+
+    suspend fun setFloatingPointerJoystickAreaHeightPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_HEIGHT] = value.coerceIn(120f, 1400f)
+    }
+
+    suspend fun setFloatingPointerJoystickAreaZoomFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_ZOOM] = value.coerceIn(0.1f, 1f)
+    }
+
+    suspend fun setFloatingPointerMatchJoystickToScreenAspect(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] = enabled
+    }
+
+    suspend fun setFloatingPointerJoystickDiameterPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_SIZE] = value.coerceIn(180f, 360f)
+    }
+
+    suspend fun setFloatingPointerPointerDiameterPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_POINTER_SIZE] = value.coerceIn(48f, 120f)
+    }
+
+    suspend fun setFloatingPointerDesignId(designId: String) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_DESIGN_ID] = designId.ifBlank { FloatingPointerDesignIds.RING }
+    }
+
+    suspend fun setFloatingPointerRingThicknessPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RING_THICKNESS] = value.coerceIn(4f, 24f)
+    }
+
+    suspend fun setFloatingPointerDotDiameterPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_DOT_DIAMETER] = value.coerceIn(2f, 24f)
+    }
+
+    suspend fun setFloatingPointerRingColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RING_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerFillColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_FILL_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerDotColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_DOT_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerClickVisualFeedbackEnabled(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = enabled
+    }
+
+    suspend fun setFloatingPointerClickHapticEnabled(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_HAPTIC] = enabled
+    }
+
+    suspend fun setFloatingPointerRippleColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRippleSizeDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_SIZE_DP] = value.coerceIn(40f, 200f)
+    }
+
+    suspend fun setFloatingPointerRippleDurationMs(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_DURATION_MS] = value.coerceIn(100, 1500)
+    }
+
+    suspend fun setFloatingPointerTrailType(type: FloatingPointerTrailType) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_TYPE] = type.id
+    }
+
+    suspend fun setFloatingPointerTrailDurationMs(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_DURATION] = value.coerceIn(50, 500)
+    }
+
+    suspend fun setFloatingPointerTrailColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerHideWhenJoystickReleased(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_ON_RELEASE] = enabled
+    }
+
+    suspend fun setFloatingPointerJoystickInnerColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_INNER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerJoystickOuterColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_OUTER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerJoystickGradientRadiusFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_GRADIENT] = value.coerceIn(0.5f, 1f)
+    }
+
+    suspend fun setFloatingPointerHideOnOutsideClick(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_OUTSIDE_CLICK] = enabled
+    }
+
+    suspend fun setFloatingPointerHideOnQuickSwipe(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_QUICK_SWIPE] = enabled
+    }
+
+    suspend fun setFloatingPointerHideWhenIdle(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_IDLE] = enabled
+    }
+
+    suspend fun setFloatingPointerIdleHideDelayMs(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] = value.coerceIn(1000, 10000)
+    }
+
+    suspend fun setFloatingPointerRadialMenuEnabled(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ENABLED] = enabled
+    }
+
+    suspend fun setFloatingPointerRadialAlwaysVisible(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE] = enabled
+    }
+
+    suspend fun setFloatingPointerRadialLongPressMs(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_LONG_PRESS_MS] = value.coerceIn(200, 2000)
+    }
+
+    suspend fun setFloatingPointerRadialOuterDiameterPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_OUTER_SIZE] = value.coerceIn(240f, 720f)
+    }
+
+    suspend fun setFloatingPointerRadialInnerDiameterPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_INNER_SIZE] = value.coerceIn(80f, 480f)
+    }
+
+    suspend fun setFloatingPointerRadialOuterColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_OUTER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRadialInnerColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_INNER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRadialDividerThicknessPx(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_DIVIDER_SIZE] = value.coerceIn(1f, 12f)
+    }
+
+    suspend fun setFloatingPointerRadialDividerColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_DIVIDER_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRadialIconSizeFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ICON_SIZE] = value.coerceIn(0.2f, 0.9f)
+    }
+
+    suspend fun setFloatingPointerRadialIconColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ICON_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerRadialSlotAction(index: Int, action: GestureAction) = editor.edit { prefs ->
+        val current = FloatingPointerRadialMenuCodec.decode(prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_SLOTS] ?: emptySet())
+        val updated = current.toMutableList()
+        if (index in 0 until FloatingPointerRadialMenuCodec.SLOT_COUNT) {
+            updated[index] = action
+            prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_SLOTS] = FloatingPointerRadialMenuCodec.encode(updated)
+        }
+    }
+
+    suspend fun resetFloatingPointerRadialDesignDefaults() = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_OUTER_SIZE] = 440f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_INNER_SIZE] = 192f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_OUTER_COLOR] = 0xE62B3D4F.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_INNER_COLOR] = 0xE61A1A28.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_DIVIDER_SIZE] = 4f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_DIVIDER_COLOR] = 0x22FFFFFF
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ICON_SIZE] = 0.85f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ICON_COLOR] = 0xFFFFFFFF.toInt()
+    }
+
+    suspend fun resetFloatingPointerVisualDefaults() = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_POINTER_SIZE] = 100f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RING_THICKNESS] = 12f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_DOT_DIAMETER] = 15f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RING_COLOR] = 0xFFFFFFFF.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_FILL_COLOR] = 0x19000000
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_DOT_COLOR] = 0xFFFFFFFF.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_VISUAL_FEEDBACK] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_HAPTIC] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_COLOR] = 0xFFFD746C.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_SIZE_DP] = 80f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_RIPPLE_DURATION_MS] = 500
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_TYPE] = FloatingPointerTrailType.HIGH_DETAIL.id
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_DURATION] = 150
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_COLOR] = 0x66FF5252
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_ON_RELEASE] = false
+    }
+
+    suspend fun resetFloatingPointerJoystickVisualDefaults() = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_SIZE] = 275f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_INNER_COLOR] = 0x80FFFFFF.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_OUTER_COLOR] = 0x80C0C0C0.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_GRADIENT] = 1f
+    }
+
+    suspend fun resetFloatingPointerJoystickBehaviorDefaults() = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_OUTSIDE_CLICK] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_QUICK_SWIPE] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_IDLE] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] = 3000
+    }
+
+    suspend fun setQuickLauncherItems(
+        items: List<com.slideindex.app.launcher.QuickLauncherItem>,
+    ) = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.QUICK_LAUNCHER] = QuickLauncherItemCodec.encodeAll(items)
+    }
+
+    suspend fun setShellCommands(items: List<ShellCommand>) = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.SHELL_COMMANDS] = ShellCommandCodec.encodeAll(items)
+    }
+
+    suspend fun setWidgetPanelPages(
+        pages: List<com.slideindex.app.widget.WidgetPanelPage>,
+    ) = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.WIDGET_PANEL_PAGES] = WidgetPanelCodec.encodeAll(pages)
+    }
+
+    suspend fun setWidgetPanelBlurEnabled(enabled: Boolean) = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.WIDGET_PANEL_BLUR] = enabled
+    }
+
+    suspend fun setWidgetPanelWidthFraction(fraction: Float) = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.WIDGET_PANEL_WIDTH] = fraction.coerceIn(0.5f, 0.95f)
+    }
+
+    suspend fun setDebugPerformanceMonitorEnabled(enabled: Boolean) =
+        editor.edit { it[SettingsPreferenceKeys.DEBUG_PERFORMANCE_MONITOR] = enabled }
+}

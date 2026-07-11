@@ -1,19 +1,20 @@
-package com.slideindex.app.overlay
+package com.slideindex.app.overlay.layout
 
 import android.graphics.RectF
-import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.util.coerceSafe
 
-internal object QuickLauncherPanelLayoutEngine {
+object QuickLauncherPanelLayoutEngine {
     const val MAX_ROWS = 6
 
     fun gridLayoutInfo(
-        settings: AppSettings,
+        columnsPerPage: Int,
+        rowsPerPage: Int,
         cellWidth: Float,
         gridPadding: Float,
     ): GridLayoutInfo {
-        val columns = settings.quickLauncherColumnsPerPage.coerceIn(2, 5)
-        val rows = settings.quickLauncherRowsPerPage.coerceIn(2, MAX_ROWS)
+        val columns = columnsPerPage.coerceIn(2, 5)
+        val rows = rowsPerPage.coerceIn(2, MAX_ROWS)
         val panelWidth = columns * cellWidth + gridPadding * 2
         return GridLayoutInfo(columns, columns, rows, panelWidth)
     }
@@ -26,7 +27,7 @@ internal object QuickLauncherPanelLayoutEngine {
     ): Float = rows * cellHeight + gridPadding * 2 + headerHeight
 
     fun anchoredPanelRect(
-        host: QuickLauncherOverlayController.Host,
+        host: OverlayPanelLayoutHost,
         panelWidth: Float,
         contentHeight: Float,
         anchorLocalY: Float,
@@ -44,7 +45,7 @@ internal object QuickLauncherPanelLayoutEngine {
     }
 
     fun offsetForToolbar(
-        host: QuickLauncherOverlayController.Host,
+        host: OverlayPanelLayoutHost,
         panelRect: RectF,
         reserveWidth: Float,
     ): RectF {
@@ -86,8 +87,9 @@ internal object QuickLauncherPanelLayoutEngine {
     }
 
     fun panelRect(
-        host: QuickLauncherOverlayController.Host,
-        settings: AppSettings,
+        host: OverlayPanelLayoutHost,
+        columnsPerPage: Int,
+        rowsPerPage: Int,
         cellWidth: Float,
         cellHeight: Float,
         gridPadding: Float,
@@ -95,7 +97,7 @@ internal object QuickLauncherPanelLayoutEngine {
         anchorLocalY: Float,
         toolbarReserveWidth: Float,
     ): RectF {
-        val layout = gridLayoutInfo(settings, cellWidth, gridPadding)
+        val layout = gridLayoutInfo(columnsPerPage, rowsPerPage, cellWidth, gridPadding)
         val height = contentHeight(layout.rows, cellHeight, gridPadding, headerHeight)
         val base = anchoredPanelRect(host, layout.panelWidth, height, anchorLocalY)
         return offsetForToolbar(host, base, toolbarReserveWidth)

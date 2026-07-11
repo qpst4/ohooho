@@ -46,7 +46,7 @@ class ShakeGestureDetector(
         independentEnabled: Boolean,
         perDirection: Map<ShakeGestureType, Float>,
     ) {
-        globalSensitivity = global.coerceIn(1f, 10f)
+        globalSensitivity = ShakeGestureClassifier.clampSensitivity(global)
         this.independentEnabled = independentEnabled
         perDirectionSensitivity = perDirection
     }
@@ -124,7 +124,7 @@ class ShakeGestureDetector(
         lastAccel[2] = az
 
         val magnitude = sqrt(dx * dx + dy * dy + dz * dz)
-        val threshold = effectiveThreshold(globalSensitivity) * ACCEL_DELTA_SCALE
+        val threshold = ShakeGestureClassifier.effectiveThreshold(globalSensitivity) * ACCEL_DELTA_SCALE
         if (magnitude <= threshold) return
 
         val direction = detectDirection(
@@ -161,92 +161,19 @@ class ShakeGestureDetector(
         absY: Float,
         absZ: Float,
         axisScale: Float = 1f,
-    ): ShakeGestureType? {
-        if (independentEnabled) {
-            return detectPerDirection(axisX, axisY, axisZ, axisScale)
-        }
-
-        val sensitivity = effectiveThreshold(globalSensitivity) * axisScale
-        val flipYMargin = 1.5f * axisScale
-        val swingMargin = 1.0f * axisScale
-        val tiltBackMargin = 0.5f * axisScale
-        val swingSideMargin = 0.5f * axisScale
-
-        if (absY > sensitivity) {
-            return when {
-                axisY > sensitivity + flipYMargin -> ShakeGestureType.RIGHT_FLIP
-                axisY < -sensitivity - flipYMargin -> ShakeGestureType.LEFT_FLIP
-                else -> null
-            }
-        }
-
-        val swingThreshold = sensitivity - swingMargin
-        if (absX > swingThreshold) {
-            return when {
-                axisX > swingThreshold -> ShakeGestureType.FORWARD_FLIP
-                axisX < -sensitivity - tiltBackMargin -> ShakeGestureType.BACKWARD_FLIP
-                else -> null
-            }
-        }
-
-        if (absZ > swingThreshold) {
-            return when {
-                axisZ > sensitivity + swingSideMargin -> ShakeGestureType.LEFT_FLICK
-                axisZ < -sensitivity - swingSideMargin -> ShakeGestureType.RIGHT_FLICK
-                else -> null
-            }
-        }
-
-        return null
-    }
-
-    private fun detectPerDirection(
-        axisX: Float,
-        axisY: Float,
-        axisZ: Float,
-        axisScale: Float = 1f,
-    ): ShakeGestureType? {
-        val flipRight = sensitivityFor(ShakeGestureType.RIGHT_FLIP) * axisScale
-        val flipLeft = sensitivityFor(ShakeGestureType.LEFT_FLIP) * axisScale
-        val tiltFront = sensitivityFor(ShakeGestureType.FORWARD_FLIP) * axisScale
-        val tiltBack = sensitivityFor(ShakeGestureType.BACKWARD_FLIP) * axisScale
-        val swingLeft = sensitivityFor(ShakeGestureType.LEFT_FLICK) * axisScale
-        val swingRight = sensitivityFor(ShakeGestureType.RIGHT_FLICK) * axisScale
-        val swingMargin = 1.0f * axisScale
-
-        if (axisY > flipRight || axisY < -flipLeft) {
-            return when {
-                axisY > flipRight -> ShakeGestureType.RIGHT_FLIP
-                axisY < -flipLeft -> ShakeGestureType.LEFT_FLIP
-                else -> null
-            }
-        }
-
-        if (axisX > tiltFront - swingMargin || axisX < -tiltBack + swingMargin) {
-            return when {
-                axisX > tiltFront -> ShakeGestureType.FORWARD_FLIP
-                axisX < -tiltBack -> ShakeGestureType.BACKWARD_FLIP
-                else -> null
-            }
-        }
-
-        if (axisZ > swingLeft - swingMargin || axisZ < -swingRight + swingMargin) {
-            return when {
-                axisZ > swingLeft -> ShakeGestureType.LEFT_FLICK
-                axisZ < -swingRight -> ShakeGestureType.RIGHT_FLICK
-                else -> null
-            }
-        }
-
-        return null
-    }
-
-    private fun sensitivityFor(type: ShakeGestureType): Float =
-        if (independentEnabled) {
-            perDirectionSensitivity[type] ?: globalSensitivity
-        } else {
-            globalSensitivity
-        }.coerceIn(1f, 10f)
+    ): ShakeGestureType? =
+        ShakeGestureClassifier.detectDirection(
+            axisX = axisX,
+            axisY = axisY,
+            axisZ = axisZ,
+            absX = absX,
+            absY = absY,
+            absZ = absZ,
+            globalSensitivity = globalSensitivity,
+            independentEnabled = independentEnabled,
+            perDirectionSensitivity = perDirectionSensitivity,
+            axisScale = axisScale,
+        )
 
     private fun isReverseDirection(current: ShakeGestureType, previous: ShakeGestureType): Boolean =
         when (current) {
@@ -269,6 +196,6 @@ class ShakeGestureDetector(
         private const val ACCEL_DELTA_SCALE = 0.35f
 
         /** Reference stores UI slider 1–10 directly as rad/s threshold. */
-        fun effectiveThreshold(uiValue: Float): Float = uiValue.coerceIn(1f, 10f)
+        fun effectiveThreshold(uiValue: Float): Float = ShakeGestureClassifier.effectiveThreshold(uiValue)
     }
 }

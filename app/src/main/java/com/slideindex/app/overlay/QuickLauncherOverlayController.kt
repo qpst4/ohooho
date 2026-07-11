@@ -12,6 +12,10 @@ import com.slideindex.app.gesture.GestureSession
 import com.slideindex.app.gesture.GestureZoneLayout
 import com.slideindex.app.gesture.PanelGridSession
 import com.slideindex.app.gesture.SwipePathRecognizer
+import com.slideindex.app.overlay.layout.GridLayoutInfo
+import com.slideindex.app.overlay.layout.OverlayPanelLayoutHost
+import com.slideindex.app.overlay.layout.QuickLauncherPanelLayoutEngine
+import com.slideindex.app.overlay.layout.visualColumn
 import com.slideindex.app.launcher.QuickLauncherGridLogic
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.service.CreateShortcutTrampoline
@@ -21,10 +25,10 @@ import com.slideindex.app.settings.AppSettings
 internal class QuickLauncherOverlayController(
     internal val host: Host,
 ) {
-    interface Host {
+    interface Host : OverlayPanelLayoutHost {
         val context: Context
         fun settings(): AppSettings
-        fun side(): PanelSide
+        override fun side(): PanelSide
         fun apps(): List<AppInfo>
         fun gestureSession(): GestureSession
         fun zoneLayout(): GestureZoneLayout
@@ -36,10 +40,10 @@ internal class QuickLauncherOverlayController(
         fun panelEnterOffsetX(panel: RectF): Float
         fun panelContentRect(): RectF
         fun drawWithPanelEnterAnimation(canvas: Canvas, contentRect: RectF, drawContent: () -> Unit)
-        fun activeTriggerZoneRect(): RectF
-        fun viewWidth(): Int
-        fun viewHeight(): Int
-        fun dp(value: Float): Float
+        override fun activeTriggerZoneRect(): RectF
+        override fun viewWidth(): Int
+        override fun viewHeight(): Int
+        override fun dp(value: Float): Float
         fun sp(value: Float): Float
         fun viewLocationOnScreen(): IntArray
         fun invalidate()
@@ -417,7 +421,8 @@ internal class QuickLauncherOverlayController(
         quickLauncherPagination()
         return QuickLauncherPanelLayoutEngine.panelRect(
             host = host,
-            settings = host.settings(),
+            columnsPerPage = host.settings().quickLauncherColumnsPerPage,
+            rowsPerPage = host.settings().quickLauncherRowsPerPage,
             cellWidth = quickLauncherCellWidth,
             cellHeight = quickLauncherCellHeight,
             gridPadding = quickLauncherGridPadding,
@@ -440,9 +445,10 @@ internal class QuickLauncherOverlayController(
 
     private fun quickLauncherGridLayoutInfo(): GridLayoutInfo =
         QuickLauncherPanelLayoutEngine.gridLayoutInfo(
-            host.settings(),
-            quickLauncherCellWidth,
-            quickLauncherGridPadding,
+            columnsPerPage = host.settings().quickLauncherColumnsPerPage,
+            rowsPerPage = host.settings().quickLauncherRowsPerPage,
+            cellWidth = quickLauncherCellWidth,
+            gridPadding = quickLauncherGridPadding,
         )
 
     private fun quickLauncherPanelContentHeight(rows: Int): Float =

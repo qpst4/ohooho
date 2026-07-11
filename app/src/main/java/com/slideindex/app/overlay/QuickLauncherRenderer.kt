@@ -11,6 +11,7 @@ import com.slideindex.app.launcher.QuickLauncherGridLogic
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.launcher.QuickLauncherItemType
+import com.slideindex.app.overlay.layout.visualColumn
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.AppShortcutLoader
 import com.slideindex.app.util.GestureActionIconBitmap

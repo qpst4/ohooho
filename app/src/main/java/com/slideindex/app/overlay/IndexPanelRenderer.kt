@@ -13,6 +13,9 @@ import com.slideindex.app.data.AppInfo
 import com.slideindex.app.gesture.GestureSession
 import com.slideindex.app.gesture.GestureZoneLayout
 import com.slideindex.app.gesture.SlideAlongRailSession
+import com.slideindex.app.overlay.layout.GridLayoutInfo
+import com.slideindex.app.overlay.layout.gridLayoutInfo
+import com.slideindex.app.overlay.layout.visualColumn
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.util.coerceSafe
 

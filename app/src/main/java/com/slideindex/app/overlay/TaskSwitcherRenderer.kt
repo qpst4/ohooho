@@ -7,10 +7,14 @@ import android.graphics.Path
 import android.graphics.RectF
 import com.slideindex.app.R
 import com.slideindex.app.data.AppInfo
+import com.slideindex.app.overlay.layout.TaskSwitcherLayoutEngine
+import com.slideindex.app.overlay.layout.TaskSwitcherPanelLayout
+import com.slideindex.app.util.RecentAppEntry
 import com.slideindex.app.util.TaskManagerUtil
 
 internal data class TaskSwitcherRenderState(
     val loading: Boolean,
+    val recentEntries: List<RecentAppEntry>,
     val rowHighlight: Int,
     val closeHighlight: Int,
     val freeWindowHighlight: Int,
@@ -95,6 +99,7 @@ internal class TaskSwitcherRenderer(
         }
         layout.rows.forEachIndexed { index, row ->
             if (!RectF.intersects(layout.listRect, row.rowRect)) return@forEachIndexed
+            val entry = state.recentEntries.getOrNull(index) ?: return@forEachIndexed
             if (index == state.rowHighlight ||
                 (state.contextMenuActive && index == state.contextMenu?.rowIndex)
             ) {
@@ -131,10 +136,10 @@ internal class TaskSwitcherRenderer(
             val iconSize = host.dp(30f)
             val iconLeft = TaskSwitcherLayoutEngine.iconLeft(host, row)
             val iconTop = row.rowRect.centerY() - iconSize / 2f
-            drawScaledIcon(canvas, row.entry.app, iconLeft, iconTop, iconSize)
+            drawScaledIcon(canvas, entry.app, iconLeft, iconTop, iconSize)
             val labelX = iconLeft + iconSize + host.dp(9f)
             val labelMaxWidth = TaskSwitcherLayoutEngine.labelMaxWidth(host, row, labelX)
-            val label = ellipsize(row.entry.app.label, labelMaxWidth, labelPaint)
+            val label = ellipsize(entry.app.label, labelMaxWidth, labelPaint)
             val labelBaseline = row.rowRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
             canvas.drawText(label, labelX, labelBaseline, labelPaint)
             val gripX = TaskSwitcherLayoutEngine.gripX(host, row.rowRect)
@@ -142,7 +147,7 @@ internal class TaskSwitcherRenderer(
             drawCloseOrLockIcon(
                 canvas,
                 TaskSwitcherLayoutEngine.closeIconRect(host, row.rowRect),
-                row.entry.isLocked,
+                entry.isLocked,
                 closeIconPaint,
             )
             if (index < layout.rows.lastIndex) {
