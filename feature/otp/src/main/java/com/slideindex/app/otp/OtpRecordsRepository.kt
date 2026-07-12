@@ -105,6 +105,20 @@ class OtpRecordsRepository @Inject constructor(
         }
     }
 
+    suspend fun exportRawJson(): String? = mutex.withLock {
+        if (!recordsFile.exists()) return@withLock null
+        withContext(Dispatchers.IO) { recordsFile.readText() }
+    }
+
+    suspend fun importRawJson(json: String): Result<Unit> = mutex.withLock {
+        repositoryRunCatching {
+            val decoded = OtpRecordCodec.decode(json)
+            val trimmed = decoded.take(MAX_RECORDS)
+            writeToDisk(trimmed)
+            _records.value = trimmed
+        }
+    }
+
     suspend fun clearAll(): Result<Unit> = mutex.withLock {
         repositoryRunCatching {
             writeToDisk(emptyList())

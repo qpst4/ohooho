@@ -2,6 +2,8 @@ package com.slideindex.app.overlay
 
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -11,9 +13,9 @@ object OverlayPanelEnterAnimation {
     const val DURATION_MS = 180
     val OFFSCREEN_MARGIN: Dp = 16.dp
 
-    val enterSpec = tween<Float>(
-        durationMillis = DURATION_MS,
-        easing = LinearOutSlowInEasing,
+    val enterSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessMediumLow,
     )
 
     val exitSpec = tween<Float>(

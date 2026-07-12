@@ -120,6 +120,13 @@ fun OtpRecordsScreen(
                 modifier = listModifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (embeddedInHub) {
+                    item(key = "sender_hint") {
+                        com.slideindex.app.ui.settings.components.SettingsHintText(
+                            stringResource(R.string.otp_records_sender_hint),
+                        )
+                    }
+                }
                 if (filteredRecords.isEmpty()) {
                     item(key = "filter_empty") {
                         Text(

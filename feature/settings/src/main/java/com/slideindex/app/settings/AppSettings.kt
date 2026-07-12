@@ -46,7 +46,7 @@ data class AppSettings(
     val hideTriggerInLandscape: Boolean = false,
     val hideTriggerOnLockScreen: Boolean = false,
     val hideTriggerOnLauncher: Boolean = false,
-    val dynamicColorEnabled: Boolean = false,
+    val dynamicColorEnabled: Boolean = true,
     val freeWindowEnabled: Boolean = false,
     val freeWindowModeId: Int = FreeWindowMode.detectDefault().id,
     val freeWindowWidthFraction: Float = 0.8f,

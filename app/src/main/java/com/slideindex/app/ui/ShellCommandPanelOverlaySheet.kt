@@ -154,10 +154,11 @@ fun ShellCommandPanelOverlaySheet(
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
-                ShellStatusHeader(
+                ShellShizukuStatusCard(
                     shizukuGranted = shizukuGranted,
                     restartingService = false,
                     onRequestShizuku = {},
+                    onRestartService = {},
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 if (commands.isEmpty()) {

@@ -73,6 +73,7 @@ internal class FloatingPointerWindowLifecycle(
             screenWidth = screenBounds.width,
             screenHeight = screenBounds.height,
             settingsSource = { settingsHolder.value },
+            recordModeSource = { window.gestureRepository?.recordModeEnabled?.value == true },
         )
         if (anchorRawX != null && anchorRawY != null) {
             pointerSession.placeAtTouch(anchorRawX, anchorRawY, settings)
@@ -100,7 +101,8 @@ internal class FloatingPointerWindowLifecycle(
             joystickPositionChanged = { centerX, centerY ->
                 collapseTouchCapture(centerX, centerY, forceCollapse = true)
             },
-            gestureEnd = { centerX, centerY, _ ->
+            gestureEnd = { centerX, centerY, isTap ->
+                window.trySaveGestureRecording(pointerSession, isTap)
                 window.touchCaptureUserCollapsed = true
                 collapseTouchCapture(centerX, centerY, forceCollapse = true)
             },
@@ -154,6 +156,7 @@ internal class FloatingPointerWindowLifecycle(
         window.session = pointerSession
         window.touchLayoutParams = touchParams
         window.appContext = hostContext
+        window.gestureRepository = null
         val deps = OverlayDependencyAccess.overlayDependencies(hostContext)
             ?: run {
                 Log.w(TAG, "show: accessibility service deps unavailable")
@@ -161,6 +164,7 @@ internal class FloatingPointerWindowLifecycle(
                 displayDialogOwner.destroy()
                 return
             }
+        window.gestureRepository = deps.floatingPointerGestureRepository
         window.actionExecutor = ActionExecutor(
             context = hostContext,
             appRepository = deps.appRepository,

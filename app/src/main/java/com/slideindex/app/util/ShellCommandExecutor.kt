@@ -2,6 +2,8 @@ package com.slideindex.app.util
 
 import android.os.SystemClock
 import com.slideindex.app.shell.ShellCommand
+import com.slideindex.app.shell.ShellCommandTemplate
+import com.slideindex.app.shell.ShellTemplateContext
 
 object ShellCommandExecutor {
     private const val ROOT_PROBE_CACHE_MS = 30_000L
@@ -12,10 +14,16 @@ object ShellCommandExecutor {
     @Volatile
     private var rootProbeAtMs = 0L
 
-    fun execute(command: ShellCommand): TaskManagerUtil.ShellCommandResult {
+    fun execute(
+        command: ShellCommand,
+        templateContext: ShellTemplateContext? = null,
+    ): TaskManagerUtil.ShellCommandResult {
         val useRoot = resolveUseRoot()
+        val expanded = templateContext?.let {
+            ShellCommandTemplate.expand(command.command, it)
+        } ?: command.command
         return TaskManagerUtil.runShellCommandLine(
-            command = command.command,
+            command = expanded,
             useRoot = useRoot,
         )
     }

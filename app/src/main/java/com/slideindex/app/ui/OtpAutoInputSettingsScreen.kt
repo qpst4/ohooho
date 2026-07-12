@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.slideindex.app.R
 import com.slideindex.app.otp.LsposedInjectorProbe
+import com.slideindex.app.otp.OtpAutoFillStats
 import com.slideindex.app.settings.AppSettings
 import kotlin.math.roundToInt
 
@@ -34,6 +35,8 @@ fun OtpAutoInputSettingsScreen(
     onLsposedSmsChange: (Boolean) -> Unit = {},
     onLsposedSystemInjectChange: (Boolean) -> Unit = {},
     onCopyToClipboardChange: (Boolean) -> Unit = {},
+    stats: OtpAutoFillStats? = null,
+    onResetStats: (() -> Unit)? = null,
 ) {
     SettingsScreenScaffold(
         title = stringResource(R.string.otp_auto_input_title),
@@ -154,6 +157,43 @@ fun OtpAutoInputSettingsScreen(
             )
         }
         SettingsHintText(stringResource(R.string.otp_lsposed_scope_hint))
+
+        if (stats != null) {
+            SettingsSectionTitle(stringResource(R.string.otp_autofill_stats_title))
+            SettingsCard {
+                if (stats.totalAttempts <= 0) {
+                    SettingsHintText(stringResource(R.string.otp_autofill_stats_empty))
+                } else {
+                    SettingsHintText(
+                        stringResource(
+                            R.string.otp_autofill_stats_summary,
+                            stats.totalAttempts,
+                            stats.successRatePercent,
+                        ),
+                    )
+                    stats.lastAttemptAtEpochMs?.let { lastAt ->
+                        val resultLabel = if (stats.lastSuccess == true) {
+                            stringResource(R.string.otp_autofill_stats_last_success)
+                        } else {
+                            stringResource(R.string.otp_autofill_stats_last_failure)
+                        }
+                        SettingsHintText(
+                            stringResource(
+                                R.string.otp_autofill_stats_last,
+                                resultLabel,
+                                stats.lastStrategy.orEmpty(),
+                            ),
+                        )
+                    }
+                }
+                if (onResetStats != null && stats.totalAttempts > 0) {
+                    SettingLinkRow(
+                        title = stringResource(R.string.otp_autofill_stats_reset),
+                        onClick = onResetStats,
+                    )
+                }
+            }
+        }
 
         SettingsSectionTitle(stringResource(R.string.otp_auto_input_timing_section))
         SettingsCard {

@@ -7,12 +7,18 @@ import javax.inject.Singleton
 class SettingsBackupManager @Inject constructor(
     private val editor: SettingsPreferencesEditor,
 ) {
-    suspend fun exportSettings(appVersionName: String): Result<String> = runCatching {
+    suspend fun exportSettings(
+        appVersionName: String,
+        sensitive: SensitiveBackupSections? = null,
+    ): Result<String> = runCatching {
         val preferences = editor.readRawPreferences()
-        SettingsBackupCodec.encode(preferences, appVersionName)
+        SettingsBackupCodec.encode(preferences, appVersionName, sensitive)
     }
 
-    suspend fun importSettings(rawJson: String, replaceExisting: Boolean = true): Result<Int> = runCatching {
+    suspend fun importSettings(
+        rawJson: String,
+        replaceExisting: Boolean = true,
+    ): Result<SettingsBackupImportResult> = runCatching {
         val document = SettingsBackupCodec.decode(rawJson)
         SettingsBackupCodec.validate(document)
         editor.edit { prefs ->
@@ -23,6 +29,27 @@ class SettingsBackupManager @Inject constructor(
             }
             SettingsBackupCodec.apply(document, prefs)
         }.getOrThrow()
-        document.preferences.size
+        SettingsBackupImportResult(
+            preferencesImported = document.preferences.size,
+            sensitive = SensitiveBackupSections(
+                otpRecordsJson = document.otpRecordsJson,
+                notificationHistoryJson = document.notificationHistoryJson,
+            ),
+        )
+    }
+
+    suspend fun previewImport(rawJson: String): Result<SettingsBackupPreview> = runCatching {
+        val document = SettingsBackupCodec.decode(rawJson)
+        SettingsBackupCodec.validate(document)
+        val domains = document.preferences.map { mapPreferenceKeyToDomain(it.key) }.toSet()
+        SettingsBackupPreview(
+            formatVersion = document.formatVersion,
+            exportedAtEpochMs = document.exportedAtEpochMs,
+            appVersionName = document.appVersionName,
+            totalPreferencesCount = document.preferences.size,
+            domains = domains,
+            hasOtpRecords = !document.otpRecordsJson.isNullOrBlank(),
+            hasNotificationHistory = !document.notificationHistoryJson.isNullOrBlank(),
+        )
     }
 }

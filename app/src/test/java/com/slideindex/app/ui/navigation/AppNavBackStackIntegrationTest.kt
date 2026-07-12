@@ -36,6 +36,42 @@ class AppNavBackStackIntegrationTest {
     }
 
     @Test
+    fun extensionFeatureBack_returnsToExtensionHub() {
+        val backStack = stack(AppNavKey.ExtensionHub)
+        backStack.navigate(AppNavKey.ShellCommands)
+
+        backStack.navigateBackTo(AppNavKey.ExtensionHub)
+
+        assertEquals(AppNavKey.ExtensionHub, backStack.last())
+        assertEquals(1, backStack.size)
+    }
+
+    @Test
+    fun appIndexBack_returnsToExtensionHub() {
+        val backStack = stack(AppNavKey.ExtensionHub)
+        backStack.navigate(AppNavKey.HomeLayout)
+
+        backStack.navigateBackTo(AppNavKey.ExtensionHub)
+
+        assertEquals(AppNavKey.ExtensionHub, backStack.last())
+        assertEquals(1, backStack.size)
+    }
+
+    @Test
+    fun appIndexHiddenAppsBack_returnsToLayoutThenExtensionHub() {
+        val backStack = stack(AppNavKey.ExtensionHub)
+        backStack.navigate(AppNavKey.HomeLayout)
+        backStack.navigate(AppNavKey.HomeHiddenApps)
+
+        backStack.navigateBackTo(AppNavKey.HomeLayout)
+        assertEquals(AppNavKey.HomeLayout, backStack.last())
+
+        backStack.navigateBackTo(AppNavKey.ExtensionHub)
+        assertEquals(AppNavKey.ExtensionHub, backStack.last())
+        assertEquals(1, backStack.size)
+    }
+
+    @Test
     fun replaceRoot_clearsHistory() {
         val backStack = stack()
         backStack.navigate(AppNavKey.ExtensionHub)

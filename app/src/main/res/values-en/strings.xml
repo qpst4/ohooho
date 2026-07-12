@@ -5,7 +5,7 @@
     <!-- Bottom nav "Notifications" groups filter box + verification codes; "Messages" may fit better in some contexts -->
     <string name="main_nav_home">Home</string>
     <string name="main_nav_shake">Shake</string>
-    <string name="main_nav_notification">Notifications</string>
+    <string name="main_nav_notification">Messages</string>
     <string name="main_nav_extension">Extensions</string>
     <string name="extension_hub_subtitle">Quick launcher, command panel, and more</string>
     <string name="shake_gestures_title">Shake Gestures</string>
@@ -637,6 +637,7 @@
     <string name="otp_records_delete_message">Delete the record for code %1$s?</string>
     <string name="otp_records_rule_label">Rule: %1$s</string>
     <string name="otp_records_test_source">Test SMS</string>
+    <string name="otp_records_sender_hint">Long numbers starting with 1068 are SMS sender IDs, not fill statistics. See Fill statistics at the bottom of the Extensions tab.</string>
     <string name="otp_rules_tab_title">Extraction rules</string>
     <string name="otp_hub_rules_hint">App rules are tried first; keyword fallback runs when none match. Use the test at the bottom to verify.</string>
     <string name="otp_hub_section_more">More</string>
@@ -974,6 +975,14 @@
     <string name="shell_panel_shizuku_label">Shizuku</string>
     <string name="shell_panel_shizuku_active">Active</string>
     <string name="shell_panel_shizuku_inactive">Not authorized</string>
+    <string name="shell_panel_shizuku_active_desc">Ready to run shell commands</string>
+    <string name="shell_panel_shizuku_inactive_desc">Authorize Shizuku to run commands</string>
+    <string name="shell_panel_commands_section">Shortcuts</string>
+    <string name="shell_panel_commands_section_count">Shortcuts · %1$d</string>
+    <string name="shell_panel_restart_success">Shell service restarted (build=%1$d)</string>
+    <string name="shell_panel_restart_outdated">Shell service outdated (api=%1$d). Update in Shizuku</string>
+    <string name="shell_panel_restart_failed">Failed to restart shell service. Check Shizuku</string>
+    <string name="shell_panel_history_action">Output history</string>
     <string name="shell_panel_empty_hint">Tap + at the bottom right to add a command. Tap a card to run; long-press to edit or delete.</string>
     <string name="shell_panel_add">Add command</string>
     <string name="shell_panel_edit">Edit command</string>
@@ -1071,7 +1080,9 @@
     <string name="settings_backup_title">Settings backup</string>
     <string name="settings_backup_subtitle">Export or import app configuration for device migration</string>
     <string name="settings_backup_section_actions">Backup actions</string>
-    <string name="settings_backup_hint">Backups include gestures, shake, notification, and extension settings. OTP records and notification history are excluded.</string>
+    <string name="settings_backup_hint">Backups include gestures, shake, and extension settings. You can optionally include OTP records and notification history (sensitive).</string>
+    <string name="settings_backup_include_sensitive">Include OTP records and notification history</string>
+    <string name="settings_backup_sensitive_hint">Sensitive data stays in your local backup file only; nothing is uploaded.</string>
     <string name="settings_backup_export">Export settings</string>
     <string name="settings_backup_import">Import settings</string>
     <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
@@ -1093,4 +1104,42 @@
     <string name="onboarding_done_title">You are all set</string>
     <string name="onboarding_done_body">Core permissions are configured. Tune gestures on Home or import an existing backup from Extensions.</string>
     <string name="onboarding_permission_granted">Granted</string>
+
+    <string name="privacy_policy_title">Privacy policy</string>
+    <string name="privacy_policy_subtitle">How data is handled and whether it is uploaded</string>
+    <string name="privacy_policy_entry_title">Privacy policy</string>
+    <string name="privacy_policy_entry_desc">Local data handling and permission purposes</string>
+    <string name="privacy_policy_body">SlideIndex is designed around on-device processing.\n\n• Notifications and OTP: read, filtered, extracted, and displayed locally only. Nothing is uploaded by default.\n• OTP records and notification history: stored in app-private storage and excluded from system backup by default; optional export in settings backup.\n• LSPosed / Shizuku: optional enhancements that you enable yourself.\n• We do not collect personally identifiable information or send this data to developer servers.\n\nForeground service (special use): OverlayService keeps edge gestures and shake detection alive with subtype overlay_sidebar—not for ads or unrelated background work.\n\nQuestions: open a GitHub Issue on the project repository.</string>
+
+    <string name="fgs_special_use_title">Foreground service notice</string>
+    <string name="fgs_special_use_desc">OverlayService uses specialUse (overlay_sidebar) for edge gesture keep-alive and accessibility watchdog—not ads or unrelated background tasks.</string>
+
+    <string name="otp_autofill_stats_title">Fill statistics</string>
+    <string name="otp_autofill_stats_summary">%1$d attempts, %2$d%% success rate</string>
+    <string name="otp_autofill_stats_last">Last: %1$s · %2$s</string>
+    <string name="otp_autofill_stats_last_success">Success</string>
+    <string name="otp_autofill_stats_last_failure">Failed</string>
+    <string name="otp_autofill_stats_reset">Reset statistics</string>
+    <string name="otp_autofill_stats_empty">No auto-fill attempts yet</string>
+
+    <string name="shell_panel_template_hint">Variables: {package}, {foreground_package}, {timestamp}, {datetime}</string>
+    <string name="shell_panel_history_title">Output history</string>
+    <string name="shell_panel_history_desc">Recent command output with search</string>
+    <string name="shell_panel_history_entry_title">Output history</string>
+    <string name="shell_panel_history_entry_desc_count">View %1$d recent runs</string>
+    <string name="shell_panel_history_entry_desc_empty">No execution history yet</string>
+    <string name="shell_panel_history_search_hint">Search commands or output</string>
+    <string name="shell_panel_history_clear">Clear history</string>
+    <string name="shell_panel_history_empty">No execution history yet</string>
+    <string name="shell_panel_history_exit_code">Exit code %1$d</string>
+
+    <string name="floating_pointer_gesture_section_title">Gesture record and playback</string>
+    <string name="floating_pointer_gesture_section_desc">Enable record mode, drag on the floating pointer once, then play back or delete saved gestures here.</string>
+    <string name="floating_pointer_gesture_record_mode_title">Record mode</string>
+    <string name="floating_pointer_gesture_record_mode_desc">Save the next drag gesture automatically when it ends</string>
+    <string name="floating_pointer_gesture_empty">No saved gestures</string>
+    <string name="floating_pointer_gesture_points_summary">%1$d points</string>
+    <string name="floating_pointer_gesture_play">Play back</string>
+    <string name="floating_pointer_gesture_delete">Delete</string>
+    <string name="floating_pointer_gesture_saved">Gesture recording saved</string>
 </resources>

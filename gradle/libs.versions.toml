@@ -22,6 +22,8 @@ hilt = "2.59.2"
 ksp = "2.3.9"
 libxposed-api = "102.0.0"
 kotlin-metadata-jvm = "2.4.0"
+baselineprofile = "1.3.3"
+benchmark = "1.3.3"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -31,6 +33,8 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
+baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 
 [libraries]
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -69,3 +73,5 @@ hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", v
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposed-api" }
 kotlin-metadata-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-metadata-jvm", version.ref = "kotlin-metadata-jvm" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version = "2.3.0" }

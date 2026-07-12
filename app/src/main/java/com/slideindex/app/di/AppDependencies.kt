@@ -28,6 +28,7 @@ class AppDependencies @Inject constructor(
     override val notificationListenerPort: NotificationListenerPort,
     val otpOfficialRulesLoader: OtpOfficialRulesLoader,
     val otpRecordsRepository: OtpRecordsRepository,
+    override val floatingPointerGestureRepository: com.slideindex.app.overlay.FloatingPointerGestureRepository,
     val userMessageBus: UserMessageBus,
     val applicationScope: CoroutineScope,
     override val widgetPanelPersistence: WidgetPanelPersistence,

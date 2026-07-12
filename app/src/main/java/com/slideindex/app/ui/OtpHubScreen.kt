@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 
 import com.slideindex.app.R
 
+import com.slideindex.app.otp.OtpAutoFillStats
+
 import com.slideindex.app.otp.OtpMatchRule
 
 import com.slideindex.app.settings.AppSettings
@@ -115,6 +117,10 @@ fun OtpHubScreen(
     onLsposedSmsChange: (Boolean) -> Unit = {},
 
     onLsposedSystemInjectChange: (Boolean) -> Unit = {},
+
+    stats: OtpAutoFillStats? = null,
+
+    onResetStats: (() -> Unit)? = null,
 
 ) {
 
@@ -291,6 +297,10 @@ fun OtpHubScreen(
                     onLsposedSystemInjectChange = onLsposedSystemInjectChange,
 
                     onCopyToClipboardChange = onCopyToClipboardChange,
+
+                    stats = stats,
+
+                    onResetStats = onResetStats,
 
                     modifier = Modifier.fillMaxSize(),
 

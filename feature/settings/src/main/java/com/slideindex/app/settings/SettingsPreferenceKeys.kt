@@ -1,4 +1,4 @@
-﻿package com.slideindex.app.settings
+package com.slideindex.app.settings
 
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey

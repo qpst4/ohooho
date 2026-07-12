@@ -103,7 +103,7 @@ fun EntryProviderScope<AppNavKey>.homeNavEntries(ctx: MainNavContext) {
             serviceEnabled = ctx.gestureActive(settings, permissions),
             onBack = {
                 ctx.sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
-                ctx.replaceRoot(AppNavKey.HomeMain)
+                ctx.navigateBackTo(AppNavKey.ExtensionHub)
             },
             onIndexHeightChange = viewModel::setIndexHeightFraction,
             onAppsPerRowChange = viewModel::setAppsPerRow,

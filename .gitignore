@@ -22,6 +22,8 @@
 .tmp/
 build-hilt.log
 test-regex.kts
+lint-baseline-out.txt
+.uploads/
 
 # --- JVM 崩溃与回放日志 ---
 hs_err_pid*.log

@@ -100,6 +100,7 @@ dependencies {
     ksp(libs.kotlin.metadata.jvm)
 
     implementation(libs.core.ktx)
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation(libs.lifecycle.runtime)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.viewmodel.compose)
@@ -130,13 +131,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
-
-    androidTestImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.activity.compose)
-    androidTestImplementation(libs.compose.ui.test.junit4)
 
     compileOnly(libs.libxposed.api)
 }

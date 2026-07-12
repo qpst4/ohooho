@@ -10,6 +10,8 @@ Android 边缘手势与系统增强工具，支持侧滑面板、摇一摇手势
 
 ## 功能概览
 
+**边栏 v1.2.0** 将边缘手势、消息中心（通知 + OTP）与扩展工具整合为一体，适合需要侧滑启动、通知管理与验证码助手的进阶用户。详见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+
 ### 边缘手势（核心）
 
 - 左右边缘触发条，支持多种外观（气泡 / 胶囊 / 波浪等）
@@ -177,20 +179,17 @@ gradlew.bat testDebugUnitTest
 
 ### 仪器化测试（Compose UI）
 
+> **已移除** `app/src/androidTest` 仪器化测试以缩短日常构建时间。性能与启动测试请使用 `:baselineprofile` 与 `:macrobenchmark` 模块（需连接设备）。
+
 ```bash
-gradlew.bat connectedDebugAndroidTest
+# 生成 Baseline Profile（需已连接设备/模拟器）
+./gradlew :baselineprofile:connectedBenchmarkReleaseAndroidTest
+
+# 冷启动 Macrobenchmark
+./gradlew :macrobenchmark:connectedBenchmarkReleaseAndroidTest
 ```
 
-- `MainActivityComposeFlowTest` — 主导航各 Tab、设置备份页等 Compose 流程（测试启动时自动跳过首次引导）
-- `AppInstrumentationTest` — 应用级冒烟断言
-- `DeviceCompatibilityTest` — 设备/系统信息快照，便于多机型回归比对
-- 截图回归：`MainActivityComposeFlowTest` 内含 golden 截图用例（`ScreenshotGolden`），基线图位于 `app/src/androidTest/assets/screenshots/`
-
-CI 在 API **30** 与 **34** 两台模拟器上矩阵运行 `connectedDebugAndroidTest`（见下方 CI 章节）。
-
-> **注意：** CI 当前不跑测试（单元测试与仪器化测试仅在本地执行），以缩短 Actions 耗时。
-
-#### Windows 全量测试注意
+### 单元测试
 
 在 Windows 上，**Android Studio 的 Gradle Sync** 会锁定 `R.jar`、Kotlin 编译缓存等构建产物，命令行跑全量单测时可能出现 `Couldn't delete ... R.jar` 或 configuration cache 锁超时。
 
@@ -303,6 +302,10 @@ GitHub Actions 工作流（`.github/workflows/ci.yml`）在 push/PR 时自动执
 
 - `assembleDebug` + `lintDebug` — 编译 Debug APK 与静态检查
 
+**不**在 CI 中运行单元测试或仪器化测试（仅在本地执行）。Release 构建与 Baseline Profile 生成亦需在本地完成。
+
+**不**在 CI 中运行单元测试或仪器化测试（含 Baseline Profile / Macrobenchmark），以控制 Actions 耗时；请在本地执行 `testDebugUnitTest` 或上述 benchmark 任务。
+
 **Push 到 `main`/`master` 时**（已配置 Secrets 的情况下）额外执行：
 
 - `assembleRelease` — 编译已签名的 Release APK
@@ -339,3 +342,7 @@ base64 -i app/keystore/release.jks | tr -d '\n'
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 开源。
+
+## Release Notes
+
+见 [RELEASE_NOTES.md](RELEASE_NOTES.md)（v1.2.0 差异化说明）。

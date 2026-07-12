@@ -35,7 +35,7 @@ class SettingsBackupCodecTest {
         repository.setLeftEdgeEnabled(true)
         repository.setOnboardingCompleted(false)
 
-        val importedCount = repository.importSettings(exported).getOrThrow()
+        val importedCount = repository.importSettings(exported).getOrThrow().preferencesImported
 
         assertTrue(importedCount > 0)
         assertTrue(repository.readSnapshot().serviceEnabled)

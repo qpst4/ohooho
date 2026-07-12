@@ -167,6 +167,26 @@
             android:taskAffinity=""
             android:theme="@style/Theme.SlideIndex.Transparent" />
 
+        <activity
+            android:name=".service.ToggleGestureTrampolineActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SlideIndex.Transparent" />
+
+        <service
+            android:name=".service.GestureToggleTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_sidebar_tile"
+            android:label="@string/tile_gesture_switch"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".service.OverlayService"
             android:exported="false"

@@ -2,6 +2,7 @@ package com.slideindex.app
 
 import android.app.Application
 import com.slideindex.app.di.AppDependencies
+import com.slideindex.app.di.OtpAutoFillStatsInstaller
 import com.slideindex.app.di.ShizukuInitializer
 import com.slideindex.app.widget.WidgetPanelPage
 import dagger.hilt.android.HiltAndroidApp
@@ -12,10 +13,12 @@ import kotlinx.coroutines.launch
 class SlideIndexApp : Application() {
     @Inject lateinit var deps: AppDependencies
     @Inject lateinit var shizukuInitializer: ShizukuInitializer
+    @Inject lateinit var otpAutoFillStatsInstaller: OtpAutoFillStatsInstaller
 
     override fun onCreate() {
         super.onCreate()
         shizukuInitializer.start()
+        otpAutoFillStatsInstaller.install()
         deps.applicationScope.launch {
             deps.appRepository.loadApps()
         }

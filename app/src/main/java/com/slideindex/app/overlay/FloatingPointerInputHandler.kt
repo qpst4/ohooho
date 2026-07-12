@@ -177,7 +177,9 @@ internal class FloatingPointerInputHandler(
                 val isTap = !movedBeyondTap && !longPressTriggered
                 if (settings.floatingPointerHideWhenJoystickReleased && movedBeyondTap) {
                     session.pointerVisible.value = false
-                    session.clearTrail()
+                    if (!session.shouldKeepTrailOnRelease()) {
+                        session.clearTrail()
+                    }
                 }
                 session.joystickActive.value = false
                 val endX = if (movedBeyondTap) event.rawX else restJoystickX
@@ -199,7 +201,9 @@ internal class FloatingPointerInputHandler(
                     swipeDistance >= QUICK_SWIPE_MIN_DISTANCE_PX &&
                     elapsed <= QUICK_SWIPE_MAX_DURATION_MS
                 ) {
-                    session.clearTrail()
+                    if (!session.shouldKeepTrailOnRelease()) {
+                        session.clearTrail()
+                    }
                     host.onQuickSwipeDismiss()
                     host.onTouchCycleComplete()
                     return true
@@ -222,7 +226,9 @@ internal class FloatingPointerInputHandler(
                 }
                 if (settingsProvider().floatingPointerHideWhenJoystickReleased && movedBeyondTap) {
                     session.pointerVisible.value = false
-                    session.clearTrail()
+                    if (!session.shouldKeepTrailOnRelease()) {
+                        session.clearTrail()
+                    }
                 }
                 session.joystickActive.value = false
                 session.joystickCenterX.floatValue = restJoystickX

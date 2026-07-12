@@ -1,5 +1,6 @@
-﻿package com.slideindex.app.overlay
+package com.slideindex.app.overlay
 
+import android.os.SystemClock
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -28,6 +29,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalContext
 import com.slideindex.app.gesture.GestureAction
+import com.slideindex.app.gesture.PointerGesturePoint
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.FloatingPointerDesign
 import com.slideindex.app.ui.theme.SlideIndexTheme
@@ -41,6 +43,7 @@ internal class FloatingPointerSession(
     val screenWidth: Float,
     val screenHeight: Float,
     private val settingsSource: () -> AppSettings,
+    private val recordModeSource: () -> Boolean = { false },
 ) {
     val tapSlopPx = 10f * density
 
@@ -111,6 +114,9 @@ internal class FloatingPointerSession(
     private var dragFingerAnchorY = 0f
     private var dragPointerAnchorX = 0f
     private var dragPointerAnchorY = 0f
+    private var gestureRecordingActive = false
+    private var gestureRecordingStartMs = 0L
+    private val gestureRecordingPoints = mutableListOf<PointerGesturePoint>()
 
     fun triggerRipple(x: Float, y: Float) {
         rippleCenterX.floatValue = x
@@ -168,7 +174,38 @@ internal class FloatingPointerSession(
         } else {
             armDrag(rawX, rawY)
         }
+        if (recordModeSource()) {
+            beginGestureRecording()
+        }
     }
+
+    private fun beginGestureRecording() {
+        gestureRecordingActive = true
+        gestureRecordingStartMs = SystemClock.uptimeMillis()
+        gestureRecordingPoints.clear()
+        appendGestureRecordingPoint(pointerX.floatValue, pointerY.floatValue)
+    }
+
+    private fun appendGestureRecordingPoint(x: Float, y: Float) {
+        if (!gestureRecordingActive) return
+        val offsetMs = SystemClock.uptimeMillis() - gestureRecordingStartMs
+        val last = gestureRecordingPoints.lastOrNull()
+        if (last != null && hypot((last.x - x).toDouble(), (last.y - y).toDouble()) < 8.0) {
+            return
+        }
+        gestureRecordingPoints.add(PointerGesturePoint(x, y, offsetMs))
+    }
+
+    fun showPlaybackPoint(x: Float, y: Float, recordTrail: Boolean) {
+        pointerX.floatValue = x
+        pointerY.floatValue = y
+        pointerVisible.value = true
+        if (recordTrail) {
+            recordTrail(x, y)
+        }
+    }
+
+    fun shouldKeepTrailOnRelease(): Boolean = recordModeSource() || gestureRecordingActive
 
     private fun armDrag(fingerX: Float, fingerY: Float) {
         dragFingerAnchorX = fingerX
@@ -274,6 +311,17 @@ internal class FloatingPointerSession(
         }
     }
 
+    fun buildGestureRecordingSnapshot(isTap: Boolean): List<PointerGesturePoint>? {
+        gestureRecordingActive = false
+        if (isTap || gestureRecordingPoints.size < 2) {
+            gestureRecordingPoints.clear()
+            return null
+        }
+        return gestureRecordingPoints
+            .take(FloatingPointerGestureRepository.MAX_POINTS)
+            .also { gestureRecordingPoints.clear() }
+    }
+
     fun applyPointerFromTouch(rawX: Float, rawY: Float, @Suppress("UNUSED_PARAMETER") settings: AppSettings) {
         if (gestureAreaWidth <= 0f || gestureAreaHeight <= 0f) return
         val next = FloatingPointerBounds.pointerForFingerDeltaInArea(
@@ -289,5 +337,6 @@ internal class FloatingPointerSession(
         pointerX.floatValue = next.x
         pointerY.floatValue = next.y
         recordTrail(next.x, next.y)
+        appendGestureRecordingPoint(next.x, next.y)
     }
 }

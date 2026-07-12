@@ -21,9 +21,11 @@ import com.slideindex.app.service.OverlayServiceController
 import com.slideindex.app.service.QuickLauncherAddTrampoline
 import com.slideindex.app.service.ShellCommandEditorTrampoline
 import com.slideindex.app.service.ShellCommandPanelTrampoline
+import com.slideindex.app.service.ShellCommandPanelTrampolineActivity
 import com.slideindex.app.service.ShellCommandResultTrampoline
 import com.slideindex.app.service.WidgetBindTrampolineActivity
 import com.slideindex.app.service.WidgetPickerTrampoline
+import com.slideindex.app.service.ToggleGestureTrampolineActivity
 import com.slideindex.app.ui.navigation.MainNavHost
 import com.slideindex.app.ui.navigation.NavPermissionStates
 import com.slideindex.app.util.PermissionHelper
@@ -34,6 +36,10 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
+import android.content.Intent
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -49,6 +55,7 @@ class MainActivity : ComponentActivity() {
         notificationListenerEnabled = mutableStateOf(false),
     )
 
+    private val currentIntentAction = mutableStateOf<String?>(null)
     private lateinit var overlayServiceController: OverlayServiceController
 
     private val shizukuPermissionListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
@@ -68,6 +75,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentIntentAction.value = intent?.action
+        
         overlayServiceController = OverlayServiceController(
             context = this,
             permissionStates = permissionStates,
@@ -83,12 +92,45 @@ class MainActivity : ComponentActivity() {
                 activity = this@MainActivity,
                 deps = deps,
                 permissionStates = permissionStates,
+                initialIntentAction = currentIntentAction.value,
             )
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        currentIntentAction.value = intent.action
+    }
+
+    private fun setupDynamicShortcuts() {
+        val toggleGestureShortcut = ShortcutInfoCompat.Builder(this, "toggle_gesture")
+            .setShortLabel(getString(R.string.shortcut_toggle_gesture))
+            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_launcher)) // fallback icon
+            .setIntent(Intent(this, ToggleGestureTrampolineActivity::class.java).setAction("com.slideindex.app.action.TOGGLE_GESTURE"))
+            .build()
+
+        val notificationHubShortcut = ShortcutInfoCompat.Builder(this, "notification_hub")
+            .setShortLabel(getString(R.string.shortcut_notification_hub))
+            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_launcher))
+            .setIntent(Intent(this, MainActivity::class.java).setAction("com.slideindex.app.action.OPEN_NOTIFICATION_HISTORY"))
+            .build()
+
+        val shellPanelShortcut = ShortcutInfoCompat.Builder(this, "shell_panel")
+            .setShortLabel(getString(R.string.shortcut_shell_panel))
+            .setIcon(IconCompat.createWithResource(this, R.drawable.ic_launcher))
+            .setIntent(ShellCommandPanelTrampolineActivity.createIntent(this).setAction("com.slideindex.app.action.OPEN_SHELL_PANEL"))
+            .build()
+
+        ShortcutManagerCompat.setDynamicShortcuts(
+            this,
+            listOf(toggleGestureShortcut, notificationHubShortcut, shellPanelShortcut)
+        )
+    }
+
     override fun onResume() {
         super.onResume()
+        setupDynamicShortcuts()
         refreshPermissionState()
         refreshServiceState()
         com.slideindex.app.widget.WidgetPopupHost.startListening(this)

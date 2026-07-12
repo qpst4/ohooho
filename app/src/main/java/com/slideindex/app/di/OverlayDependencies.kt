@@ -13,4 +13,5 @@ interface OverlayDependencies {
     val notificationListenerPort: NotificationListenerPort
     val notificationIntentLaunchPort: NotificationIntentLaunchPort
     val widgetPanelPersistence: WidgetPanelPersistence
+    val floatingPointerGestureRepository: com.slideindex.app.overlay.FloatingPointerGestureRepository
 }

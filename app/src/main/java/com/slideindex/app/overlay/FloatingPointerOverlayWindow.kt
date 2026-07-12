@@ -1,4 +1,4 @@
-﻿package com.slideindex.app.overlay
+package com.slideindex.app.overlay
 
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.ComposeView
 import com.slideindex.app.gesture.ActionExecutor
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
+import com.slideindex.app.overlay.FloatingPointerGestureRepository
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.util.HapticHelper
@@ -23,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Floating pointer with QC-inspired visuals:
@@ -60,6 +62,7 @@ object FloatingPointerOverlayWindow {
     internal var isPointerSwipeInFlight = false
     internal var continuedGestureActive = false
     internal var pendingCleanupRunnable: Runnable? = null
+    internal var gestureRepository: FloatingPointerGestureRepository? = null
 
     internal data class PendingPointerTap(
         val rawX: Float,
@@ -267,6 +270,49 @@ object FloatingPointerOverlayWindow {
         if (until > pointerTapOutsideSuppressUntilMs) {
             pointerTapOutsideSuppressUntilMs = until
         }
+    }
+
+    internal fun trySaveGestureRecording(session: FloatingPointerSession, isTap: Boolean) {
+        val repository = gestureRepository ?: return
+        if (!repository.recordModeEnabled.value) return
+        val points = session.buildGestureRecordingSnapshot(isTap) ?: return
+        overlayScope.launch {
+            repository.saveGesture(
+                name = "Gesture ${repository.recordings.value.size + 1}",
+                points = points,
+            )
+            repository.setRecordModeEnabled(false)
+        }
+    }
+
+    fun prepareGesturePlaybackPreview(points: List<com.slideindex.app.gesture.PointerGesturePoint>) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { prepareGesturePlaybackPreview(points) }
+            return
+        }
+        val currentSession = session ?: return
+        visibleState?.value = true
+        currentSession.pointerVisible.value = true
+        currentSession.clearTrail()
+        points.firstOrNull()?.let { first ->
+            currentSession.showPlaybackPoint(first.x, first.y, recordTrail = false)
+        }
+    }
+
+    fun showGesturePlaybackPoint(x: Float, y: Float) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { showGesturePlaybackPoint(x, y) }
+            return
+        }
+        session?.showPlaybackPoint(x, y, recordTrail = true)
+    }
+
+    fun clearGesturePlaybackPreview() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { clearGesturePlaybackPreview() }
+            return
+        }
+        session?.clearTrail()
     }
 
     private const val TAG = "FloatingPointerOverlay"

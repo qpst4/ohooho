@@ -1,4 +1,4 @@
-﻿@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.slideindex.app.ui
 
@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +43,7 @@ fun ExtensionHubScreen(
     onOpenWidgetPanel: () -> Unit,
     onOpenFloatingPointer: () -> Unit,
     onOpenSettingsBackup: () -> Unit,
+    onOpenAbout: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -97,10 +100,36 @@ fun ExtensionHubScreen(
                 )
                 SettingsBackupEntryCard(onClick = onOpenSettingsBackup)
             }
+            SettingsHintText(stringResource(R.string.fgs_special_use_desc))
+            
+            SettingsSectionTitle(stringResource(R.string.about_section_title))
+            SettingsCard {
+                AboutEntryCard(onClick = onOpenAbout)
+            }
 
             Spacer(modifier = Modifier.height(8.dp + bottomContentPadding))
         }
     }
+}
+
+@Composable
+fun AboutEntryCard(onClick: () -> Unit) {
+    SettingNavigationRow(
+        icon = { label -> Icon(Icons.Default.Info, contentDescription = label) },
+        title = stringResource(R.string.about_section_title),
+        subtitle = "版本、更新与隐私协议",
+        onClick = onClick,
+    )
+}
+
+@Composable
+fun PrivacyPolicyEntryCard(onClick: () -> Unit) {
+    SettingNavigationRow(
+        icon = { label -> Icon(Icons.Default.Policy, contentDescription = label) },
+        title = stringResource(R.string.privacy_policy_entry_title),
+        subtitle = stringResource(R.string.privacy_policy_entry_desc),
+        onClick = onClick,
+    )
 }
 
 @Composable

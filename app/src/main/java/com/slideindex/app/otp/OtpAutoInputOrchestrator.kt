@@ -15,6 +15,10 @@ import com.slideindex.app.autofill.OtpAutoInputFallbackPolicy
 import com.slideindex.app.otp.OtpCaptureDeduplicator
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @SuppressLint("StaticFieldLeak") // Pending context held only for in-flight auto-input attempt
 object OtpAutoInputOrchestrator {
@@ -22,11 +26,17 @@ object OtpAutoInputOrchestrator {
     private const val RESULT_TIMEOUT_MS = 3_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val statsScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var resultReceiverRegistered = false
     private var pendingAttemptId: Long? = null
     private var pendingCode: String? = null
     private var pendingSettings: AppSettings? = null
     private var pendingContext: Context? = null
+    private var statsRecorder: (suspend (Boolean, String, String) -> Unit)? = null
+
+    fun setStatsRecorder(recorder: suspend (Boolean, String, String) -> Unit) {
+        statsRecorder = recorder
+    }
 
     private val resultReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -37,6 +47,7 @@ object OtpAutoInputOrchestrator {
             val strategy = intent.getStringExtra(OtpAutoInputBroadcastContract.EXTRA_STRATEGY).orEmpty()
             val reason = intent.getStringExtra(OtpAutoInputBroadcastContract.EXTRA_REASON).orEmpty()
             Log.i(TAG, "Auto-input result: success=$success strategy=$strategy reason=$reason")
+            recordStats(success, strategy, reason)
             clearPendingAttempt()
             if (success) {
                 OtpAutoFillController.clearPending()
@@ -76,6 +87,7 @@ object OtpAutoInputOrchestrator {
                 if (pendingAttemptId == attemptId) {
                     Log.w(TAG, "Auto-input timed out, trying fallbacks")
                     clearPendingAttempt()
+                    recordStats(success = false, strategy = "none", reason = "timeout")
                     handleFailure(appContext, "timeout", "none")
                 }
             }, RESULT_TIMEOUT_MS)
@@ -107,5 +119,12 @@ object OtpAutoInputOrchestrator {
     private fun clearPendingAttempt() {
         pendingAttemptId = null
         mainHandler.removeCallbacksAndMessages(null)
+    }
+
+    private fun recordStats(success: Boolean, strategy: String, reason: String) {
+        val recorder = statsRecorder ?: return
+        statsScope.launch {
+            recorder(success, strategy, reason)
+        }
     }
 }

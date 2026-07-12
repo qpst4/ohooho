@@ -893,6 +893,10 @@
     <string name="shell_panel_shizuku_label">Shizuku</string>
     <string name="shell_panel_shizuku_active">已激活</string>
     <string name="shell_panel_shizuku_inactive">未授权</string>
+    <string name="shell_panel_shizuku_active_desc">已准备好执行 Shell 命令</string>
+    <string name="shell_panel_shizuku_inactive_desc">需要授权 Shizuku 才能执行命令</string>
+    <string name="shell_panel_commands_section">快捷命令</string>
+    <string name="shell_panel_commands_section_count">快捷命令 · %1$d</string>
     <string name="shell_panel_empty_hint">点击右下角 + 添加命令。点击卡片执行，长按编辑或删除。</string>
     <string name="shell_panel_add">添加命令</string>
     <string name="shell_panel_edit">编辑命令</string>
@@ -1073,7 +1077,9 @@
     <string name="settings_backup_title">设置备份</string>
     <string name="settings_backup_subtitle">导出或导入应用配置，便于换机恢复</string>
     <string name="settings_backup_section_actions">备份操作</string>
-    <string name="settings_backup_hint">备份包含手势、摇一摇、通知与扩展功能等设置，不包含验证码记录与通知历史。</string>
+    <string name="settings_backup_hint">备份包含手势、摇一摇与扩展功能等设置。可选一并导出验证码记录与通知历史（敏感数据）。</string>
+    <string name="settings_backup_include_sensitive">包含验证码记录与通知历史</string>
+    <string name="settings_backup_sensitive_hint">敏感数据仅保存在本地备份文件中，不会上传到任何服务器。</string>
     <string name="settings_backup_export">导出设置</string>
     <string name="settings_backup_import">导入设置</string>
     <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
@@ -1082,6 +1088,24 @@
     <string name="settings_backup_export_failed">导出失败，请稍后重试</string>
     <string name="settings_backup_import_success">已导入 %1$d 项设置</string>
     <string name="settings_backup_import_failed">导入失败，请检查文件格式</string>
+    <string name="settings_backup_preview_title">导入预览</string>
+    <string name="settings_backup_preview_info">备份创建于 %1$s，来自版本 %2$s。</string>
+    <string name="settings_backup_preview_count">将覆盖 %1$d 项设置。</string>
+    <string name="settings_backup_preview_domains">包含域：%1$s</string>
+    <string name="settings_backup_preview_sensitive">注意：此备份包含敏感数据（%1$s）。导入将覆盖当前记录。</string>
+    <string name="settings_backup_preview_warning">确认导入吗？该操作不可逆。</string>
+    <string name="settings_backup_preview_confirm">确认导入</string>
+    <string name="settings_domain_edge">边缘手势</string>
+    <string name="settings_domain_shake">摇一摇</string>
+    <string name="settings_domain_message">通知滤盒</string>
+    <string name="settings_domain_otp">自动验证码</string>
+    <string name="settings_domain_floating_pointer">悬浮指针</string>
+    <string name="settings_domain_widget_panel">小部件面板</string>
+    <string name="settings_domain_quick_launcher">快捷启动器</string>
+    <string name="settings_domain_free_window">自由窗口</string>
+    <string name="settings_domain_general">通用设置</string>
+    <string name="settings_domain_sensitive_otp">验证码记录</string>
+    <string name="settings_domain_sensitive_notification">通知历史</string>
 
     <!-- Onboarding -->
     <string name="onboarding_skip">跳过</string>
@@ -1096,4 +1120,53 @@
     <string name="onboarding_done_title">准备就绪</string>
     <string name="onboarding_done_body">核心权限已配置完成。你可以在首页继续调整手势，或在扩展页导入已有配置。</string>
     <string name="onboarding_permission_granted">已授权</string>
+
+    <string name="shell_panel_restart_success">Shell 服务已重启（build=%1$d）</string>
+    <string name="shell_panel_restart_outdated">Shell 服务版本过旧（api=%1$d），请在 Shizuku 中更新</string>
+    <string name="shell_panel_restart_failed">Shell 服务重启失败，请检查 Shizuku 状态</string>
+    <string name="shell_panel_history_action">输出历史</string>
+    <string name="otp_records_sender_hint">以 1068 开头的长数字是短信发送方号码，不是自动填充统计。填充成功率请查看「扩展」页底部的「填充统计」。</string>
+    <string name="privacy_policy_title">隐私政策</string>
+    <string name="privacy_policy_subtitle">数据如何处理、是否上传</string>
+    <string name="privacy_policy_entry_title">隐私政策</string>
+    <string name="privacy_policy_entry_desc">本地数据处理说明与权限用途</string>
+    <string name="privacy_policy_body">边栏（SlideIndex）以本地处理为基本原则。\n\n• 通知与验证码：仅在设备本地读取、过滤、提取与展示；默认不上传云端。\n• OTP 记录与通知历史：保存在应用私有目录，默认不纳入系统备份；可在设置备份中可选导出。\n• LSPosed / Shizuku：为可选增强能力，由你自行决定是否启用。\n• 我们不会收集可识别个人身份的信息，也不会在后台将上述数据发送到开发者服务器。\n\n前台服务（Special Use）：OverlayService 用于维持边缘手势与摇一摇监听，子类型为 overlay_sidebar，不用于广告或无关后台任务。\n\n如有疑问，请通过项目 GitHub Issues 联系。</string>
+    <string name="fgs_special_use_title">前台服务说明</string>
+    <string name="fgs_special_use_desc">OverlayService 使用 specialUse 类型（overlay_sidebar），用于边缘手势保活与无障碍 watchdog，非广告或无关后台用途。</string>
+    <string name="otp_autofill_stats_title">填充统计</string>
+    <string name="otp_autofill_stats_summary">共 %1$d 次尝试，成功率 %2$d%%</string>
+    <string name="otp_autofill_stats_last">上次：%1$s · %2$s</string>
+    <string name="otp_autofill_stats_last_success">成功</string>
+    <string name="otp_autofill_stats_last_failure">失败</string>
+    <string name="otp_autofill_stats_reset">重置统计</string>
+    <string name="otp_autofill_stats_empty">尚无自动填充记录</string>
+    <string name="shell_panel_template_hint">支持变量：{package}、{foreground_package}、{timestamp}、{datetime}</string>
+    <string name="shell_panel_history_title">输出历史</string>
+    <string name="shell_panel_history_desc">最近执行的命令输出，可搜索</string>
+    <string name="shell_panel_history_entry_title">输出历史</string>
+    <string name="shell_panel_history_entry_desc_count">查看最近 %1$d 条执行记录</string>
+    <string name="shell_panel_history_entry_desc_empty">暂无执行记录</string>
+    <string name="shell_panel_history_search_hint">搜索命令或输出</string>
+    <string name="shell_panel_history_clear">清空历史</string>
+    <string name="shell_panel_history_empty">暂无执行记录</string>
+    <string name="shell_panel_history_exit_code">退出码 %1$d</string>
+    <string name="floating_pointer_gesture_section_title">手势录制与回放</string>
+    <string name="floating_pointer_gesture_section_desc">开启录制模式后，在悬浮指针上完成一次拖动即可保存；可在此回放或删除。</string>
+    <string name="floating_pointer_gesture_record_mode_title">录制模式</string>
+    <string name="floating_pointer_gesture_record_mode_desc">下次在悬浮指针上拖动结束时自动保存轨迹</string>
+    <string name="floating_pointer_gesture_empty">暂无已保存手势</string>
+    <string name="floating_pointer_gesture_points_summary">%1$d 个轨迹点</string>
+    <string name="floating_pointer_gesture_play">回放</string>
+    <string name="floating_pointer_gesture_delete">删除</string>
+    <string name="floating_pointer_gesture_saved">已保存手势录制</string>
+    <string name="tile_gesture_switch">边栏</string>
+    <string name="shortcut_toggle_gesture">开关手势</string>
+    <string name="shortcut_notification_hub">通知滤盒</string>
+    <string name="shortcut_shell_panel">Shell 面板</string>
+    <string name="about_section_title">关于</string>
+    <string name="about_release_notes_title">更新说明</string>
+    <string name="about_release_notes_desc">在 GitHub 查看最新功能变更与修复</string>
+    <string name="about_project_url_title">项目地址</string>
+    <string name="about_project_url_desc">https://github.com/qpst4/ohooho</string>
+
 </resources>

@@ -1,4 +1,4 @@
-﻿package com.slideindex.app.ui.navigation
+package com.slideindex.app.ui.navigation
 
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -9,13 +9,17 @@ import com.slideindex.app.ui.FloatingPointerJoystickSettingsScreen
 import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
 import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
+import com.slideindex.app.ui.ExtensionAboutScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
+import com.slideindex.app.ui.PrivacyPolicyScreen
 import com.slideindex.app.ui.SettingsBackupScreen
 import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
+import com.slideindex.app.ui.viewmodel.FloatingPointerGestureViewModel
 import com.slideindex.app.ui.viewmodel.SettingsBackupViewModel
+import com.slideindex.app.ui.viewmodel.ShellCommandViewModel
 
 fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
     entry<AppNavKey.ExtensionHub> {
@@ -32,15 +36,33 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onOpenWidgetPanel = { ctx.navigate(AppNavKey.WidgetPanel) },
             onOpenFloatingPointer = { ctx.navigate(AppNavKey.FloatingPointer) },
             onOpenSettingsBackup = { ctx.navigate(AppNavKey.ExtensionBackup) },
+            onOpenAbout = { ctx.navigate(AppNavKey.ExtensionAbout) },
+        )
+    }
+
+    entry<AppNavKey.ExtensionAbout> {
+        ExtensionAboutScreen(
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
+            onOpenPrivacyPolicy = { ctx.navigate(AppNavKey.ExtensionPrivacy) },
+        )
+    }
+
+    entry<AppNavKey.ExtensionPrivacy> {
+        PrivacyPolicyScreen(
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
         )
     }
 
     entry<AppNavKey.ExtensionBackup> {
         val viewModel: SettingsBackupViewModel = hiltViewModel()
+        val importPreviewState by viewModel.importPreviewState.collectAsStateWithLifecycle()
         SettingsBackupScreen(
             onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onExport = viewModel::exportSettings,
-            onImport = viewModel::importSettings,
+            onImport = viewModel::previewImport,
+            importPreviewState = importPreviewState,
+            onDismissPreview = viewModel::dismissPreview,
+            onConfirmImport = viewModel::confirmImport,
         )
     }
 
@@ -49,7 +71,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         QuickLauncherEditorScreen(
             settings = settings,
-            onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onSaveItems = viewModel::setQuickLauncherItems,
             onColumnsChange = viewModel::setQuickLauncherColumnsPerPage,
             onRowsChange = viewModel::setQuickLauncherRowsPerPage,
@@ -58,14 +80,16 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
 
     entry<AppNavKey.ShellCommands> {
         val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val shellViewModel: ShellCommandViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         val permissions = ctx.collectPermissions()
         ShellCommandPanelScreen(
             settings = settings,
             shizukuGranted = permissions.shizukuGranted,
-            onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onSaveCommands = viewModel::setShellCommands,
             onRequestShizuku = { ctx.requestShizuku() },
+            shellViewModel = shellViewModel,
         )
     }
 
@@ -74,7 +98,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         WidgetPanelSettingsScreen(
             settings = settings,
-            onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onSavePages = viewModel::setWidgetPanelPages,
             onBlurEnabledChange = viewModel::setWidgetPanelBlurEnabled,
             onWidthFractionChange = viewModel::setWidgetPanelWidthFraction,
@@ -91,7 +115,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             areaPreviewEnabled = areaPreviewEnabled,
             previewAccessibilityGranted = permissions.accessibilityGranted,
             onAreaPreviewEnabledChange = { ctx.setFloatingPointerAreaPreviewEnabled(it) },
-            onBack = { ctx.replaceRoot(AppNavKey.HomeMain) },
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onOpenPointerSettings = { ctx.navigate(AppNavKey.FloatingPointerPointer) },
             onOpenJoystickSettings = { ctx.navigate(AppNavKey.FloatingPointerJoystick) },
             onOpenRadialMenuSettings = { ctx.navigate(AppNavKey.FloatingPointerRadialMenu) },
@@ -104,9 +128,11 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
 
     entry<AppNavKey.FloatingPointerPointer> {
         val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val gestureViewModel: FloatingPointerGestureViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         FloatingPointerPointerSettingsScreen(
             settings = settings,
+            gestureViewModel = gestureViewModel,
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
             onPointerDiameterChange = viewModel::setFloatingPointerPointerDiameterPx,
             onRingThicknessChange = viewModel::setFloatingPointerRingThicknessPx,

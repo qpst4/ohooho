@@ -179,6 +179,29 @@ class NotificationHistoryRepository @Inject constructor(
         }
     }
 
+    suspend fun exportRawJson(): String? {
+        ensureLoaded()
+        return mutex.withLock {
+            if (!historyFile.exists()) return@withLock null
+            withContext(Dispatchers.IO) { historyFile.readText() }
+        }
+    }
+
+    suspend fun importRawJson(json: String): Result<Unit> {
+        ensureLoaded()
+        persistJob?.cancel()
+        return mutex.withLock {
+            repositoryRunCatching {
+                val decoded = NotificationHistoryCodec.decode(json)
+                val maxCount = filterPreferences.readSnapshot().notificationHistoryMaxCount
+                val trimmed = decoded.take(maxCount)
+                writeToDisk(trimmed)
+                publishItems(trimmed)
+                isLoaded = true
+            }
+        }
+    }
+
     suspend fun clearAll(): Result<Unit> {
         ensureLoaded()
         persistJob?.cancel()

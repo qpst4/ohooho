@@ -21,6 +21,7 @@ import com.slideindex.app.ui.OtpSettingsScreen
 import com.slideindex.app.ui.viewmodel.MessageSettingsViewModel
 import com.slideindex.app.ui.viewmodel.NotificationHistoryViewModel
 import com.slideindex.app.ui.viewmodel.NotificationHubViewModel
+import com.slideindex.app.ui.viewmodel.OtpAutoFillStatsViewModel
 import com.slideindex.app.ui.viewmodel.OtpSettingsViewModel
 import kotlinx.coroutines.launch
 
@@ -127,7 +128,9 @@ fun EntryProviderScope<AppNavKey>.notificationNavEntries(ctx: MainNavContext) {
 
     entry<AppNavKey.OtpHub> {
         val viewModel: OtpSettingsViewModel = hiltViewModel()
+        val statsViewModel: OtpAutoFillStatsViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val stats by statsViewModel.stats.collectAsStateWithLifecycle()
         val officialRules by viewModel.officialRules.collectAsStateWithLifecycle()
         val permissions = ctx.collectPermissions()
         val context = LocalContext.current
@@ -156,6 +159,8 @@ fun EntryProviderScope<AppNavKey>.notificationNavEntries(ctx: MainNavContext) {
             onRequestAccessibility = requestAccessibility,
             onLsposedSmsChange = viewModel::setOtpLsposedSmsCaptureEnabled,
             onLsposedSystemInjectChange = viewModel::setOtpLsposedSystemInjectEnabled,
+            stats = stats,
+            onResetStats = statsViewModel::resetStats,
         )
     }
 
@@ -207,7 +212,9 @@ fun EntryProviderScope<AppNavKey>.notificationNavEntries(ctx: MainNavContext) {
 
     entry<AppNavKey.OtpAutoInput> {
         val viewModel: OtpSettingsViewModel = hiltViewModel()
+        val statsViewModel: OtpAutoFillStatsViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val stats by statsViewModel.stats.collectAsStateWithLifecycle()
         val permissions = ctx.collectPermissions()
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
@@ -230,6 +237,8 @@ fun EntryProviderScope<AppNavKey>.notificationNavEntries(ctx: MainNavContext) {
             onLsposedSmsChange = viewModel::setOtpLsposedSmsCaptureEnabled,
             onLsposedSystemInjectChange = viewModel::setOtpLsposedSystemInjectEnabled,
             onCopyToClipboardChange = viewModel::setOtpCopyToClipboard,
+            stats = stats,
+            onResetStats = statsViewModel::resetStats,
         )
     }
 }

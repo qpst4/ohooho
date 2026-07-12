@@ -10,7 +10,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.serialization.json.Json
 
 internal object SettingsBackupCodec {
-    const val CURRENT_FORMAT_VERSION = 1
+    const val CURRENT_FORMAT_VERSION = 2
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -22,7 +22,11 @@ internal object SettingsBackupCodec {
         SettingsPreferenceKeys.ONBOARDING_COMPLETED.name,
     )
 
-    fun encode(preferences: Preferences, appVersionName: String): String {
+    fun encode(
+        preferences: Preferences,
+        appVersionName: String,
+        sensitive: SensitiveBackupSections? = null,
+    ): String {
         val entries = preferences.asMap()
             .mapNotNull { (key, value) ->
                 if (key.name in excludedExportKeys) return@mapNotNull null
@@ -34,6 +38,8 @@ internal object SettingsBackupCodec {
             exportedAtEpochMs = System.currentTimeMillis(),
             appVersionName = appVersionName,
             preferences = entries,
+            otpRecordsJson = sensitive?.otpRecordsJson,
+            notificationHistoryJson = sensitive?.notificationHistoryJson,
         )
         return json.encodeToString(document)
     }
@@ -41,13 +47,19 @@ internal object SettingsBackupCodec {
     fun decode(rawJson: String): SettingsBackupDocument = json.decodeFromString(rawJson)
 
     fun validate(document: SettingsBackupDocument) {
-        require(document.formatVersion == CURRENT_FORMAT_VERSION) {
+        require(document.formatVersion in 1..CURRENT_FORMAT_VERSION) {
             "Unsupported backup format version: ${document.formatVersion}"
         }
-        require(document.preferences.isNotEmpty()) {
+        require(document.preferences.isNotEmpty() || document.sensitive.hasAny) {
             "Backup file does not contain any settings"
         }
     }
+
+    private val SettingsBackupDocument.sensitive: SensitiveBackupSections
+        get() = SensitiveBackupSections(
+            otpRecordsJson = otpRecordsJson,
+            notificationHistoryJson = notificationHistoryJson,
+        )
 
     fun apply(document: SettingsBackupDocument, prefs: MutablePreferences) {
         document.preferences.forEach { entry ->

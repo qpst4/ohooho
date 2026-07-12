@@ -1,4 +1,4 @@
-﻿package com.slideindex.app.settings
+package com.slideindex.app.settings
 
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureAngleConfig
@@ -46,11 +46,20 @@ class SettingsRepository @Inject constructor(
 
     fun readSnapshot(): AppSettings = cachedSettings
 
-    suspend fun exportSettings(appVersionName: String): Result<String> =
-        backupManager.exportSettings(appVersionName)
+    suspend fun exportSettings(
+        appVersionName: String,
+        sensitive: SensitiveBackupSections? = null,
+    ): Result<String> =
+        backupManager.exportSettings(appVersionName, sensitive)
 
-    suspend fun importSettings(rawJson: String, replaceExisting: Boolean = true): Result<Int> =
+    suspend fun importSettings(
+        rawJson: String,
+        replaceExisting: Boolean = true,
+    ): Result<SettingsBackupImportResult> =
         backupManager.importSettings(rawJson, replaceExisting)
+
+    suspend fun previewImport(rawJson: String): Result<SettingsBackupPreview> =
+        backupManager.previewImport(rawJson)
 
     suspend fun setOnboardingCompleted(completed: Boolean) = edge.setOnboardingCompleted(completed)
 
