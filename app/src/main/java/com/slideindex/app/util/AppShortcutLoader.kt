@@ -283,11 +283,12 @@ object AppShortcutLoader {
         data: Intent?,
     ): CreatedShortcut? {
         if (data == null) return null
+        @Suppress("DEPRECATION")
         val label = data.getStringExtra(Intent.EXTRA_SHORTCUT_NAME)?.trim().orEmpty()
+        @Suppress("DEPRECATION")
         val shortcutIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             data.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT, Intent::class.java)
         } else {
-            @Suppress("DEPRECATION")
             data.getParcelableExtra(Intent.EXTRA_SHORTCUT_INTENT)
         }
         if (label.isBlank() && shortcutIntent == null) return null

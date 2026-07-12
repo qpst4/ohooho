@@ -80,14 +80,13 @@ object WidgetPopupHost {
       .onFailure { Log.e(TAG, "createView($appWidgetId) failed", it) }
       .getOrNull()
       ?.also { view ->
-        if (view is AppWidgetHostView) {
-          cachedHostViews[appWidgetId] = view
-        }
+        cachedHostViews[appWidgetId] = view
       }
   }
 
   fun labelFor(context: Context, appWidgetId: Int): String {
     val info = providerInfo(context, appWidgetId) ?: return ""
+    @Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
     return info.loadLabel(context.packageManager)?.toString().orEmpty()
   }
 }

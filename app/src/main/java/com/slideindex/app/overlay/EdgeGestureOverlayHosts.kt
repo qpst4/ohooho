@@ -108,6 +108,7 @@ internal class EdgeGestureOverlayHosts(
 
     override fun invalidate() = view.invalidate()
 
+    @Suppress("DEPRECATION")
     override fun invalidatePartial(left: Int, top: Int, right: Int, bottom: Int) =
         view.invalidate(left, top, right, bottom)
 

@@ -49,6 +49,7 @@ import com.slideindex.app.ui.SettingsRadioGroup
 import com.slideindex.app.ui.pickerSegmentedColors
 import com.slideindex.app.ui.pickerSegmentedShapes
 
+@Suppress("DEPRECATION")
 @Composable
 fun waveStyleIconPainter(iconType: Int): Painter = when (iconType) {
     WaveStyle.ICON_TYPE_TRIANGLE -> rememberVectorPainter(Icons.Default.PlayArrow)

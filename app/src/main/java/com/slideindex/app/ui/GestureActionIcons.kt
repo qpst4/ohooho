@@ -61,6 +61,7 @@ internal fun pointerSwipeDirectionIcon(direction: com.slideindex.app.gesture.Poi
 @Composable
 fun gestureActionIcon(action: GestureAction): ImageVector = gestureActionImageVector(action)
 
+@Suppress("DEPRECATION")
 fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.NONE -> Icons.Default.Block
     GestureActionType.OPEN_INDEX -> Icons.Default.SortByAlpha

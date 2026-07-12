@@ -531,7 +531,7 @@ class NotificationHistoryRepository @Inject constructor(
         val options = ActivityOptions.makeBasic()
         val mode = when {
             Build.VERSION.SDK_INT >= 36 -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
-            else -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            else -> @Suppress("DEPRECATION") ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
         }
         options.pendingIntentBackgroundActivityStartMode = mode
         return options.toBundle()

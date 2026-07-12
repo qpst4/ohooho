@@ -39,7 +39,7 @@ object FreeWindowLauncher {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val backgroundStartMode = when {
                 Build.VERSION.SDK_INT >= 36 -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS
-                else -> ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                else -> @Suppress("DEPRECATION") ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
             }
             options.pendingIntentBackgroundActivityStartMode = backgroundStartMode
         }

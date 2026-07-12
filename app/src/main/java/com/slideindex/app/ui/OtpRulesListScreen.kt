@@ -134,6 +134,7 @@ fun OtpRulesListScreen(
                     MediumFlexibleTopAppBar(
                         title = { SettingsAppBarTitle(stringResource(R.string.otp_rules_list_title)) },
                         navigationIcon = {
+                            @Suppress("UNNECESSARY_SAFE_CALL")
                             onBack?.let { back ->
                                 IconButton(onClick = back) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
@@ -193,6 +194,7 @@ fun OtpRulesListScreen(
     }
 
     if (showExtractionExtras && showTestDialog) {
+        @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
         OtpTestDialogHost(
             settings = settings!!,
             officialRules = officialRules,

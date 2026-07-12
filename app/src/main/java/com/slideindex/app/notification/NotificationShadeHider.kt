@@ -35,6 +35,7 @@ class NotificationShadeHider @Inject constructor(
         }
     }
 
+    @Suppress("UNNECESSARY_SAFE_CALL")
     fun hideFromShade(
         listener: NotificationListenerService,
         key: String,

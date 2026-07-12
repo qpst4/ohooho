@@ -102,7 +102,7 @@ class NotificationRuleExecutor @Inject constructor(
         val todayOffset = ((now + zoneOffset) % 86_400_000L).toInt()
         val target = laterTimesMs.minOfOrNull { time ->
             val delta = time - todayOffset
-            if (delta > 0) delta.toLong() else (delta + 86_400_000L).toLong()
+            if (delta > 0) delta.toLong() else delta + 86_400_000L
         } ?: return
         runCatching {
             listener.snoozeNotification(sbn.key, target.coerceAtLeast(1_000L))

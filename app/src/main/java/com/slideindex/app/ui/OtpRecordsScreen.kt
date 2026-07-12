@@ -195,6 +195,7 @@ fun OtpRecordsScreen(
                         )
                     },
                     navigationIcon = {
+                        @Suppress("UNNECESSARY_SAFE_CALL")
                         onBack?.let { back ->
                             IconButton(onClick = back) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
@@ -233,6 +234,7 @@ fun OtpRecordsScreen(
     }
 
     if (showFilterSheet) {
+        @Suppress("DEPRECATION")
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showFilterSheet = false },

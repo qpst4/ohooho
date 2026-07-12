@@ -42,12 +42,14 @@ object WidgetCatalog {
     for (info in providers) {
       val packageName = info.provider.packageName
       if (packageName == appContext.packageName) continue
+      @Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
       val appLabel = runCatching {
         info.loadLabel(pm)?.toString()
       }.getOrNull()?.takeIf { it.isNotBlank() }
         ?: runCatching {
           pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
         }.getOrElse { packageName }
+      @Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
       val widgetLabel = info.loadLabel(pm)?.toString().orEmpty().ifBlank { appLabel }
       val (spanX, spanY) = WidgetSpanUtil.spanFromProviderInfo(info)
       val entry = WidgetProviderEntry(

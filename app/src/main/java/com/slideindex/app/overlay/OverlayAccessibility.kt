@@ -102,6 +102,7 @@ private class OverlayVirtualNodeProvider(
         info.isClickable = node.clickable
         info.isFocusable = node.clickable
         info.isEnabled = true
+        @Suppress("DEPRECATION")
         info.setBoundsInParent(rectFrom(node.boundsInParent))
         info.setBoundsInScreen(boundsInScreen(node.boundsInParent))
         if (node.clickable) {
@@ -189,8 +190,7 @@ internal object EdgeGestureOverlayAccessibilityCollector {
                 boundsInParent = RectF(rail.left, top, rail.right, top + slotHeight),
             )
         }
-        val appNodes = indexSession.gridCellBounds.mapNotNull { (payload, bounds) ->
-            val app = payload as? AppInfo ?: return@mapNotNull null
+        val appNodes = indexSession.gridCellBounds.map { (app, bounds) ->
             OverlayVirtualNode(
                 description = context.getString(R.string.cd_overlay_launch_app, app.label),
                 boundsInParent = RectF(bounds),

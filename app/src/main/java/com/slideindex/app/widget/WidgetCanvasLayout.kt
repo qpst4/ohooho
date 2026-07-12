@@ -406,7 +406,7 @@ class WidgetCanvasLayout(context: Context) : ViewGroup(context) {
       val top = paddingTop + hoverCellY * step
       val right = left + item.spanX * step
       val bottom = top + item.spanY * step
-      dragPreviewRect.set(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat())
+      dragPreviewRect.set(left, top, right, bottom)
       canvas.drawRoundRect(dragPreviewRect, cornerRadius, cornerRadius, dragPreviewPaint)
     }
   }

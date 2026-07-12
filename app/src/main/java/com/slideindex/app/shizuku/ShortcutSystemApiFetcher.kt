@@ -30,6 +30,7 @@ object ShortcutSystemApiFetcher {
             return false
         }
         try {
+            @Suppress("DEPRECATION")
             when (Os.getuid()) {
                 Process.ROOT_UID -> {
                     Os.setgid(Process.SYSTEM_UID)
@@ -140,6 +141,7 @@ object ShortcutSystemApiFetcher {
                     .invoke(pm, 0, userId)
             }
             
+            @Suppress("UNCHECKED_CAST")
             val packages = packagesParceled?.javaClass?.getMethod("getList")?.invoke(packagesParceled) as? List<Any> ?: emptyList()
 
             val shortcutBinder = serviceManager.getMethod("getService", String::class.java).invoke(null, "shortcut") as IBinder

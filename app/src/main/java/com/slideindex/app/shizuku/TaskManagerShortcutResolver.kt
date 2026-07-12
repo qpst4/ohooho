@@ -118,7 +118,7 @@ internal class TaskManagerShortcutResolver(
                     absorbPackage(
                         packageName,
                         shortcuts.mapNotNull { info ->
-                            val id = info.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                            val id = info.id.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                             val label = info.shortLabel?.toString()?.takeIf { it.isNotBlank() }
                                 ?: info.longLabel?.toString()?.takeIf { it.isNotBlank() }
                                 ?: id

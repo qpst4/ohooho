@@ -339,6 +339,7 @@ class OverlayComposeDialogHost(
 
             gravity = Gravity.TOP or Gravity.START
 
+            @Suppress("DEPRECATION")
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
 
             layoutInDisplayCutoutMode =
