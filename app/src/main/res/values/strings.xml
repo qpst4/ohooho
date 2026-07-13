@@ -477,6 +477,14 @@
     <string name="gesture_action_widget_popup_overlay_permission">需要开启边栏</string>
     <string name="gesture_action_floating_pointer">悬浮指针</string>
     <string name="gesture_action_floating_pointer_permission">需要开启边栏</string>
+    <string name="gesture_action_pointer_gesture_recorder">指针手势录制</string>
+    <string name="gesture_action_pointer_gesture_recorder_desc">按住后滑动，以指针为起点回放为 Swipe</string>
+    <string name="gesture_action_pointer_realtime_gesture">指针实时手势</string>
+    <string name="gesture_action_pointer_realtime_gesture_desc">按住后滑动，以指针为起点实时模拟触摸</string>
+    <string name="gesture_action_pointer_gesture_record_permission">需要开启边栏</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu">打开功能环</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu_desc">长按摇杆时打开摇杆功能环</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu_permission">需要开启边栏</string>
     <string name="gesture_action_toggle_dnd">勿扰模式开关</string>
     <string name="gesture_action_screen_record">录屏</string>
     <string name="gesture_action_toggle_wifi">Wi-Fi 开关</string>
@@ -697,16 +705,14 @@
     <string name="floating_pointer_hide_idle_delay">空闲隐藏时长</string>
     <string name="floating_pointer_hide_idle_delay_value">%1$d 秒</string>
     <string name="floating_pointer_reset_joystick_behavior">重置摇杆行为默认值</string>
-    <string name="floating_pointer_usage_hint">屏幕其余区域可正常滑动和点击；拖动摇杆圆盘移动指针；轻点摇杆在指针处单击；长按摇杆打开功能环（可在摇杆功能中配置）。</string>
+    <string name="floating_pointer_joystick_long_press_action">长按摇杆动作</string>
+    <string name="floating_pointer_joystick_long_press_action_desc">长按摇杆时执行的动作</string>
+    <string name="floating_pointer_usage_hint">屏幕其余区域可正常滑动和点击；拖动摇杆圆盘移动指针；轻点摇杆在指针处单击；长按摇杆执行配置的动作。</string>
     <string name="floating_pointer_radial_settings_title">摇杆功能</string>
-    <string name="floating_pointer_radial_settings_summary_enabled">长按摇杆打开功能环</string>
-    <string name="floating_pointer_radial_settings_summary_disabled">已关闭</string>
     <string name="floating_pointer_radial_tab_settings">设置</string>
     <string name="floating_pointer_radial_tab_functions">功能</string>
     <string name="floating_pointer_radial_tab_design">设计</string>
     <string name="floating_pointer_radial_settings_desc">长按摇杆后，四周会弹出环形功能菜单；手指不抬起即可滑到外圈扇区，松手执行对应动作。</string>
-    <string name="floating_pointer_radial_enabled">长按功能</string>
-    <string name="floating_pointer_radial_enabled_desc">打开摇杆功能环一次</string>
     <string name="floating_pointer_radial_always_visible">始终可见</string>
     <string name="floating_pointer_radial_always_visible_desc">始终显示摇杆功能</string>
     <string name="floating_pointer_radial_long_press_ms">长按触发时长</string>
@@ -1130,7 +1136,16 @@
     <string name="privacy_policy_subtitle">数据如何处理、是否上传</string>
     <string name="privacy_policy_entry_title">隐私政策</string>
     <string name="privacy_policy_entry_desc">本地数据处理说明与权限用途</string>
-    <string name="privacy_policy_body">边栏（SlideIndex）以本地处理为基本原则。\n\n• 通知与验证码：仅在设备本地读取、过滤、提取与展示；默认不上传云端。\n• OTP 记录与通知历史：保存在应用私有目录，默认不纳入系统备份；可在设置备份中可选导出。\n• LSPosed / Shizuku：为可选增强能力，由你自行决定是否启用。\n• 我们不会收集可识别个人身份的信息，也不会在后台将上述数据发送到开发者服务器。\n\n前台服务（Special Use）：OverlayService 用于维持边缘手势与摇一摇监听，子类型为 overlay_sidebar，不用于广告或无关后台任务。\n\n如有疑问，请通过项目 GitHub Issues 联系。</string>
+    <string name="privacy_policy_body">边栏（SlideIndex）以本地处理为基本原则。
+
+• 通知与验证码：仅在设备本地读取、过滤、提取与展示；默认不上传云端。
+• OTP 记录与通知历史：保存在应用私有目录，默认不纳入系统备份；可在设置备份中可选导出。
+• LSPosed / Shizuku：为可选增强能力，由你自行决定是否启用。
+• 我们不会收集可识别个人身份的信息，也不会在后台将上述数据发送到开发者服务器。
+
+前台服务（Special Use）：OverlayService 用于维持边缘手势与摇一摇监听，子类型为 overlay_sidebar，不用于广告或无关后台任务。
+
+如有疑问，请通过项目 GitHub Issues 联系。</string>
     <string name="fgs_special_use_title">前台服务说明</string>
     <string name="fgs_special_use_desc">OverlayService 使用 specialUse 类型（overlay_sidebar），用于边缘手势保活与无障碍 watchdog，非广告或无关后台用途。</string>
     <string name="otp_autofill_stats_title">填充统计</string>
@@ -1150,15 +1165,6 @@
     <string name="shell_panel_history_clear">清空历史</string>
     <string name="shell_panel_history_empty">暂无执行记录</string>
     <string name="shell_panel_history_exit_code">退出码 %1$d</string>
-    <string name="floating_pointer_gesture_section_title">手势录制与回放</string>
-    <string name="floating_pointer_gesture_section_desc">开启录制模式后，在悬浮指针上完成一次拖动即可保存；可在此回放或删除。</string>
-    <string name="floating_pointer_gesture_record_mode_title">录制模式</string>
-    <string name="floating_pointer_gesture_record_mode_desc">下次在悬浮指针上拖动结束时自动保存轨迹</string>
-    <string name="floating_pointer_gesture_empty">暂无已保存手势</string>
-    <string name="floating_pointer_gesture_points_summary">%1$d 个轨迹点</string>
-    <string name="floating_pointer_gesture_play">回放</string>
-    <string name="floating_pointer_gesture_delete">删除</string>
-    <string name="floating_pointer_gesture_saved">已保存手势录制</string>
     <string name="tile_gesture_switch">边栏</string>
     <string name="shortcut_toggle_gesture">开关手势</string>
     <string name="shortcut_notification_hub">通知滤盒</string>

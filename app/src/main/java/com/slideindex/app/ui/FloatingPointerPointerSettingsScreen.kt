@@ -20,7 +20,6 @@ import com.slideindex.app.overlay.FloatingPointerDesignPreview
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.FloatingPointerDesign
 import com.slideindex.app.settings.FloatingPointerTrailType
-import com.slideindex.app.ui.viewmodel.FloatingPointerGestureViewModel
 import com.slideindex.app.ui.animationstyle.AnimationStyleColorPickerDialog
 import com.slideindex.app.ui.animationstyle.AnimationStyleColorRow
 import kotlin.math.roundToInt
@@ -37,7 +36,6 @@ private enum class PointerColorTarget {
 @Composable
 fun FloatingPointerPointerSettingsScreen(
     settings: AppSettings,
-    gestureViewModel: FloatingPointerGestureViewModel,
     onBack: () -> Unit,
     onPointerDiameterChange: (Float) -> Unit,
     onRingThicknessChange: (Float) -> Unit,
@@ -293,12 +291,6 @@ fun FloatingPointerPointerSettingsScreen(
                 onCheckedChange = onHideWhenReleasedChange,
             )
         }
-
-        FloatingPointerGestureSection(
-            repository = gestureViewModel.repository,
-            onDelete = gestureViewModel::deleteRecording,
-            onPlay = gestureViewModel::playRecording,
-        )
 
         SettingLinkRow(
             title = stringResource(R.string.floating_pointer_reset_visual),

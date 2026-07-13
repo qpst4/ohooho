@@ -1,5 +1,6 @@
 package com.slideindex.app.util
 
+import android.graphics.Path
 import com.slideindex.app.service.SlideIndexAccessibilityService
 
 object InputTapUtil {
@@ -30,4 +31,32 @@ object InputTapUtil {
     ) {
         SlideIndexAccessibilityService.dispatchPointerSwipe(startX, startY, config, onFinished)
     }
+
+    fun dispatchPointerSwipePathAsync(
+        startX: Float,
+        startY: Float,
+        path: Path,
+        durationMs: Long,
+        maxDurationMs: Long = com.slideindex.app.service.SlideIndexAccessibilityGestureInjector.DEFAULT_SWIPE_MAX_DURATION_MS,
+        onFinished: (Boolean) -> Unit = {},
+    ) {
+        SlideIndexAccessibilityService.dispatchPointerSwipePath(
+            startX,
+            startY,
+            path,
+            durationMs,
+            maxDurationMs,
+            onFinished,
+        )
+    }
+
+    fun dispatchPointerHoldAsync(
+        rawX: Float,
+        rawY: Float,
+        durationMs: Long,
+        onFinished: (Boolean) -> Unit = {},
+    ) {
+        SlideIndexAccessibilityService.dispatchPointerHold(rawX, rawY, durationMs, onFinished)
+    }
+
 }

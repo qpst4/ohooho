@@ -17,7 +17,6 @@ import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
-import com.slideindex.app.ui.viewmodel.FloatingPointerGestureViewModel
 import com.slideindex.app.ui.viewmodel.SettingsBackupViewModel
 import com.slideindex.app.ui.viewmodel.ShellCommandViewModel
 
@@ -128,11 +127,9 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
 
     entry<AppNavKey.FloatingPointerPointer> {
         val viewModel: ExtensionSettingsViewModel = hiltViewModel()
-        val gestureViewModel: FloatingPointerGestureViewModel = hiltViewModel()
         val settings by viewModel.settings.collectAsStateWithLifecycle()
         FloatingPointerPointerSettingsScreen(
             settings = settings,
-            gestureViewModel = gestureViewModel,
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
             onPointerDiameterChange = viewModel::setFloatingPointerPointerDiameterPx,
             onRingThicknessChange = viewModel::setFloatingPointerRingThicknessPx,
@@ -179,9 +176,9 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
         FloatingPointerRadialMenuSettingsScreen(
             settings = settings,
             onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
-            onEnabledChange = viewModel::setFloatingPointerRadialMenuEnabled,
             onAlwaysVisibleChange = viewModel::setFloatingPointerRadialAlwaysVisible,
             onLongPressMsChange = viewModel::setFloatingPointerRadialLongPressMs,
+            onLongPressActionChange = viewModel::setFloatingPointerJoystickLongPressAction,
             onSlotActionChange = viewModel::setFloatingPointerRadialSlotAction,
             onOuterDiameterChange = viewModel::setFloatingPointerRadialOuterDiameterPx,
             onInnerDiameterChange = viewModel::setFloatingPointerRadialInnerDiameterPx,

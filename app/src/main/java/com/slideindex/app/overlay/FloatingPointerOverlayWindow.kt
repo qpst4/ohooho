@@ -11,10 +11,10 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.platform.ComposeView
+import android.graphics.Path
 import com.slideindex.app.gesture.ActionExecutor
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
-import com.slideindex.app.overlay.FloatingPointerGestureRepository
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.util.HapticHelper
@@ -62,7 +62,6 @@ object FloatingPointerOverlayWindow {
     internal var isPointerSwipeInFlight = false
     internal var continuedGestureActive = false
     internal var pendingCleanupRunnable: Runnable? = null
-    internal var gestureRepository: FloatingPointerGestureRepository? = null
 
     internal data class PendingPointerTap(
         val rawX: Float,
@@ -134,27 +133,166 @@ object FloatingPointerOverlayWindow {
         mainHandler.postDelayed(runnable, RADIAL_ACTION_INJECT_DELAY_MS)
     }
 
-    internal fun executeRadialSlotAction(slotIndex: Int) {
+    internal fun executeRadialSlotAction(slotIndex: Int, fingerStillDown: Boolean) {
         val settings = settingsState?.value ?: return
         val slots = settings.floatingPointerRadialSlotActions
         val action = slots.getOrNull(slotIndex) ?: return
         if (action is GestureAction.None) return
         val pointerSession = session ?: return
+        val pointerX = pointerSession.pointerX.floatValue
+        val pointerY = pointerSession.pointerY.floatValue
+        when (action) {
+            is GestureAction.PointerGestureRecorder -> {
+                if (fingerStillDown) {
+                    startGestureRecorder(pointerX, pointerY)
+                } else {
+                    pointerSession.armPendingGestureCapture(action)
+                    windowLifecycle.expandTouchCapture()
+                }
+            }
+            is GestureAction.PointerRealtimeGesture -> {
+                if (fingerStillDown) {
+                    startRealtimeGesture(pointerX, pointerY)
+                } else {
+                    pointerSession.armPendingGestureCapture(action)
+                    windowLifecycle.expandTouchCapture()
+                }
+            }
+            else -> executePointerAction(action, settings, pointerX, pointerY)
+        }
+    }
+
+    internal fun executeJoystickLongPressAction(action: GestureAction) {
+        val settings = settingsState?.value ?: return
+        val pointerSession = session ?: return
+        val pointerX = pointerSession.pointerX.floatValue
+        val pointerY = pointerSession.pointerY.floatValue
+        when (action) {
+            is GestureAction.PointerGestureRecorder -> startGestureRecorder(pointerX, pointerY)
+            is GestureAction.PointerRealtimeGesture -> startRealtimeGesture(pointerX, pointerY)
+            is GestureAction.OpenFloatingPointerRadialMenu -> {
+                // Already handled by the caller; this branch is defensive.
+            }
+            else -> {
+                executePointerAction(action, settings, pointerX, pointerY)
+            }
+        }
+    }
+
+    internal fun startPendingGestureCapture(action: GestureAction) {
+        when (action) {
+            is GestureAction.PointerGestureRecorder -> startGestureRecorder(
+                session?.pointerX?.floatValue ?: return,
+                session?.pointerY?.floatValue ?: return,
+            )
+            is GestureAction.PointerRealtimeGesture -> startRealtimeGesture(
+                session?.pointerX?.floatValue ?: return,
+                session?.pointerY?.floatValue ?: return,
+            )
+            else -> Unit
+        }
+    }
+
+    private fun startGestureRecorder(pointerX: Float, pointerY: Float) {
+        val pointerSession = session ?: return
+        val service = SlideIndexAccessibilityService.overlayHostContext() as? android.accessibilityservice.AccessibilityService
+        if (service == null) {
+            Log.e(TAG, "startGestureRecorder: accessibility service unavailable")
+            return
+        }
+        Log.i(TAG, "startGestureRecorder at ($pointerX, $pointerY)")
+        windowLifecycle.expandTouchCapture()
+        pointerSession.startGestureRecorder(
+            service = service,
+            pointerX = pointerX,
+            pointerY = pointerY,
+            onReplayPrepare = { _ ->
+                suppressOutsideDismissForInjectedGesture()
+                pointerSession.beginGestureReplay()
+                pointerSession.pointerVisible.value = false
+                windowLifecycle.collapseTouchCapture(
+                    pointerSession.joystickCenterX.floatValue,
+                    pointerSession.joystickCenterY.floatValue,
+                    forceCollapse = true,
+                )
+                windowLifecycle.setTouchOverlayPassthrough(true)
+            },
+            onFinished = {
+                Log.i(TAG, "gesture recorder replay finished")
+                extendOutsideDismissSuppressAfterInjectedGesture()
+                pointerSession.endGestureReplay()
+                windowLifecycle.setTouchOverlayPassthrough(false)
+                val settings = settingsState?.value
+                if (settings != null && !pointerSession.gestureTrailRetreatActive.value) {
+                    pointerSession.completeGestureAftermathIfReady(settings)
+                }
+                val (dockX, dockY) = pointerSession.takeGestureCaptureDock()
+                    ?: (pointerSession.joystickCenterX.floatValue to pointerSession.joystickCenterY.floatValue)
+                windowLifecycle.collapseTouchCapture(
+                    dockX,
+                    dockY,
+                    forceCollapse = true,
+                )
+                settingsSync.resetIdleTimer()
+            },
+        )
+    }
+
+    private fun startRealtimeGesture(pointerX: Float, pointerY: Float) {
+        val pointerSession = session ?: return
+        val service = SlideIndexAccessibilityService.overlayHostContext() as? android.accessibilityservice.AccessibilityService
+        if (service == null) {
+            Log.e(TAG, "startRealtimeGesture: accessibility service unavailable")
+            return
+        }
+        Log.i(TAG, "startRealtimeGesture at ($pointerX, $pointerY)")
+        suppressOutsideDismissForInjectedGesture()
+        windowLifecycle.expandTouchCapture()
+        pointerSession.startRealtimeGesture(
+            service = service,
+            pointerX = pointerX,
+            pointerY = pointerY,
+            onError = {
+                Log.w(TAG, "realtime gesture error")
+            },
+            onFinished = {
+                Log.i(TAG, "realtime gesture finished")
+                extendOutsideDismissSuppressAfterInjectedGesture()
+                windowLifecycle.setTouchOverlayPassthrough(false)
+                pointerSession.clearTrail()
+                val settings = settingsState?.value
+                pointerSession.pointerVisible.value =
+                    settings?.floatingPointerHideWhenJoystickReleased != true
+                val (dockX, dockY) = pointerSession.takeGestureCaptureDock()
+                    ?: (pointerSession.joystickCenterX.floatValue to pointerSession.joystickCenterY.floatValue)
+                windowLifecycle.collapseTouchCapture(
+                    dockX,
+                    dockY,
+                    forceCollapse = true,
+                )
+                settingsSync.resetIdleTimer()
+            },
+        )
+    }
+
+    private fun executePointerAction(
+        action: GestureAction,
+        settings: AppSettings,
+        anchorRawX: Float,
+        anchorRawY: Float,
+    ) {
+        if (action is GestureAction.None) return
         onHaptic(settings)
         if (action is GestureAction.SimulatePointerSwipe) {
-            schedulePointerSwipe(
-                startX = pointerSession.pointerX.floatValue,
-                startY = pointerSession.pointerY.floatValue,
-                config = action.config,
-            )
+            schedulePointerSwipe(startX = anchorRawX, startY = anchorRawY, config = action.config)
             return
         }
         val executor = actionExecutor ?: return
         executor.execute(
             action = action,
             settings = settings,
-            anchorRawX = pointerSession.pointerX.floatValue,
-            anchorRawY = pointerSession.pointerY.floatValue,
+            anchorRawX = anchorRawX,
+            anchorRawY = anchorRawY,
         )
     }
 
@@ -265,54 +403,19 @@ object FloatingPointerOverlayWindow {
         }
     }
 
+    internal fun suppressOutsideDismissForInjectedGesture() {
+        markPointerTapOutsideSuppress()
+    }
+
+    internal fun extendOutsideDismissSuppressAfterInjectedGesture() {
+        extendPointerTapOutsideSuppressAfterComplete()
+    }
+
     private fun extendPointerTapOutsideSuppressAfterComplete() {
         val until = SystemClock.uptimeMillis() + POINTER_TAP_OUTSIDE_ECHO_AFTER_COMPLETE_MS
         if (until > pointerTapOutsideSuppressUntilMs) {
             pointerTapOutsideSuppressUntilMs = until
         }
-    }
-
-    internal fun trySaveGestureRecording(session: FloatingPointerSession, isTap: Boolean) {
-        val repository = gestureRepository ?: return
-        if (!repository.recordModeEnabled.value) return
-        val points = session.buildGestureRecordingSnapshot(isTap) ?: return
-        overlayScope.launch {
-            repository.saveGesture(
-                name = "Gesture ${repository.recordings.value.size + 1}",
-                points = points,
-            )
-            repository.setRecordModeEnabled(false)
-        }
-    }
-
-    fun prepareGesturePlaybackPreview(points: List<com.slideindex.app.gesture.PointerGesturePoint>) {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { prepareGesturePlaybackPreview(points) }
-            return
-        }
-        val currentSession = session ?: return
-        visibleState?.value = true
-        currentSession.pointerVisible.value = true
-        currentSession.clearTrail()
-        points.firstOrNull()?.let { first ->
-            currentSession.showPlaybackPoint(first.x, first.y, recordTrail = false)
-        }
-    }
-
-    fun showGesturePlaybackPoint(x: Float, y: Float) {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { showGesturePlaybackPoint(x, y) }
-            return
-        }
-        session?.showPlaybackPoint(x, y, recordTrail = true)
-    }
-
-    fun clearGesturePlaybackPreview() {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { clearGesturePlaybackPreview() }
-            return
-        }
-        session?.clearTrail()
     }
 
     private const val TAG = "FloatingPointerOverlay"

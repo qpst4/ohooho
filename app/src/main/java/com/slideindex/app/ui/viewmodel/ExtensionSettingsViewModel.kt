@@ -162,16 +162,16 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setFloatingPointerIdleHideDelayMs(delayMs)
     }
 
+    fun setFloatingPointerJoystickLongPressAction(action: GestureAction) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerJoystickLongPressAction(action)
+    }
+
     fun resetFloatingPointerJoystickVisualDefaults() = launchSettingsWrite {
         settingsRepository.resetFloatingPointerJoystickVisualDefaults()
     }
 
     fun resetFloatingPointerJoystickBehaviorDefaults() = launchSettingsWrite {
         settingsRepository.resetFloatingPointerJoystickBehaviorDefaults()
-    }
-
-    fun setFloatingPointerRadialMenuEnabled(enabled: Boolean) = launchSettingsWrite {
-        settingsRepository.setFloatingPointerRadialMenuEnabled(enabled)
     }
 
     fun setFloatingPointerRadialAlwaysVisible(enabled: Boolean) = launchSettingsWrite {

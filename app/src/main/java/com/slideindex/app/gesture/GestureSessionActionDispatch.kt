@@ -206,6 +206,9 @@ internal fun GestureSession.handleClassifiedGesture(
         GestureAction.QuickToolsOverlay,
         GestureAction.WidgetPopupOverlay,
         GestureAction.FloatingPointer,
+        GestureAction.PointerGestureRecorder,
+        GestureAction.PointerRealtimeGesture,
+        GestureAction.OpenFloatingPointerRadialMenu,
         is GestureAction.SimulatePointerSwipe,
         -> {
             sessionCallbacks.hapticConfirmLaunch()

@@ -1,6 +1,6 @@
 ﻿package com.slideindex.app.overlay
 
-import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -69,13 +69,20 @@ internal fun FloatingPointerDisplay(
         val joystickActive by session.joystickActive
         val pointerVisible by session.pointerVisible
         val radialMenuActive by session.radialMenuActive
+        val radialMenuIdle by session.radialMenuIdle
+        val gestureCaptureActive = session.gestureCaptureActive
+        val gestureReplayActive by session.gestureReplayActive
+        val gestureRecordingActive by session.gestureRecordingActive
+        val gestureTrailRetreatActive by session.gestureTrailRetreatActive
+        val gestureRecorderTrailRevision = session.gestureRecorderTrailRevision.intValue
+        val pointerRestoreGeneration = session.pointerRestoreGeneration.intValue
         val radialHighlightedSlot by session.radialHighlightedSlot
         val rippleGeneration by session.rippleGeneration
-        val radialMenuAlwaysShown = settings.floatingPointerRadialMenuEnabled &&
-            settings.floatingPointerRadialAlwaysVisible &&
+        val radialMenuAlwaysShown = settings.floatingPointerRadialAlwaysVisible &&
             !session.awaitingPlacement
         val radialMenuTargetProgress = when {
             radialMenuActive -> 1f
+            radialMenuIdle -> 1f
             radialMenuAlwaysShown -> 1f
             else -> 0f
         }
@@ -87,8 +94,14 @@ internal fun FloatingPointerDisplay(
             ),
             label = "radialMenuProgress",
         )
-        val showPointer = (!settings.floatingPointerHideWhenJoystickReleased || pointerVisible) &&
-            !session.awaitingPlacement
+        val suppressPointerForGestureAftermath =
+            gestureRecordingActive ||
+                gestureReplayActive ||
+                (gestureTrailRetreatActive && !session.isGestureRecorderTrailRetreatConsumed())
+        val showPointer = !suppressPointerForGestureAftermath && (
+            gestureCaptureActive ||
+                ((!settings.floatingPointerHideWhenJoystickReleased || pointerVisible) && !session.awaitingPlacement)
+            )
         val pointerDesign = FloatingPointerDesign.fromId(settings.floatingPointerDesignId)
         val context = LocalContext.current
         val pointerBitmap = rememberFloatingPointerDesignBitmap(
@@ -101,29 +114,57 @@ internal fun FloatingPointerDisplay(
         val pointerSizeScale = remember { Animatable(if (showPointer) 1f else 0f) }
         val pointerDrawAlpha = remember { Animatable(if (showPointer) 1f else 0f) }
         val pointerClickAnim = remember { Animatable(0f) }
+        val gestureRecorderProgress = remember { Animatable(0f) }
         var animationTick by remember { mutableLongStateOf(0L) }
 
-        LaunchedEffect(showPointer) {
+        LaunchedEffect(gestureRecordingActive, gestureReplayActive) {
+            if (gestureRecordingActive) {
+                gestureRecorderProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = GESTURE_RECORDER_POINTER_ANIMATION_MS,
+                        easing = FastOutLinearInEasing,
+                    ),
+                )
+            } else if (gestureReplayActive) {
+                gestureRecorderProgress.snapTo(0f)
+            } else {
+                gestureRecorderProgress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(
+                        durationMillis = GESTURE_RECORDER_POINTER_ANIMATION_MS,
+                        easing = LinearOutSlowInEasing,
+                    ),
+                )
+            }
+        }
+
+        LaunchedEffect(showPointer, pointerRestoreGeneration) {
             if (showPointer) {
-                launch {
-                    pointerDrawAlpha.snapTo(0f)
-                    pointerDrawAlpha.animateTo(
-                        targetValue = 1f,
-                        animationSpec = tween(
-                            durationMillis = 400,
-                            easing = FastOutSlowInEasing,
-                        ),
-                    )
-                }
-                launch {
-                    pointerSizeScale.snapTo(0f)
-                    pointerSizeScale.animateTo(
-                        targetValue = 1f,
-                        animationSpec = spring(
-                            dampingRatio = 0.42f,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                    )
+                if (pointerRestoreGeneration > 0) {
+                    pointerDrawAlpha.snapTo(1f)
+                    pointerSizeScale.snapTo(1f)
+                } else {
+                    launch {
+                        pointerDrawAlpha.snapTo(0f)
+                        pointerDrawAlpha.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(
+                                durationMillis = 400,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                    }
+                    launch {
+                        pointerSizeScale.snapTo(0f)
+                        pointerSizeScale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = 0.42f,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        )
+                    }
                 }
             } else {
                 launch {
@@ -188,16 +229,28 @@ internal fun FloatingPointerDisplay(
             while (true) {
                 withFrameNanos { frameTime ->
                     val now = System.currentTimeMillis()
+                    val recordingActive = session.gestureRecordingActive.value
+                    val replayActive = session.gestureReplayActive.value
+                    val retreatActive = session.gestureTrailRetreatActive.value
                     session.clearRippleIfExpired(now, settings.floatingPointerRippleDurationMs.toLong())
                     session.pruneExpiredTrailPoints(now)
+                    session.finishGestureTrailRetreatIfConsumed(settings)
+                    if (!replayActive && !recordingActive && !retreatActive) {
+                        session.completeGestureAftermathIfReady(settings)
+                    }
                     if (session.hasActiveTrail(now) ||
+                        session.hasActiveGestureRecorderTrail(now) ||
+                        recordingActive ||
+                        retreatActive ||
+                        replayActive ||
                         rippleProgress.isRunning ||
                         rippleProgress.value > 0.001f ||
                         pointerSizeScale.isRunning ||
                         pointerDrawAlpha.isRunning ||
                         pointerClickAnim.isRunning ||
                         pointerClickAnim.value > 0.001f ||
-                        pointerDrawAlpha.value > 0.001f && !showPointer ||
+                        gestureRecorderProgress.isRunning ||
+                        gestureRecorderProgress.value > 0.001f ||
                         presence < 0.999f ||
                         radialMenuProgress < 0.999f
                     ) {
@@ -207,10 +260,11 @@ internal fun FloatingPointerDisplay(
             }
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
                     val anchorX = if (!session.awaitingPlacement) joystickX else pointerX
                     val anchorY = if (!session.awaitingPlacement) joystickY else pointerY
                     val width = size.width.coerceAtLeast(1f)
@@ -224,11 +278,25 @@ internal fun FloatingPointerDisplay(
                     alpha = presence
                 },
         ) {
-            // Subscribe to per-frame invalidation while trail, ripple, or presence is animating.
             animationTick
             Canvas(Modifier.fillMaxSize()) {
-                val now = System.currentTimeMillis()
-                drawFloatingPointerTrail(session.trailPoints, settings, now)
+                val now = session.effectiveTrailNowMs(System.currentTimeMillis())
+                if (session.trailPoints.size >= 2 &&
+                    !gestureRecordingActive &&
+                    !gestureTrailRetreatActive &&
+                    !gestureReplayActive &&
+                    !session.shouldDrawGestureRecorderTrail(now)
+                ) {
+                    val lifespanMs = session.trailLifespanOverrideMs
+                        ?: settings.floatingPointerTrailDurationMs.coerceAtLeast(50).toLong()
+                    drawFloatingPointerTrail(
+                        trailPoints = session.trailPoints,
+                        settings = settings,
+                        lifespanMs = lifespanMs,
+                        nowMs = now,
+                        trailColorArgb = settings.floatingPointerTrailColorArgb,
+                    )
+                }
                 if (settings.floatingPointerClickVisualFeedbackEnabled && rippleProgress.value > 0.001f) {
                     val rippleSizePx = settings.floatingPointerRippleSizeDp * density
                     drawFloatingPointerRipple(
@@ -238,7 +306,21 @@ internal fun FloatingPointerDisplay(
                         rippleSizePx = rippleSizePx,
                     )
                 }
-                if (showPointer || pointerDrawAlpha.value > 0.001f) {
+                val recorderProgress = gestureRecorderProgress.value
+                if (gestureRecordingActive || recorderProgress > 0.001f) {
+                    // QC recording pointer stays visible while the shared trail grows.
+                    drawQcGestureRecorderPointer(
+                        center = Offset(pointerX, pointerY),
+                        settings = settings,
+                        recorderColor = Color(DefaultGestureRecorderColorArgb),
+                        recorderProgress = recorderProgress,
+                        ringColor = Color(settings.floatingPointerRingColorArgb),
+                        fillColor = Color(settings.floatingPointerFillColorArgb),
+                        dotColor = Color(settings.floatingPointerDotColorArgb),
+                        visibilityAlpha = 1f,
+                        sizeScale = 1f,
+                    )
+                } else if (showPointer || pointerDrawAlpha.value > 0.001f) {
                     drawFloatingPointer(
                         center = Offset(pointerX, pointerY),
                         settings = settings,
@@ -253,7 +335,7 @@ internal fun FloatingPointerDisplay(
                         },
                     )
                 }
-                if (!session.awaitingPlacement || joystickActive || radialMenuActive) {
+                if (!session.awaitingPlacement || joystickActive || radialMenuActive || radialMenuIdle || gestureCaptureActive) {
                     drawQcJoystickDisc(
                         center = Offset(joystickX, joystickY),
                         radiusPx = session.joystickRadiusPx(),
@@ -263,8 +345,8 @@ internal fun FloatingPointerDisplay(
                         pressed = joystickActive && !radialMenuActive,
                     )
                 }
-                if (radialMenuProgress > 0.01f && settings.floatingPointerRadialMenuEnabled) {
-                    val radialCenter = if (radialMenuActive) {
+                if (radialMenuProgress > 0.01f) {
+                    val radialCenter = if (radialMenuActive || radialMenuIdle) {
                         Offset(session.radialMenuCenterX, session.radialMenuCenterY)
                     } else {
                         Offset(joystickX, joystickY)
@@ -284,6 +366,22 @@ internal fun FloatingPointerDisplay(
                             visibilityProgress = radialMenuProgress,
                         )
                     }
+                }
+            }
+            }
+            gestureRecorderTrailRevision
+            animationTick
+            Canvas(Modifier.fillMaxSize()) {
+                val drawNow = System.currentTimeMillis()
+                animationTick
+                gestureRecorderTrailRevision
+                val recorderTrailPoints = session.gestureRecorderTrailPointsForDraw(drawNow)
+                if (recorderTrailPoints.size >= 2) {
+                    drawGestureRecorderTrail(
+                        trailPoints = recorderTrailPoints,
+                        color = Color(DefaultGestureRecorderColorArgb),
+                        strokeWidthPx = settings.floatingPointerDotDiameterPx,
+                    )
                 }
             }
         }

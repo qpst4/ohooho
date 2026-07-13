@@ -49,9 +49,9 @@ private enum class RadialColorTarget {
 fun FloatingPointerRadialMenuSettingsScreen(
     settings: AppSettings,
     onBack: () -> Unit,
-    onEnabledChange: (Boolean) -> Unit,
     onAlwaysVisibleChange: (Boolean) -> Unit,
     onLongPressMsChange: (Int) -> Unit,
+    onLongPressActionChange: (GestureAction) -> Unit,
     onSlotActionChange: (Int, GestureAction) -> Unit,
     onOuterDiameterChange: (Float) -> Unit,
     onInnerDiameterChange: (Float) -> Unit,
@@ -69,6 +69,7 @@ fun FloatingPointerRadialMenuSettingsScreen(
     var swipeConfigDraft by remember { mutableStateOf(PointerSwipeConfig.DEFAULT) }
     var colorTarget by remember { mutableStateOf<RadialColorTarget?>(null) }
     var pickerInitialColor by remember { mutableIntStateOf(0) }
+    var pickingLongPressAction by remember { mutableStateOf(false) }
 
     if (swipeConfigSlot >= 0) {
         PointerSwipeConfigDialog(
@@ -126,39 +127,42 @@ fun FloatingPointerRadialMenuSettingsScreen(
                     SettingsHintText(stringResource(R.string.floating_pointer_radial_settings_desc))
                     SettingsCard {
                         SettingSwitchRow(
-                            title = stringResource(R.string.floating_pointer_radial_enabled),
-                            subtitle = stringResource(R.string.floating_pointer_radial_enabled_desc),
-                            checked = settings.floatingPointerRadialMenuEnabled,
+                            title = stringResource(R.string.floating_pointer_radial_always_visible),
+                            subtitle = stringResource(R.string.floating_pointer_radial_always_visible_desc),
+                            icon = { label ->
+                                Icon(
+                                    imageVector = Icons.Default.Visibility,
+                                    contentDescription = label,
+                                )
+                            },
+                            checked = settings.floatingPointerRadialAlwaysVisible,
                             enabled = true,
-                            onCheckedChange = onEnabledChange,
+                            onCheckedChange = onAlwaysVisibleChange,
                         )
-                        if (settings.floatingPointerRadialMenuEnabled) {
-                            SettingSwitchRow(
-                                title = stringResource(R.string.floating_pointer_radial_always_visible),
-                                subtitle = stringResource(R.string.floating_pointer_radial_always_visible_desc),
-                                icon = { label ->
-                                    Icon(
-                                        imageVector = Icons.Default.Visibility,
-                                        contentDescription = label,
-                                    )
-                                },
-                                checked = settings.floatingPointerRadialAlwaysVisible,
-                                enabled = true,
-                                onCheckedChange = onAlwaysVisibleChange,
-                            )
-                            SettingsSliderRow(
-                                title = stringResource(R.string.floating_pointer_radial_long_press_ms),
-                                value = settings.floatingPointerRadialLongPressMs.toFloat(),
-                                valueRange = 200f..2000f,
-                                steps = 17,
-                                enabled = true,
-                                label = stringResource(
-                                    R.string.floating_pointer_radial_long_press_ms_value,
-                                    settings.floatingPointerRadialLongPressMs,
-                                ),
-                                onValueChange = { onLongPressMsChange(it.roundToInt()) },
-                            )
-                        }
+                        SettingsSliderRow(
+                            title = stringResource(R.string.floating_pointer_radial_long_press_ms),
+                            value = settings.floatingPointerRadialLongPressMs.toFloat(),
+                            valueRange = 200f..2000f,
+                            steps = 17,
+                            enabled = true,
+                            label = stringResource(
+                                R.string.floating_pointer_radial_long_press_ms_value,
+                                settings.floatingPointerRadialLongPressMs,
+                            ),
+                            onValueChange = { onLongPressMsChange(it.roundToInt()) },
+                        )
+                        val longPressAction = settings.floatingPointerJoystickLongPressAction
+                        SettingNavigationRow(
+                            icon = { label ->
+                                Icon(
+                                    imageVector = gestureActionIcon(longPressAction),
+                                    contentDescription = label,
+                                )
+                            },
+                            title = stringResource(R.string.floating_pointer_joystick_long_press_action),
+                            subtitle = gestureActionLabel(longPressAction),
+                            onClick = { pickingLongPressAction = true },
+                        )
                     }
                     SettingsHintText(stringResource(R.string.floating_pointer_radial_usage_hint))
                 }
@@ -309,12 +313,30 @@ fun FloatingPointerRadialMenuSettingsScreen(
             }
         }
 
+        AnimatedFullScreenOverlay(visible = pickingLongPressAction) {
+            GestureActionPickerScreen(
+                trigger = GestureTriggerType.SHORT_SWIPE_IN,
+                current = settings.floatingPointerJoystickLongPressAction,
+                includePointerGestureActions = true,
+                onDismiss = { pickingLongPressAction = false },
+                onSelect = { action ->
+                    if (action is GestureAction.FloatingPointer) {
+                        pickingLongPressAction = false
+                        return@GestureActionPickerScreen
+                    }
+                    onLongPressActionChange(action)
+                    pickingLongPressAction = false
+                },
+            )
+        }
+
         AnimatedFullScreenOverlay(visible = pickingSlot >= 0) {
             val slot = pickingSlot
             if (slot >= 0) {
                 GestureActionPickerScreen(
                     trigger = GestureTriggerType.SHORT_SWIPE_IN,
                     current = settings.floatingPointerRadialSlotActions.getOrElse(slot) { GestureAction.None },
+                    includePointerGestureActions = true,
                     onDismiss = { pickingSlot = -1 },
                     onSelect = { action ->
                         if (action is GestureAction.FloatingPointer) {

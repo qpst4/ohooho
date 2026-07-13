@@ -25,7 +25,10 @@ internal class FloatingPointerHostLayout(
     private val dismiss: () -> Unit,
     private val radialMenuOpened: () -> Unit,
     private val radialMenuClosed: () -> Unit,
-    private val radialMenuAction: (slotIndex: Int) -> Unit,
+    private val radialMenuAction: (slotIndex: Int, fingerStillDown: Boolean) -> Unit,
+    private val onExpandTouchCapture: () -> Unit,
+    private val joystickLongPressAction: (action: com.slideindex.app.gesture.GestureAction) -> Unit,
+    private val startPendingGestureCapture: (action: com.slideindex.app.gesture.GestureAction) -> Unit,
     private val activity: () -> Unit,
     private val haptic: () -> Unit,
     private val dismissOnOutsideTouch: (MotionEvent) -> Boolean,
@@ -67,7 +70,16 @@ internal class FloatingPointerHostLayout(
 
     override fun onRadialMenuClosed() = radialMenuClosed()
 
-    override fun onRadialMenuAction(slotIndex: Int) = radialMenuAction(slotIndex)
+    override fun onRadialMenuAction(slotIndex: Int, fingerStillDown: Boolean) =
+        radialMenuAction(slotIndex, fingerStillDown)
+
+    override fun expandTouchCapture() = onExpandTouchCapture()
+
+    override fun onJoystickLongPressAction(action: com.slideindex.app.gesture.GestureAction) =
+        joystickLongPressAction(action)
+
+    override fun onStartPendingGestureCapture(action: com.slideindex.app.gesture.GestureAction) =
+        startPendingGestureCapture(action)
 
     override fun onActivity() = activity()
 

@@ -1,5 +1,6 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureAngleConfig
 import com.slideindex.app.gesture.GestureRule
 import com.slideindex.app.gesture.GestureTriggerMode
@@ -105,8 +106,8 @@ data class AppSettings(
     val floatingPointerHideOnQuickSwipe: Boolean = true,
     val floatingPointerHideWhenIdle: Boolean = true,
     val floatingPointerIdleHideDelayMs: Int = 3000,
-    /** Long-press on joystick opens the radial action ring. */
-    val floatingPointerRadialMenuEnabled: Boolean = true,
+    /** Action executed when the joystick is long-pressed. Defaults to opening the radial action ring. */
+    val floatingPointerJoystickLongPressAction: com.slideindex.app.gesture.GestureAction = GestureAction.OpenFloatingPointerRadialMenu,
     /** Keep the radial action ring visible around the joystick without long-press. */
     val floatingPointerRadialAlwaysVisible: Boolean = false,
     val floatingPointerRadialLongPressMs: Int = 500,

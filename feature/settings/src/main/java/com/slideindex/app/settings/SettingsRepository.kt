@@ -163,7 +163,7 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatingPointerHideOnQuickSwipe(enabled: Boolean) = overlay.setFloatingPointerHideOnQuickSwipe(enabled)
     suspend fun setFloatingPointerHideWhenIdle(enabled: Boolean) = overlay.setFloatingPointerHideWhenIdle(enabled)
     suspend fun setFloatingPointerIdleHideDelayMs(value: Int) = overlay.setFloatingPointerIdleHideDelayMs(value)
-    suspend fun setFloatingPointerRadialMenuEnabled(enabled: Boolean) = overlay.setFloatingPointerRadialMenuEnabled(enabled)
+    suspend fun setFloatingPointerJoystickLongPressAction(action: GestureAction) = overlay.setFloatingPointerJoystickLongPressAction(action)
     suspend fun setFloatingPointerRadialAlwaysVisible(enabled: Boolean) = overlay.setFloatingPointerRadialAlwaysVisible(enabled)
     suspend fun setFloatingPointerRadialLongPressMs(value: Int) = overlay.setFloatingPointerRadialLongPressMs(value)
     suspend fun setFloatingPointerRadialOuterDiameterPx(value: Float) = overlay.setFloatingPointerRadialOuterDiameterPx(value)

@@ -98,7 +98,7 @@ internal object SettingsPreferenceKeys {
     val FLOATING_POINTER_HIDE_QUICK_SWIPE = booleanPreferencesKey("floating_pointer_hide_quick_swipe")
     val FLOATING_POINTER_HIDE_IDLE = booleanPreferencesKey("floating_pointer_hide_idle")
     val FLOATING_POINTER_IDLE_DELAY = intPreferencesKey("floating_pointer_idle_delay_ms")
-    val FLOATING_POINTER_RADIAL_ENABLED = booleanPreferencesKey("floating_pointer_radial_enabled")
+    val FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION = stringPreferencesKey("floating_pointer_joystick_long_press_action")
     val FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE =
             booleanPreferencesKey("floating_pointer_radial_always_visible")
     val FLOATING_POINTER_RADIAL_LONG_PRESS_MS = intPreferencesKey("floating_pointer_radial_long_press_ms")

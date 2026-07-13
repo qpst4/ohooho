@@ -122,6 +122,10 @@ class ActionExecutor(
                 }
                 true
             }
+            GestureAction.PointerGestureRecorder,
+            GestureAction.PointerRealtimeGesture,
+            GestureAction.OpenFloatingPointerRadialMenu,
+            -> false
             GestureAction.QuickToolsOverlay ->
                 overlayPanels.showStandaloneOverlay(anchorRawY) { y ->
                     OhoQuickToolsOverlayWindow.show(context, settings, side, y)

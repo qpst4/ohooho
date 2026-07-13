@@ -151,8 +151,8 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] = value.coerceIn(1000, 10000)
     }
 
-    suspend fun setFloatingPointerRadialMenuEnabled(enabled: Boolean) = editor.edit {
-        it[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ENABLED] = enabled
+    suspend fun setFloatingPointerJoystickLongPressAction(action: GestureAction) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION] = QuickLauncherItemCodec.encodeActionPayload(action)
     }
 
     suspend fun setFloatingPointerRadialAlwaysVisible(enabled: Boolean) = editor.edit {
@@ -245,6 +245,7 @@ class OverlaySettingsMutator @Inject constructor(
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_QUICK_SWIPE] = true
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_IDLE] = true
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] = 3000
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION] = QuickLauncherItemCodec.encodeActionPayload(GestureAction.OpenFloatingPointerRadialMenu)
     }
 
     suspend fun setQuickLauncherItems(

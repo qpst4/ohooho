@@ -310,6 +310,14 @@
     <string name="trigger_remove_side_confirm_message">This removes the trigger and its gesture config on this side only.</string>
     <string name="gesture_action_floating_pointer">Floating pointer</string>
     <string name="gesture_action_floating_pointer_permission">Requires Sidebar</string>
+    <string name="gesture_action_pointer_gesture_recorder">Pointer gesture recorder</string>
+    <string name="gesture_action_pointer_gesture_recorder_desc">Hold and slide to replay as Swipe from the pointer</string>
+    <string name="gesture_action_pointer_realtime_gesture">Pointer realtime gesture</string>
+    <string name="gesture_action_pointer_realtime_gesture_desc">Hold and slide to simulate touch in realtime from the pointer</string>
+    <string name="gesture_action_pointer_gesture_record_permission">Requires Sidebar</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu">Open action ring</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu_desc">Open the joystick action ring on long-press</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu_permission">Requires Sidebar</string>
     <string name="floating_pointer_settings_title">Floating pointer</string>
     <string name="floating_pointer_settings_desc">Touch the screen to show a finger-following joystick (the whole circle is the control). Move the ring pointer; tap to click at the pointer. Bind the Floating pointer gesture to show it.</string>
     <string name="floating_pointer_settings_section_appearance">Appearance</string>
@@ -378,19 +386,17 @@
     <string name="floating_pointer_entry_summary">Joystick %1$dpx 路 Pointer %2$dpx 路 Area %3$d脳%4$dpx</string>
     <string name="floating_pointer_usage_hint">The rest of the screen stays interactive. Drag the joystick disc to move the pointer; tap to click; long-press to open the action ring (configurable in Joystick functions).</string>
     <string name="floating_pointer_radial_settings_title">Joystick functions</string>
-    <string name="floating_pointer_radial_settings_summary_enabled">Long-press opens action ring</string>
-    <string name="floating_pointer_radial_settings_summary_disabled">Disabled</string>
     <string name="floating_pointer_radial_tab_settings">Settings</string>
     <string name="floating_pointer_radial_tab_functions">Functions</string>
     <string name="floating_pointer_radial_tab_design">Design</string>
     <string name="floating_pointer_radial_settings_desc">Long-press the joystick to show a ring of actions around it. Slide to a segment without lifting, then release to run that action.</string>
-    <string name="floating_pointer_radial_enabled">Long-press function</string>
-    <string name="floating_pointer_radial_enabled_desc">Open the joystick action ring once</string>
     <string name="floating_pointer_radial_always_visible">Always visible</string>
     <string name="floating_pointer_radial_always_visible_desc">Always show joystick functions</string>
     <string name="floating_pointer_radial_long_press_ms">Long-press duration</string>
     <string name="floating_pointer_radial_long_press_ms_value">%1$d ms</string>
     <string name="floating_pointer_radial_usage_hint">When disabled, long-press dismisses the floating pointer.</string>
+    <string name="floating_pointer_joystick_long_press_action">Long-press joystick action</string>
+    <string name="floating_pointer_joystick_long_press_action_desc">Action executed when long-pressing the joystick</string>
     <string name="floating_pointer_radial_functions_section">Joystick functions</string>
     <string name="floating_pointer_radial_outer_size">Outer ring size</string>
     <string name="floating_pointer_radial_outer_color">Outer ring color</string>
@@ -1160,15 +1166,6 @@ Questions: open a GitHub Issue on the project repository.</string>
     <string name="shell_panel_history_empty">No execution history yet</string>
     <string name="shell_panel_history_exit_code">Exit code %1$d</string>
 
-    <string name="floating_pointer_gesture_section_title">Gesture record and playback</string>
-    <string name="floating_pointer_gesture_section_desc">Enable record mode, drag on the floating pointer once, then play back or delete saved gestures here.</string>
-    <string name="floating_pointer_gesture_record_mode_title">Record mode</string>
-    <string name="floating_pointer_gesture_record_mode_desc">Save the next drag gesture automatically when it ends</string>
-    <string name="floating_pointer_gesture_empty">No saved gestures</string>
-    <string name="floating_pointer_gesture_points_summary">%1$d points</string>
-    <string name="floating_pointer_gesture_play">Play back</string>
-    <string name="floating_pointer_gesture_delete">Delete</string>
-    <string name="floating_pointer_gesture_saved">Gesture recording saved</string>
 
     <string name="tile_gesture_switch">SlideIndex</string>
     <string name="shortcut_toggle_gesture">Toggle gestures</string>

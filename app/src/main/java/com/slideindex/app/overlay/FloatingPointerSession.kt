@@ -1,54 +1,44 @@
 package com.slideindex.app.overlay
 
-import android.os.SystemClock
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.platform.LocalContext
 import com.slideindex.app.gesture.GestureAction
-import com.slideindex.app.gesture.PointerGesturePoint
 import com.slideindex.app.settings.AppSettings
-import com.slideindex.app.settings.FloatingPointerDesign
-import com.slideindex.app.ui.theme.SlideIndexTheme
-import com.slideindex.app.util.HapticHelper
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.math.hypot
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
 internal class FloatingPointerSession(
     val density: Float,
     val screenWidth: Float,
     val screenHeight: Float,
     private val settingsSource: () -> AppSettings,
-    private val recordModeSource: () -> Boolean = { false },
 ) {
     val tapSlopPx = 10f * density
 
     fun joystickDiameterPx(): Float = settingsSource().floatingPointerJoystickDiameterPx
     fun joystickRadiusPx(): Float = joystickDiameterPx() / 2f
+
+    fun touchCaptureDiameterPx(settings: AppSettings = settingsSource()): Float {
+        val joystick = joystickDiameterPx()
+        if (!settings.floatingPointerRadialAlwaysVisible) return joystick
+        return maxOf(joystick, settings.floatingPointerRadialOuterDiameterPx)
+    }
+
+    fun touchCaptureRadiusPx(settings: AppSettings = settingsSource()): Float =
+        touchCaptureDiameterPx(settings) / 2f
+
+    fun radialMenuCenterForInput(): Pair<Float, Float> {
+        val usePinnedRadialCenter = radialMenuActive.value || radialMenuIdle.value
+        return if (usePinnedRadialCenter) {
+            radialMenuCenterX to radialMenuCenterY
+        } else {
+            joystickCenterX.floatValue to joystickCenterY.floatValue
+        }
+    }
 
     val pointerX = mutableFloatStateOf(screenWidth / 2f)
     val pointerY = mutableFloatStateOf(screenHeight / 2f)
@@ -58,6 +48,15 @@ internal class FloatingPointerSession(
     /** When hide-on-release is enabled, stays true after tap; false only after drag release. */
     val pointerVisible = mutableStateOf(true)
     val trailPoints = mutableStateListOf<FloatingPointerTrailPoint>()
+    /**
+     * QC `j60` live samples while recording.
+     * Replay injection uses a private copy; retreat drawing uses [gestureRecorderTrailDrawPoints].
+     */
+    internal val gestureRecorderTrailPoints = CopyOnWriteArrayList<GestureRecorderTrailPoint>()
+    private var gestureRecorderTrailDrawPoints = CopyOnWriteArrayList<GestureRecorderTrailPoint>()
+    val gestureRecorderTrailRevision = mutableIntStateOf(0)
+    /** Non-null value temporarily overrides [AppSettings.floatingPointerTrailDurationMs]. */
+    var trailLifespanOverrideMs: Long? = null
     val rippleActive = mutableStateOf(false)
     val rippleCenterX = mutableFloatStateOf(0f)
     val rippleCenterY = mutableFloatStateOf(0f)
@@ -65,9 +64,179 @@ internal class FloatingPointerSession(
     val rippleGeneration = mutableIntStateOf(0)
     val pointerClickGeneration = mutableIntStateOf(0)
     val radialMenuActive = mutableStateOf(false)
+    val radialMenuIdle = mutableStateOf(false)
     val radialHighlightedSlot = mutableIntStateOf(-1)
     var radialMenuCenterX = 0f
     var radialMenuCenterY = 0f
+
+    /** Active QC-style gesture recorder, if any. */
+    internal var gestureRecorder: FloatingPointerGestureRecorder? = null
+        private set
+
+    /** Compose-visible flag for QC-style recorder pointer shrink animation. */
+    val gestureRecordingActive = mutableStateOf(false)
+
+    /** After finger-up: trail retreats on a wall-clock timeline until consumed. */
+    val gestureTrailRetreatActive = mutableStateOf(false)
+
+    /** Bumped when the pointer should immediately reappear after gesture aftermath. */
+    val pointerRestoreGeneration = mutableIntStateOf(0)
+
+    private var gesturePointerRestoreX: Float? = null
+    private var gesturePointerRestoreY: Float? = null
+    private var gestureReplayStartedAtMs: Long? = null
+    private var gestureReplayTotalMs: Long? = null
+
+    /** Active QC-style real-time gesture, if any. */
+    internal var realtimeGesture: FloatingPointerRealtimeGesture? = null
+        private set
+
+    /**
+     * Set when a radial-menu slot with a gesture-capture action is confirmed on finger lift.
+     * The next touch down starts capture immediately.
+     */
+    internal var pendingGestureCaptureAction: GestureAction? = null
+        private set
+
+    /** Joystick dock position saved on finger lift during gesture capture (QC-style). */
+    private var gestureCaptureDockX: Float? = null
+    private var gestureCaptureDockY: Float? = null
+
+    /** True while a recorded gesture is being injected (overlay must not track touches). */
+    val gestureReplayActive = mutableStateOf(false)
+
+    fun beginGestureReplay() {
+        gestureReplayActive.value = true
+        gestureRecordingActive.value = false
+    }
+
+    fun beginGestureReplayPrepare(
+        replayDurationMs: Long,
+        replayStartDelayMs: Long,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        gestureRecorderTrailDrawPoints = CopyOnWriteArrayList(
+            gestureRecorderTrailPoints.map { it.copy() },
+        )
+        gestureRecorderTrailDrawPoints.lastOrNull()?.let { last ->
+            gesturePointerRestoreX = last.x.toFloat()
+            gesturePointerRestoreY = last.y.toFloat()
+        }
+        gestureReplayTotalMs = replayDurationMs.coerceAtLeast(1L)
+        gestureReplayStartedAtMs = nowMs + replayStartDelayMs.coerceAtLeast(0L)
+        gestureTrailRetreatActive.value = true
+        trailLifespanOverrideMs = null
+        notifyGestureRecorderTrailChanged()
+    }
+
+    fun gestureReplayTotalDurationMs(): Long =
+        gestureReplayTotalMs?.coerceAtLeast(1L) ?: 1L
+
+    fun gestureRecorderConsumedDurationMs(nowMs: Long = System.currentTimeMillis()): Long {
+        val startedAt = gestureReplayStartedAtMs ?: return 0L
+        if (nowMs < startedAt) return 0L
+        return (nowMs - startedAt).coerceAtMost(gestureReplayTotalDurationMs())
+    }
+
+    fun isGestureRecorderTrailRetreatConsumed(nowMs: Long = System.currentTimeMillis()): Boolean =
+        gestureRecorderConsumedDurationMs(nowMs) >= gestureReplayTotalDurationMs()
+
+    /**
+     * Recording: live list. Retreat: frozen snapshot clipped by replay wall-clock
+     * (works for both chained ko and single-path fallback).
+     */
+    fun gestureRecorderTrailPointsForDraw(nowMs: Long = System.currentTimeMillis()): List<GestureRecorderTrailPoint> {
+        if (gestureRecordingActive.value) {
+            return gestureRecorderTrailPoints.toList()
+        }
+        if (!gestureTrailRetreatActive.value) return emptyList()
+        return gestureRecorderTrailSuffixPoints(
+            points = gestureRecorderTrailDrawPoints,
+            consumedDurationMs = gestureRecorderConsumedDurationMs(nowMs),
+        )
+    }
+
+    fun finishGestureTrailRetreatIfConsumed(settings: AppSettings): Boolean {
+        if (!gestureTrailRetreatActive.value) return false
+        if (!isGestureRecorderTrailRetreatConsumed()) return false
+        gestureTrailRetreatActive.value = false
+        gestureReplayStartedAtMs = null
+        gestureReplayTotalMs = null
+        gesturePointerRestoreX?.let { pointerX.floatValue = it }
+        gesturePointerRestoreY?.let { pointerY.floatValue = it }
+        gesturePointerRestoreX = null
+        gesturePointerRestoreY = null
+        clearGestureRecorderTrail()
+        pointerVisible.value = !settings.floatingPointerHideWhenJoystickReleased
+        pointerRestoreGeneration.intValue++
+        return true
+    }
+
+    fun endGestureReplay() {
+        gestureReplayActive.value = false
+    }
+
+    /** True while gesture capture is sampling, replaying, or armed for the next touch. */
+    val gestureCaptureActive: Boolean
+        get() = gestureRecorder != null || realtimeGesture != null || pendingGestureCaptureAction != null
+
+    fun armPendingGestureCapture(action: GestureAction) {
+        pendingGestureCaptureAction = action
+    }
+
+    fun clearPendingGestureCapture() {
+        pendingGestureCaptureAction = null
+    }
+
+    fun dockJoystickAfterGestureCapture(x: Float, y: Float) {
+        gestureCaptureDockX = x
+        gestureCaptureDockY = y
+        joystickCenterX.floatValue = x
+        joystickCenterY.floatValue = y
+    }
+
+    fun takeGestureCaptureDock(): Pair<Float, Float>? {
+        val x = gestureCaptureDockX
+        val y = gestureCaptureDockY
+        gestureCaptureDockX = null
+        gestureCaptureDockY = null
+        return if (x != null && y != null) x to y else null
+    }
+
+    fun releaseGestureRecorder() {
+        gestureRecorder = null
+        gestureRecordingActive.value = false
+    }
+
+    fun prepareGesturePointerRestore(x: Float, y: Float) {
+        gesturePointerRestoreX = x
+        gesturePointerRestoreY = y
+    }
+
+    fun notifyGestureRecorderTrailChanged() {
+        gestureRecorderTrailRevision.intValue++
+    }
+
+    /** QC `o21.m`: clear trail, restore pointer after replay + retreat end. */
+    fun completeGestureAftermathIfReady(settings: AppSettings): Boolean {
+        if (gestureReplayActive.value) return false
+        if (gestureRecordingActive.value || gestureRecorder != null) return false
+        if (gestureTrailRetreatActive.value) return false
+        gesturePointerRestoreX?.let { pointerX.floatValue = it }
+        gesturePointerRestoreY?.let { pointerY.floatValue = it }
+        gesturePointerRestoreX = null
+        gesturePointerRestoreY = null
+        clearTrail()
+        clearGestureRecorderTrail()
+        trailLifespanOverrideMs = null
+        pointerVisible.value = !settings.floatingPointerHideWhenJoystickReleased
+        pointerRestoreGeneration.intValue++
+        return true
+    }
+
+    fun releaseRealtimeGesture() {
+        realtimeGesture = null
+    }
 
     fun openRadialMenu(centerX: Float, centerY: Float) {
         radialMenuCenterX = centerX
@@ -75,12 +244,18 @@ internal class FloatingPointerSession(
         joystickCenterX.floatValue = centerX
         joystickCenterY.floatValue = centerY
         radialMenuActive.value = true
+        radialMenuIdle.value = false
         radialHighlightedSlot.intValue = -1
     }
 
     fun closeRadialMenu() {
         radialMenuActive.value = false
+        radialMenuIdle.value = false
         radialHighlightedSlot.intValue = -1
+    }
+
+    fun keepRadialMenuOpenAfterLift() {
+        radialMenuIdle.value = true
     }
 
     fun updateRadialHighlight(fingerX: Float, fingerY: Float, settings: AppSettings): Boolean {
@@ -114,9 +289,95 @@ internal class FloatingPointerSession(
     private var dragFingerAnchorY = 0f
     private var dragPointerAnchorX = 0f
     private var dragPointerAnchorY = 0f
-    private var gestureRecordingActive = false
-    private var gestureRecordingStartMs = 0L
-    private val gestureRecordingPoints = mutableListOf<PointerGesturePoint>()
+
+    /** Starts a QC-style gesture recorder at the given pointer position. */
+    fun startGestureRecorder(
+        service: android.accessibilityservice.AccessibilityService,
+        pointerX: Float,
+        pointerY: Float,
+        onReplayPrepare: (replayDurationMs: Long) -> Unit,
+        onFinished: () -> Unit,
+    ) {
+        clearPendingGestureCapture()
+        gestureTrailRetreatActive.value = false
+        gestureReplayActive.value = false
+        gestureReplayStartedAtMs = null
+        gestureReplayTotalMs = null
+        gesturePointerRestoreX = null
+        gesturePointerRestoreY = null
+        clearGestureRecorderTrail()
+        trailLifespanOverrideMs = GESTURE_CAPTURE_TRAIL_MS
+        gestureRecordingActive.value = true
+        gestureRecorder = FloatingPointerGestureRecorder(
+            service = service,
+            startX = pointerX,
+            startY = pointerY,
+            points = gestureRecorderTrailPoints,
+            onPointsChanged = { notifyGestureRecorderTrailChanged() },
+            onReplayPrepare = { replayDurationMs ->
+                beginGestureReplayPrepare(
+                    replayDurationMs = replayDurationMs,
+                    replayStartDelayMs = FloatingPointerGestureRecorder.REPLAY_START_DELAY_MS,
+                )
+                onReplayPrepare(replayDurationMs)
+            },
+            onFinished = {
+                releaseGestureRecorder()
+                onFinished()
+            },
+        )
+    }
+
+    /** Updates the active gesture recorder with the current pointer position. */
+    fun updateGestureRecorder() {
+        gestureRecorder?.updatePosition(pointerX.floatValue, pointerY.floatValue)
+    }
+
+    /** QC `b60`: draw whenever the remaining path still has a visible segment. */
+    fun shouldDrawGestureRecorderTrail(nowMs: Long = System.currentTimeMillis()): Boolean =
+        gestureRecorderTrailPointsForDraw(nowMs).size >= 2
+
+    fun hasActiveGestureRecorderTrail(nowMs: Long = System.currentTimeMillis()): Boolean =
+        shouldDrawGestureRecorderTrail(nowMs)
+
+    /** Stops the gesture recorder and begins replay. */
+    fun finishGestureRecorder() {
+        gestureRecorder?.finish()
+    }
+
+    /** Starts a QC-style real-time gesture at the given pointer position. */
+    fun startRealtimeGesture(
+        service: android.accessibilityservice.AccessibilityService,
+        pointerX: Float,
+        pointerY: Float,
+        onError: () -> Unit,
+        onFinished: () -> Unit,
+    ) {
+        clearPendingGestureCapture()
+        realtimeGesture = FloatingPointerRealtimeGesture(
+            service = service,
+            startX = pointerX,
+            startY = pointerY,
+            onError = {
+                releaseRealtimeGesture()
+                onError()
+            },
+            onFinished = {
+                releaseRealtimeGesture()
+                onFinished()
+            },
+        )
+    }
+
+    /** Updates the active real-time gesture with the current pointer position. */
+    fun updateRealtimeGesture() {
+        realtimeGesture?.updatePosition(pointerX.floatValue, pointerY.floatValue)
+    }
+
+    /** Ends the active real-time gesture. */
+    fun finishRealtimeGesture() {
+        realtimeGesture?.finish()
+    }
 
     fun triggerRipple(x: Float, y: Float) {
         rippleCenterX.floatValue = x
@@ -174,38 +435,7 @@ internal class FloatingPointerSession(
         } else {
             armDrag(rawX, rawY)
         }
-        if (recordModeSource()) {
-            beginGestureRecording()
-        }
     }
-
-    private fun beginGestureRecording() {
-        gestureRecordingActive = true
-        gestureRecordingStartMs = SystemClock.uptimeMillis()
-        gestureRecordingPoints.clear()
-        appendGestureRecordingPoint(pointerX.floatValue, pointerY.floatValue)
-    }
-
-    private fun appendGestureRecordingPoint(x: Float, y: Float) {
-        if (!gestureRecordingActive) return
-        val offsetMs = SystemClock.uptimeMillis() - gestureRecordingStartMs
-        val last = gestureRecordingPoints.lastOrNull()
-        if (last != null && hypot((last.x - x).toDouble(), (last.y - y).toDouble()) < 8.0) {
-            return
-        }
-        gestureRecordingPoints.add(PointerGesturePoint(x, y, offsetMs))
-    }
-
-    fun showPlaybackPoint(x: Float, y: Float, recordTrail: Boolean) {
-        pointerX.floatValue = x
-        pointerY.floatValue = y
-        pointerVisible.value = true
-        if (recordTrail) {
-            recordTrail(x, y)
-        }
-    }
-
-    fun shouldKeepTrailOnRelease(): Boolean = recordModeSource() || gestureRecordingActive
 
     private fun armDrag(fingerX: Float, fingerY: Float) {
         dragFingerAnchorX = fingerX
@@ -265,10 +495,22 @@ internal class FloatingPointerSession(
 
     fun clearTrail() {
         trailPoints.clear()
+        trailLifespanOverrideMs = null
     }
 
+    fun clearGestureRecorderTrail() {
+        gestureRecorderTrailPoints.clear()
+        gestureRecorderTrailDrawPoints.clear()
+        notifyGestureRecorderTrailChanged()
+    }
+
+    fun effectiveTrailNowMs(nowMs: Long = System.currentTimeMillis()): Long = nowMs
+
     fun pruneExpiredTrailPoints(nowMs: Long = System.currentTimeMillis()) {
-        val maxAge = settingsSource().floatingPointerTrailDurationMs.coerceAtLeast(50)
+        if (gestureRecordingActive.value || gestureReplayActive.value || gestureTrailRetreatActive.value) return
+        val settings = settingsSource()
+        val maxAge = trailLifespanOverrideMs
+            ?: settings.floatingPointerTrailDurationMs.coerceAtLeast(50).toLong()
         val cutoff = nowMs - maxAge
         while (trailPoints.isNotEmpty() && trailPoints.first().timeMs < cutoff) {
             if (trailPoints.size <= 2) break
@@ -277,9 +519,14 @@ internal class FloatingPointerSession(
     }
 
     fun hasActiveTrail(nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (gestureRecordingActive.value || gestureReplayActive.value || gestureTrailRetreatActive.value) {
+            return false
+        }
         if (trailPoints.size < 2) return false
-        val maxAge = settingsSource().floatingPointerTrailDurationMs.coerceAtLeast(50)
-        return trailPoints.count { nowMs - it.timeMs <= maxAge } >= 2
+        val maxAge = trailLifespanOverrideMs
+            ?: settingsSource().floatingPointerTrailDurationMs.coerceAtLeast(50).toLong()
+        val cutoff = nowMs - maxAge
+        return trailPoints.last().timeMs >= cutoff
     }
 
     fun isNearPointer(rawX: Float, rawY: Float): Boolean {
@@ -291,10 +538,14 @@ internal class FloatingPointerSession(
     }
 
     private fun recordTrail(x: Float, y: Float) {
+        if (gestureRecordingActive.value) return
         val settings = settingsSource()
-        val trailType = com.slideindex.app.settings.FloatingPointerTrailType.fromId(
+        var trailType = com.slideindex.app.settings.FloatingPointerTrailType.fromId(
             settings.floatingPointerTrailTypeId,
         )
+        if (gestureRecordingActive.value && trailType == com.slideindex.app.settings.FloatingPointerTrailType.OFF) {
+            trailType = com.slideindex.app.settings.FloatingPointerTrailType.SIMPLE
+        }
         FloatingPointerTrailSampler.recordPoint(
             points = trailPoints,
             x = x,
@@ -303,26 +554,12 @@ internal class FloatingPointerSession(
             type = trailType,
             density = density,
         )
-        val maxAge = settings.floatingPointerTrailDurationMs.coerceAtLeast(50)
-        val cutoff = System.currentTimeMillis() - maxAge
-        while (trailPoints.isNotEmpty() && trailPoints.first().timeMs < cutoff) {
-            if (trailPoints.size <= 2) break
-            trailPoints.removeAt(0)
-        }
-    }
-
-    fun buildGestureRecordingSnapshot(isTap: Boolean): List<PointerGesturePoint>? {
-        gestureRecordingActive = false
-        if (isTap || gestureRecordingPoints.size < 2) {
-            gestureRecordingPoints.clear()
-            return null
-        }
-        return gestureRecordingPoints
-            .take(FloatingPointerGestureRepository.MAX_POINTS)
-            .also { gestureRecordingPoints.clear() }
+        // Expiration is handled by pruneExpiredTrailPoints in the display frame loop so that
+        // temporary lifespan overrides (e.g. during gesture recording) are respected.
     }
 
     fun applyPointerFromTouch(rawX: Float, rawY: Float, @Suppress("UNUSED_PARAMETER") settings: AppSettings) {
+        if (gestureReplayActive.value) return
         if (gestureAreaWidth <= 0f || gestureAreaHeight <= 0f) return
         val next = FloatingPointerBounds.pointerForFingerDeltaInArea(
             deltaX = rawX - dragFingerAnchorX,
@@ -336,7 +573,43 @@ internal class FloatingPointerSession(
         )
         pointerX.floatValue = next.x
         pointerY.floatValue = next.y
-        recordTrail(next.x, next.y)
-        appendGestureRecordingPoint(next.x, next.y)
+        if (!gestureRecordingActive.value) {
+            recordTrail(next.x, next.y)
+        }
+        updateGestureRecorder()
+        updateRealtimeGesture()
+    }
+
+    private companion object {
+        private const val GESTURE_CAPTURE_TRAIL_MS = 4_000L
+
+        private fun gestureRecorderTrailSuffixPoints(
+            points: List<GestureRecorderTrailPoint>,
+            consumedDurationMs: Long,
+        ): List<GestureRecorderTrailPoint> {
+            if (points.size < 2) return emptyList()
+            val totalDuration = points.drop(1).sumOf { it.durationMs.coerceAtLeast(0L) }.coerceAtLeast(1L)
+            if (consumedDurationMs >= totalDuration) return emptyList()
+            if (consumedDurationMs <= 0L) return points
+
+            var walkedMs = 0L
+            for (index in 0 until points.lastIndex) {
+                val segmentMs = points[index + 1].durationMs.coerceAtLeast(1L)
+                if (walkedMs + segmentMs > consumedDurationMs) {
+                    val from = points[index]
+                    val to = points[index + 1]
+                    val fraction = ((consumedDurationMs - walkedMs).toFloat() / segmentMs.toFloat())
+                        .coerceIn(0f, 1f)
+                    val head = GestureRecorderTrailPoint(
+                        x = (from.x + (to.x - from.x) * fraction).toInt(),
+                        y = (from.y + (to.y - from.y) * fraction).toInt(),
+                        durationMs = 0L,
+                    )
+                    return listOf(head) + points.subList(index + 1, points.size)
+                }
+                walkedMs += segmentMs
+            }
+            return emptyList()
+        }
     }
 }

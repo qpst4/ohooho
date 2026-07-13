@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.DoNotDisturb
 import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MenuOpen
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -100,6 +102,9 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.TOGGLE_WIFI -> Icons.Default.Wifi
     GestureActionType.TOGGLE_MOBILE_DATA -> Icons.Default.SignalCellularAlt
     GestureActionType.SWITCH_INPUT_METHOD -> Icons.Default.Keyboard
+    GestureActionType.POINTER_GESTURE_RECORDER -> Icons.Default.Gesture
+    GestureActionType.POINTER_REALTIME_GESTURE -> Icons.Default.TouchApp
+    GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> Icons.Default.MenuOpen
     GestureActionType.LAUNCH_APP -> Icons.Default.Apps
     GestureActionType.LAUNCH_SHORTCUT -> Icons.AutoMirrored.Filled.Shortcut
 }

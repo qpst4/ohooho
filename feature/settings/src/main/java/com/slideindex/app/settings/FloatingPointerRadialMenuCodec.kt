@@ -40,6 +40,10 @@ object FloatingPointerRadialMenuCodec {
             "$index$SEP${QuickLauncherItemCodec.encodeActionPayload(sanitizeSlotAction(action))}"
         }.toSet()
 
-    private fun sanitizeSlotAction(action: GestureAction): GestureAction =
-        if (action is GestureAction.FloatingPointer) GestureAction.None else action
+    private fun sanitizeSlotAction(action: GestureAction): GestureAction = when (action) {
+        is GestureAction.FloatingPointer,
+        is GestureAction.OpenFloatingPointerRadialMenu,
+        -> GestureAction.None
+        else -> action
+    }
 }

@@ -46,9 +46,17 @@ internal class FloatingPointerSettingsSync(
         window.idleHideRunnable = null
         val settings = window.settingsState?.value ?: return
         if (!settings.floatingPointerHideWhenIdle) return
-        if (window.session?.joystickActive?.value == true || window.session?.radialMenuActive?.value == true) return
+        if (window.session?.joystickActive?.value == true ||
+            window.session?.radialMenuActive?.value == true ||
+            window.session?.gestureReplayActive?.value == true
+        ) {
+            return
+        }
         val runnable = Runnable {
-            if (window.session?.joystickActive?.value == true || window.session?.radialMenuActive?.value == true) {
+            if (window.session?.joystickActive?.value == true ||
+                window.session?.radialMenuActive?.value == true ||
+                window.session?.gestureReplayActive?.value == true
+            ) {
                 resetIdleTimer()
                 return@Runnable
             }

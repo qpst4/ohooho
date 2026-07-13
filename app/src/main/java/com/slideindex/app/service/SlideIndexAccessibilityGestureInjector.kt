@@ -248,6 +248,112 @@ internal object SlideIndexAccessibilityGestureInjector {
         }
     }
 
+    fun dispatchPointerHold(
+        service: AccessibilityService?,
+        rawX: Float,
+        rawY: Float,
+        durationMs: Long,
+        onFinished: (Boolean) -> Unit = {},
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post {
+                dispatchPointerHold(service, rawX, rawY, durationMs, onFinished)
+            }
+            return
+        }
+        if (service == null) {
+            Log.w(TAG, "dispatchPointerHold: service instance is null")
+            onFinished(false)
+            return
+        }
+        val safeDuration = durationMs.coerceIn(20L, MAX_HOLD_DURATION_MS)
+        Log.i(TAG, "dispatchPointerHold at ($rawX, $rawY) duration=${safeDuration}ms")
+        dispatchGestureTap(service, rawX, rawY, safeDuration, onFinished)
+    }
+
+    fun dispatchPointerSwipePath(
+        service: AccessibilityService?,
+        startX: Float,
+        startY: Float,
+        path: Path,
+        durationMs: Long,
+        maxDurationMs: Long = DEFAULT_SWIPE_MAX_DURATION_MS,
+        onFinished: (Boolean) -> Unit = {},
+    ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post {
+                dispatchPointerSwipePath(
+                    service,
+                    startX,
+                    startY,
+                    path,
+                    durationMs,
+                    maxDurationMs,
+                    onFinished,
+                )
+            }
+            return
+        }
+        if (service == null) {
+            Log.w(TAG, "dispatchPointerSwipePath: service instance is null")
+            onFinished(false)
+            return
+        }
+        val metrics = service.resources.displayMetrics
+        val screenWidth = metrics.widthPixels.toFloat().coerceAtLeast(1f)
+        val screenHeight = metrics.heightPixels.toFloat().coerceAtLeast(1f)
+        val clampedPath = buildClampedPath(path, screenWidth, screenHeight)
+        if (clampedPath == null) {
+            Log.w(TAG, "dispatchPointerSwipePath: empty path at ($startX, $startY)")
+            onFinished(false)
+            return
+        }
+        val safeDuration = durationMs.coerceIn(20L, maxDurationMs)
+        val stroke = GestureDescription.StrokeDescription(clampedPath, 0, safeDuration)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        val accepted = service.dispatchGesture(
+            gesture,
+            object : AccessibilityService.GestureResultCallback() {
+                override fun onCompleted(gestureDescription: GestureDescription?) {
+                    Log.i(TAG, "dispatchPointerSwipePath completed at ($startX, $startY)")
+                    onFinished(true)
+                }
+
+                override fun onCancelled(gestureDescription: GestureDescription?) {
+                    Log.w(TAG, "dispatchPointerSwipePath cancelled at ($startX, $startY)")
+                    onFinished(false)
+                }
+            },
+            null,
+        )
+        if (!accepted) {
+            Log.w(TAG, "dispatchPointerSwipePath rejected at ($startX, $startY)")
+            onFinished(false)
+        }
+    }
+
+    private fun buildClampedPath(path: Path, screenWidth: Float, screenHeight: Float): Path? {
+        val pathMeasure = android.graphics.PathMeasure(path, false)
+        val length = pathMeasure.length
+        if (length <= 0f) return null
+        val result = Path()
+        val pos = FloatArray(2)
+        val samples = 24
+        val step = length / samples
+        for (index in 0..samples) {
+            val distance = (index * step).coerceAtMost(length)
+            if (!pathMeasure.getPosTan(distance, pos, null)) continue
+            val x = pos[0].coerceIn(0f, screenWidth)
+            val y = pos[1].coerceIn(0f, screenHeight)
+            if (index == 0) {
+                result.moveTo(x, y)
+            } else {
+                result.lineTo(x, y)
+            }
+        }
+        return result
+    }
+
     internal fun buildSwipePath(startX: Float, startY: Float, endX: Float, endY: Float): Path {
         val steps = 8
         return Path().apply {
@@ -505,6 +611,9 @@ internal object SlideIndexAccessibilityGestureInjector {
     const val TAP_DURATION_MS = 120L
     const val POINTER_TAP_DURATION_MS = 80L
     const val POINTER_TAP_CHAIN_GAP_MS = 12L
+    const val DEFAULT_SWIPE_MAX_DURATION_MS = 800L
+    const val MAX_HOLD_DURATION_MS = 5_000L
+    const val MAX_RECORDED_GESTURE_DURATION_MS = 5_000L
     private const val TAG = "SlideIndexA11y"
     private const val GESTURE_TIMEOUT_MS = 600L
     private const val SCROLL_GESTURE_DELAY_MS = 180L

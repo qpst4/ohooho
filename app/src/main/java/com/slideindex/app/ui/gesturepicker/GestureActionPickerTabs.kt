@@ -61,9 +61,10 @@ internal fun ActionPickerActionsTab(
     searchQuery: String,
     onSearchChange: (String) -> Unit,
     modifier: Modifier,
+    includePointerGestureActions: Boolean = false,
 ) {
     val context = LocalContext.current
-    val actionOptions = remember(trigger) {
+    val actionOptions = remember(trigger, includePointerGestureActions) {
         buildList {
             add(GestureAction.None)
             add(GestureAction.OpenIndex)
@@ -74,6 +75,11 @@ internal fun ActionPickerActionsTab(
             add(GestureAction.WidgetPopupOverlay)
             add(GestureAction.FloatingPointer)
             add(GestureAction.SimulatePointerSwipe())
+            if (includePointerGestureActions) {
+                add(GestureAction.PointerGestureRecorder)
+                add(GestureAction.PointerRealtimeGesture)
+            }
+            add(GestureAction.OpenFloatingPointerRadialMenu)
             add(GestureAction.Back)
             add(GestureAction.Home)
             add(GestureAction.Recents)

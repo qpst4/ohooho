@@ -40,6 +40,9 @@ enum class GestureActionType(val id: Int) {
     WIDGET_POPUP_OVERLAY(37),
     FLOATING_POINTER(38),
     SIMULATE_POINTER_SWIPE(39),
+    POINTER_GESTURE_RECORDER(40),
+    POINTER_REALTIME_GESTURE(41),
+    OPEN_FLOATING_POINTER_RADIAL_MENU(42),
     ;
 
     companion object {
@@ -268,6 +271,24 @@ sealed class GestureAction {
         }
     }
 
+    /** Starts the pointer gesture recorder: samples the pointer path and replays it on release. */
+    data object PointerGestureRecorder : GestureAction() {
+        override val type = GestureActionType.POINTER_GESTURE_RECORDER
+        override val payload = ""
+    }
+
+    /** Starts the real-time gesture: the pointer follows the finger via continueStroke. */
+    data object PointerRealtimeGesture : GestureAction() {
+        override val type = GestureActionType.POINTER_REALTIME_GESTURE
+        override val payload = ""
+    }
+
+    /** Opens the floating pointer radial action ring. */
+    data object OpenFloatingPointerRadialMenu : GestureAction() {
+        override val type = GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU
+        override val payload = ""
+    }
+
     data object ToggleDnd : GestureAction() {
         override val type = GestureActionType.TOGGLE_DND
         override val payload = ""
@@ -345,6 +366,9 @@ sealed class GestureAction {
                 GestureActionType.WIDGET_POPUP_OVERLAY -> WidgetPopupOverlay
                 GestureActionType.FLOATING_POINTER -> FloatingPointer
                 GestureActionType.SIMULATE_POINTER_SWIPE -> SimulatePointerSwipe.fromPayload(payload)
+                GestureActionType.POINTER_GESTURE_RECORDER -> PointerGestureRecorder
+                GestureActionType.POINTER_REALTIME_GESTURE -> PointerRealtimeGesture
+                GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> OpenFloatingPointerRadialMenu
                 GestureActionType.TOGGLE_DND -> ToggleDnd
                 GestureActionType.SCREEN_RECORD -> ScreenRecord
                 GestureActionType.TOGGLE_WIFI -> ToggleWifi

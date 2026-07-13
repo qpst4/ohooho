@@ -73,7 +73,6 @@ internal class FloatingPointerWindowLifecycle(
             screenWidth = screenBounds.width,
             screenHeight = screenBounds.height,
             settingsSource = { settingsHolder.value },
-            recordModeSource = { window.gestureRepository?.recordModeEnabled?.value == true },
         )
         if (anchorRawX != null && anchorRawY != null) {
             pointerSession.placeAtTouch(anchorRawX, anchorRawY, settings)
@@ -99,12 +98,22 @@ internal class FloatingPointerWindowLifecycle(
             session = pointerSession,
             settingsProvider = { settingsHolder.value },
             joystickPositionChanged = { centerX, centerY ->
-                collapseTouchCapture(centerX, centerY, forceCollapse = true)
+                // During gesture capture the touch layer must stay expanded so that
+                // finger MOVE events are not lost when the user moves far from the
+                // joystick. Skip collapsing while recording/replaying.
+                if (window.session?.gestureCaptureActive != true &&
+                    window.session?.gestureReplayActive?.value != true
+                ) {
+                    collapseTouchCapture(centerX, centerY, forceCollapse = true)
+                }
             },
-            gestureEnd = { centerX, centerY, isTap ->
-                window.trySaveGestureRecording(pointerSession, isTap)
+            gestureEnd = { centerX, centerY, _ ->
                 window.touchCaptureUserCollapsed = true
-                collapseTouchCapture(centerX, centerY, forceCollapse = true)
+                if (window.session?.gestureCaptureActive != true &&
+                    window.session?.gestureReplayActive?.value != true
+                ) {
+                    collapseTouchCapture(centerX, centerY, forceCollapse = true)
+                }
             },
             pointerClick = { rawX, rawY -> window.runPointerTap(rawX, rawY) },
             outsideDismissPrepare = { window.runOutsideDismissPrepare() },
@@ -113,10 +122,20 @@ internal class FloatingPointerWindowLifecycle(
             radialMenuOpened = { expandTouchCapture() },
             radialMenuClosed = {
                 window.session?.let {
+                    if (it.gestureCaptureActive) return@let
                     collapseTouchCapture(it.joystickCenterX.floatValue, it.joystickCenterY.floatValue, forceCollapse = true)
                 }
             },
-            radialMenuAction = { slotIndex -> window.executeRadialSlotAction(slotIndex) },
+            radialMenuAction = { slotIndex, fingerStillDown ->
+                window.executeRadialSlotAction(slotIndex, fingerStillDown)
+            },
+            onExpandTouchCapture = { expandTouchCapture() },
+            joystickLongPressAction = { action ->
+                window.executeJoystickLongPressAction(action)
+            },
+            startPendingGestureCapture = { action ->
+                window.startPendingGestureCapture(action)
+            },
             activity = { window.settingsSync.resetIdleTimer() },
             haptic = { displayCompose.let { HapticHelper.appTick(it, settingsHolder.value) } },
             dismissOnOutsideTouch = window::shouldDismissOnOutsideTouch,
@@ -127,7 +146,7 @@ internal class FloatingPointerWindowLifecycle(
         val touchParams = if (pointerSession.awaitingPlacement) {
             buildExpandedTouchParams(hostContext)
         } else {
-            buildCollapsedTouchParams(hostContext, pointerSession)
+            buildCollapsedTouchParams(hostContext, pointerSession, settings)
         }
 
         val displayAdded = runCatching { wm.addView(displayCompose, displayParams) }
@@ -156,7 +175,6 @@ internal class FloatingPointerWindowLifecycle(
         window.session = pointerSession
         window.touchLayoutParams = touchParams
         window.appContext = hostContext
-        window.gestureRepository = null
         val deps = OverlayDependencyAccess.overlayDependencies(hostContext)
             ?: run {
                 Log.w(TAG, "show: accessibility service deps unavailable")
@@ -164,7 +182,6 @@ internal class FloatingPointerWindowLifecycle(
                 displayDialogOwner.destroy()
                 return
             }
-        window.gestureRepository = deps.floatingPointerGestureRepository
         window.actionExecutor = ActionExecutor(
             context = hostContext,
             appRepository = deps.appRepository,
@@ -290,11 +307,13 @@ internal class FloatingPointerWindowLifecycle(
         val view = window.touchHost ?: return
         val wm = window.windowManager ?: return
         val params = window.touchLayoutParams ?: return
-        val size = pointerSession.joystickDiameterPx().roundToInt()
+        val settings = window.settingsState?.value ?: return
+        val size = pointerSession.touchCaptureDiameterPx(settings).roundToInt()
+        val radius = pointerSession.touchCaptureRadiusPx(settings)
         val maxX = (pointerSession.screenWidth - size).roundToInt().coerceAtLeast(0)
         val maxY = (pointerSession.screenHeight - size).roundToInt().coerceAtLeast(0)
-        val targetX = (centerX - pointerSession.joystickRadiusPx()).roundToInt().coerceIn(0, maxX)
-        val targetY = (centerY - pointerSession.joystickRadiusPx()).roundToInt().coerceIn(0, maxY)
+        val targetX = (centerX - radius).roundToInt().coerceIn(0, maxX)
+        val targetY = (centerY - radius).roundToInt().coerceIn(0, maxY)
         if (params.width == size &&
             params.height == size &&
             params.x == targetX &&
@@ -360,8 +379,11 @@ internal class FloatingPointerWindowLifecycle(
         if (window.outsideDismissSuppressed) return false
         if (window.isPointerTapInFlight) return false
         if (window.pendingPointerTaps.isNotEmpty()) return false
+        if (window.isPointerSwipeInFlight) return false
         if (SystemClock.uptimeMillis() < window.pointerTapOutsideSuppressUntilMs) return false
         val pointerSession = window.session ?: return true
+        if (pointerSession.gestureReplayActive.value) return false
+        if (pointerSession.gestureCaptureActive) return false
         if (hasReliableOutsideTouchCoordinates(event) &&
             pointerSession.isNearPointer(event.rawX, event.rawY)
         ) {
@@ -371,10 +393,26 @@ internal class FloatingPointerWindowLifecycle(
     }
 
     fun onTouchCycleComplete() {
-        if (!window.outsideDismissSuppressed) return
-        window.outsideDismissSuppressed = false
-        window.outsideDismissGraceRunnable?.let { mainHandler.removeCallbacks(it) }
-        window.outsideDismissGraceRunnable = null
+        if (window.outsideDismissSuppressed) {
+            window.outsideDismissSuppressed = false
+            window.outsideDismissGraceRunnable?.let { mainHandler.removeCallbacks(it) }
+            window.outsideDismissGraceRunnable = null
+        }
+        window.session?.let { session ->
+            if (!session.gestureCaptureActive &&
+                !session.gestureReplayActive.value &&
+                !session.radialMenuActive.value &&
+                !session.radialMenuIdle.value
+            ) {
+                collapseTouchCapture(
+                    session.joystickCenterX.floatValue,
+                    session.joystickCenterY.floatValue,
+                    forceCollapse = true,
+                )
+                setTouchOverlayPassthrough(false)
+            }
+        }
+        window.settingsSync.resetIdleTimer()
     }
 
     private fun resummonAtAnchor(
@@ -462,8 +500,10 @@ internal class FloatingPointerWindowLifecycle(
     private fun buildCollapsedTouchParams(
         context: Context,
         pointerSession: FloatingPointerSession,
+        settings: AppSettings,
     ): WindowManager.LayoutParams {
-        val size = pointerSession.joystickDiameterPx().roundToInt()
+        val size = pointerSession.touchCaptureDiameterPx(settings).roundToInt()
+        val radius = pointerSession.touchCaptureRadiusPx(settings)
         val maxX = (pointerSession.screenWidth - size).roundToInt().coerceAtLeast(0)
         val maxY = (pointerSession.screenHeight - size).roundToInt().coerceAtLeast(0)
         return WindowManager.LayoutParams(
@@ -478,10 +518,10 @@ internal class FloatingPointerWindowLifecycle(
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = (pointerSession.joystickCenterX.floatValue - pointerSession.joystickRadiusPx())
+            x = (pointerSession.joystickCenterX.floatValue - radius)
                 .roundToInt()
                 .coerceIn(0, maxX)
-            y = (pointerSession.joystickCenterY.floatValue - pointerSession.joystickRadiusPx())
+            y = (pointerSession.joystickCenterY.floatValue - radius)
                 .roundToInt()
                 .coerceIn(0, maxY)
             applyCutoutMode()

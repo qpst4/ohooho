@@ -88,6 +88,9 @@ fun gestureActionLabelText(context: Context, action: GestureAction): String = wh
         GestureActionType.WIDGET_POPUP_OVERLAY -> context.getString(R.string.gesture_action_widget_popup_overlay)
         GestureActionType.FLOATING_POINTER -> context.getString(R.string.gesture_action_floating_pointer)
         GestureActionType.SIMULATE_POINTER_SWIPE -> context.getString(R.string.gesture_action_pointer_swipe)
+        GestureActionType.POINTER_GESTURE_RECORDER -> context.getString(R.string.gesture_action_pointer_gesture_recorder)
+        GestureActionType.POINTER_REALTIME_GESTURE -> context.getString(R.string.gesture_action_pointer_realtime_gesture)
+        GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> context.getString(R.string.gesture_action_open_floating_pointer_radial_menu)
         GestureActionType.TOGGLE_DND -> context.getString(R.string.gesture_action_toggle_dnd)
         GestureActionType.SCREEN_RECORD -> context.getString(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> context.getString(R.string.gesture_action_toggle_wifi)
@@ -154,6 +157,9 @@ fun gestureActionLabel(action: GestureAction): String = when (action) {
         GestureActionType.WIDGET_POPUP_OVERLAY -> stringResource(R.string.gesture_action_widget_popup_overlay)
         GestureActionType.FLOATING_POINTER -> stringResource(R.string.gesture_action_floating_pointer)
         GestureActionType.SIMULATE_POINTER_SWIPE -> stringResource(R.string.gesture_action_pointer_swipe)
+        GestureActionType.POINTER_GESTURE_RECORDER -> stringResource(R.string.gesture_action_pointer_gesture_recorder)
+        GestureActionType.POINTER_REALTIME_GESTURE -> stringResource(R.string.gesture_action_pointer_realtime_gesture)
+        GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> stringResource(R.string.gesture_action_open_floating_pointer_radial_menu)
         GestureActionType.TOGGLE_DND -> stringResource(R.string.gesture_action_toggle_dnd)
         GestureActionType.SCREEN_RECORD -> stringResource(R.string.gesture_action_screen_record)
         GestureActionType.TOGGLE_WIFI -> stringResource(R.string.gesture_action_toggle_wifi)
@@ -171,6 +177,9 @@ fun gestureActionDescription(action: GestureAction): String? = when (action.type
     GestureActionType.SCROLL_TO_TOP -> stringResource(R.string.gesture_action_scroll_to_top_desc)
     GestureActionType.SCROLL_TO_BOTTOM -> stringResource(R.string.gesture_action_scroll_to_bottom_desc)
     GestureActionType.SIMULATE_POINTER_SWIPE -> stringResource(R.string.gesture_action_pointer_swipe_desc)
+    GestureActionType.POINTER_GESTURE_RECORDER -> stringResource(R.string.gesture_action_pointer_gesture_recorder_desc)
+    GestureActionType.POINTER_REALTIME_GESTURE -> stringResource(R.string.gesture_action_pointer_realtime_gesture_desc)
+    GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> stringResource(R.string.gesture_action_open_floating_pointer_radial_menu_desc)
     else -> null
 }
 
@@ -219,6 +228,16 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
             stringResource(R.string.gesture_action_pointer_swipe_permission)
         }
+        GestureActionType.POINTER_GESTURE_RECORDER,
+        GestureActionType.POINTER_REALTIME_GESTURE,
+        -> {
+            if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
+            stringResource(R.string.gesture_action_pointer_gesture_record_permission)
+        }
+        GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> {
+            if (PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) return null
+            stringResource(R.string.gesture_action_open_floating_pointer_radial_menu_permission)
+        }
         else -> null
     }
 
@@ -243,6 +262,18 @@ fun requestPermissionForAdjustAction(context: Context, action: GestureAction) {
             }
         }
         is GestureAction.SimulatePointerSwipe -> {
+            if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+                context.startActivity(PermissionHelper.accessibilitySettingsIntent())
+            }
+        }
+        GestureAction.PointerGestureRecorder,
+        GestureAction.PointerRealtimeGesture,
+        -> {
+            if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
+                context.startActivity(PermissionHelper.accessibilitySettingsIntent())
+            }
+        }
+        GestureAction.OpenFloatingPointerRadialMenu -> {
             if (!PermissionHelper.isAccessibilityServiceEnabledForOverlays(context)) {
                 context.startActivity(PermissionHelper.accessibilitySettingsIntent())
             }

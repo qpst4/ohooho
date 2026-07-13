@@ -124,11 +124,7 @@ fun FloatingPointerSettingsScreen(
             SettingNavigationRow(
                 icon = { label -> Icon(Icons.Default.RadioButtonChecked, contentDescription = label) },
                 title = stringResource(R.string.floating_pointer_radial_settings_title),
-                subtitle = if (settings.floatingPointerRadialMenuEnabled) {
-                    stringResource(R.string.floating_pointer_radial_settings_summary_enabled)
-                } else {
-                    stringResource(R.string.floating_pointer_radial_settings_summary_disabled)
-                },
+                subtitle = gestureActionLabel(settings.floatingPointerJoystickLongPressAction),
                 onClick = onOpenRadialMenuSettings,
             )
         }

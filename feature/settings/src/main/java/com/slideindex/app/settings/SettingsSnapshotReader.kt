@@ -123,7 +123,7 @@ internal object SettingsSnapshotReader {
             floatingPointerHideOnQuickSwipe = prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_QUICK_SWIPE] ?: true,
             floatingPointerHideWhenIdle = prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_IDLE] ?: true,
             floatingPointerIdleHideDelayMs = prefs[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] ?: 3000,
-            floatingPointerRadialMenuEnabled = prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ENABLED] ?: true,
+            floatingPointerJoystickLongPressAction = readFloatingPointerJoystickLongPressAction(prefs),
             floatingPointerRadialAlwaysVisible = prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ALWAYS_VISIBLE] ?: false,
             floatingPointerRadialLongPressMs = prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_LONG_PRESS_MS] ?: 500,
             floatingPointerRadialOuterDiameterPx = prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_OUTER_SIZE] ?: 440f,
@@ -173,6 +173,13 @@ internal object SettingsSnapshotReader {
             disableInLandscape = prefs[SettingsPreferenceKeys.SHAKE_DISABLE_IN_LANDSCAPE] ?: false,
             blacklistedPackages = prefs[SettingsPreferenceKeys.SHAKE_BLACKLIST_PACKAGES] ?: emptySet(),
         )
+
+    private fun readFloatingPointerJoystickLongPressAction(prefs: Preferences): com.slideindex.app.gesture.GestureAction {
+        val encoded = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION]
+        if (encoded.isNullOrBlank()) return com.slideindex.app.gesture.GestureAction.OpenFloatingPointerRadialMenu
+        return com.slideindex.app.launcher.QuickLauncherItemCodec.parseActionPayload(encoded)
+            ?: com.slideindex.app.gesture.GestureAction.OpenFloatingPointerRadialMenu
+    }
 
     private fun legacyLaunchPolicy(prefs: Preferences): Int {
         return if (prefs[SettingsPreferenceKeys.FREE_WINDOW_ENABLED] == true) {

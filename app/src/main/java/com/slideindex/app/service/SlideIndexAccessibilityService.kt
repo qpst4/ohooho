@@ -83,6 +83,31 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             onFinished: (Boolean) -> Unit = {},
         ) = SlideIndexAccessibilityGestureInjector.dispatchPointerSwipe(instance, startX, startY, config, onFinished)
 
+        fun dispatchPointerSwipePath(
+            startX: Float,
+            startY: Float,
+            path: Path,
+            durationMs: Long,
+            maxDurationMs: Long = SlideIndexAccessibilityGestureInjector.DEFAULT_SWIPE_MAX_DURATION_MS,
+            onFinished: (Boolean) -> Unit = {},
+        ) = SlideIndexAccessibilityGestureInjector.dispatchPointerSwipePath(
+            instance,
+            startX,
+            startY,
+            path,
+            durationMs,
+            maxDurationMs,
+            onFinished,
+        )
+
+        fun dispatchPointerHold(
+            rawX: Float,
+            rawY: Float,
+            durationMs: Long,
+            onFinished: (Boolean) -> Unit = {},
+        ) = SlideIndexAccessibilityGestureInjector.dispatchPointerHold(instance, rawX, rawY, durationMs, onFinished)
+
+
         fun dispatchTapSync(rawX: Float, rawY: Float): Boolean =
             SlideIndexAccessibilityGestureInjector.dispatchTapSync(instance, rawX, rawY)
 

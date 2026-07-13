@@ -40,6 +40,13 @@ internal data class FloatingPointerTrailPoint(
     val timeMs: Long,
 )
 
+/** QC `t51` / `b60` samples shared by recorder, replay, and trail drawing. */
+internal data class GestureRecorderTrailPoint(
+    val x: Int,
+    val y: Int,
+    val durationMs: Long,
+)
+
 internal fun DrawScope.drawFloatingPointerAreaPreview(
     layout: FloatingPointerBounds.AreaPreviewLayout,
     settings: AppSettings,
@@ -438,6 +445,60 @@ fun DrawScope.drawQcRingPointer(
     )
 }
 
+/**
+ * QC [CursorDesignQuickCursorDrawable.n]: outer fill + ring stroke shrink away while the center
+ * becomes a small gesture-recorder dot ([recorderColor]).
+ */
+fun DrawScope.drawQcGestureRecorderPointer(
+    center: Offset,
+    settings: AppSettings,
+    recorderColor: Color,
+    recorderProgress: Float,
+    ringColor: Color,
+    fillColor: Color,
+    dotColor: Color,
+    visibilityAlpha: Float = 1f,
+    sizeScale: Float = 1f,
+) {
+    val alpha = visibilityAlpha.coerceIn(0f, 1f)
+    if (alpha <= 0.001f || sizeScale <= 0.001f) return
+
+    val enterProgress = recorderProgress.coerceIn(0f, 1f)
+    // QC inverts the accelerate color animator: rings are full at start, gone at end.
+    val shrink = 1f - enterProgress
+    val m = sizeScale
+    val p = settings.floatingPointerPointerDiameterPx / 2f
+    val u = settings.floatingPointerDotDiameterPx / 2f
+    val v = u / 2f
+
+    val fillRadius = m * shrink * ((p - v) - 1f)
+    if (fillRadius > 0.5f) {
+        drawCircle(
+            color = fillColor.copy(alpha = fillColor.alpha * alpha),
+            radius = fillRadius,
+            center = center,
+        )
+    }
+
+    val ringRadius = m * shrink * (p - v)
+    if (ringRadius > 0.5f) {
+        drawCircle(
+            color = ringColor.copy(alpha = ringColor.alpha * alpha),
+            radius = ringRadius,
+            center = center,
+            style = Stroke(width = (m * u).coerceAtLeast(1f)),
+        )
+    }
+
+    val centerRadius = (((1f - shrink) * 0.6f) + 1f) * u * m
+    val centerDotColor = lerp(dotColor, recorderColor, enterProgress)
+    drawCircle(
+        color = centerDotColor.copy(alpha = centerDotColor.alpha * alpha),
+        radius = centerRadius.coerceAtLeast(1f),
+        center = center,
+    )
+}
+
 /** QC click feedback: shrinking stroke ring overlay; base pointer colors stay unchanged underneath. */
 fun DrawScope.drawQcPointerClickRing(
     center: Offset,
@@ -492,17 +553,61 @@ private fun DrawScope.drawAnnulus(
     drawPath(path, color)
 }
 
+internal fun DrawScope.drawGestureRecorderTrail(
+    trailPoints: List<GestureRecorderTrailPoint>,
+    color: Color,
+    strokeWidthPx: Float,
+) {
+    // QC `b60.draw`: always draw the full remaining shared list (no time clip).
+    if (trailPoints.size < 2) return
+    val strokeWidth = strokeWidthPx.coerceAtLeast(1f)
+    val path = Path()
+    var first = true
+    for (point in trailPoints) {
+        if (first) {
+            path.moveTo(point.x.toFloat(), point.y.toFloat())
+            first = false
+        } else {
+            path.lineTo(point.x.toFloat(), point.y.toFloat())
+        }
+    }
+    drawPath(
+        path = path,
+        color = color,
+        style = Stroke(
+            width = strokeWidth,
+            cap = StrokeCap.Round,
+            join = androidx.compose.ui.graphics.StrokeJoin.Round,
+        ),
+    )
+}
+
 internal fun DrawScope.drawFloatingPointerTrail(
     trailPoints: List<FloatingPointerTrailPoint>,
     settings: AppSettings,
+    lifespanMs: Long,
     nowMs: Long,
+    trailColorArgb: Int = settings.floatingPointerTrailColorArgb,
+    sequentialRetreat: Boolean = false,
+    retreatProgress: Float = 0f,
+    forceDraw: Boolean = false,
 ) {
     val trailType = FloatingPointerTrailType.fromId(settings.floatingPointerTrailTypeId)
-    if (trailType == FloatingPointerTrailType.OFF || trailPoints.size < 2) return
+    if (trailPoints.size < 2) return
+    if (!forceDraw && trailType == FloatingPointerTrailType.OFF) return
 
-    val lifespanMs = settings.floatingPointerTrailDurationMs.coerceAtLeast(50)
-    val baseColor = Color(settings.floatingPointerTrailColorArgb)
+    val baseColor = Color(trailColorArgb)
     val strokeBasePx = settings.floatingPointerDotDiameterPx.coerceAtLeast(1f)
+
+    if (sequentialRetreat) {
+        drawGestureTrailRetreatSuffix(
+            trailPoints = trailPoints,
+            progress = retreatProgress,
+            color = baseColor,
+            strokeBasePx = strokeBasePx,
+        )
+        return
+    }
 
     val visible = trailPoints.filter { nowMs - it.timeMs <= lifespanMs }
     if (visible.size < 2) return
@@ -517,6 +622,37 @@ internal fun DrawScope.drawFloatingPointerTrail(
             to = Offset(next.x, next.y),
             ageFraction = age,
             color = baseColor,
+            strokeBasePx = strokeBasePx,
+        )
+    }
+}
+
+private fun DrawScope.drawGestureTrailRetreatSuffix(
+    trailPoints: List<FloatingPointerTrailPoint>,
+    progress: Float,
+    color: Color,
+    strokeBasePx: Float,
+) {
+    if (trailPoints.size < 2 || progress >= 1f) return
+    val firstTime = trailPoints.first().timeMs
+    val lastTime = trailPoints.last().timeMs
+    val span = (lastTime - firstTime).coerceAtLeast(1L)
+    val cutoffTime = firstTime + (span * progress).toLong()
+    var startIndex = 0
+    while (startIndex < trailPoints.lastIndex &&
+        trailPoints[startIndex + 1].timeMs <= cutoffTime
+    ) {
+        startIndex++
+    }
+    val drawFrom = startIndex.coerceAtMost(trailPoints.lastIndex - 1)
+    for (index in drawFrom + 1 until trailPoints.size) {
+        val prev = trailPoints[index - 1]
+        val next = trailPoints[index]
+        drawQcTrailSegment(
+            from = Offset(prev.x, prev.y),
+            to = Offset(next.x, next.y),
+            ageFraction = 0f,
+            color = color,
             strokeBasePx = strokeBasePx,
         )
     }
