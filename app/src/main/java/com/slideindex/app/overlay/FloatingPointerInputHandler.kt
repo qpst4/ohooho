@@ -150,6 +150,7 @@ internal class FloatingPointerInputHandler(
                     session.beginGesture(event.rawX, event.rawY, settingsProvider())
                     restJoystickX = session.joystickCenterX.floatValue
                     restJoystickY = session.joystickCenterY.floatValue
+                    session.armGestureCaptureJoystickOffset(event.rawX, event.rawY)
                     host.captureAllPointers()
                     host.onStartPendingGestureCapture(pendingCapture)
                     return true
@@ -174,6 +175,7 @@ internal class FloatingPointerInputHandler(
                             session.beginGesture(event.rawX, event.rawY, settings)
                             restJoystickX = session.joystickCenterX.floatValue
                             restJoystickY = session.joystickCenterY.floatValue
+                            session.armGestureCaptureJoystickOffset(event.rawX, event.rawY)
                             host.captureAllPointers()
                             host.onHaptic()
                             host.onRadialMenuAction(slot, fingerStillDown = true)
@@ -200,6 +202,9 @@ internal class FloatingPointerInputHandler(
                         session.joystickActive.value = false
                         host.onGestureEnd(restJoystickX, restJoystickY, false)
                         if (action != null && action !is GestureAction.None) {
+                            if (isGestureCaptureLongPressAction(action)) {
+                                session.armGestureCaptureJoystickOffset(event.rawX, event.rawY)
+                            }
                             host.onRadialMenuAction(slot, fingerStillDown = true)
                         }
                         host.onTouchCycleComplete()
@@ -249,9 +254,14 @@ internal class FloatingPointerInputHandler(
                 }
                 if (!movedBeyondTap && !session.gestureCaptureActive) return true
 
-                session.joystickCenterX.floatValue = event.rawX
-                session.joystickCenterY.floatValue = event.rawY
-                host.onJoystickPositionChanged(event.rawX, event.rawY)
+                val (joystickX, joystickY) = if (session.gestureCaptureActive) {
+                    session.gestureCaptureJoystickCenterForFinger(event.rawX, event.rawY)
+                } else {
+                    event.rawX to event.rawY
+                }
+                session.joystickCenterX.floatValue = joystickX
+                session.joystickCenterY.floatValue = joystickY
+                host.onJoystickPositionChanged(joystickX, joystickY)
                 session.applyPointerFromTouch(event.rawX, event.rawY, settingsProvider())
                 lastRawX = event.rawX
                 lastRawY = event.rawY
@@ -407,18 +417,21 @@ internal class FloatingPointerInputHandler(
         val runnable = Runnable {
             val isGestureCapture = isGestureCaptureLongPressAction(longPressAction)
             // QC: long-tap must complete without crossing the click slop first.
-            if (!movedBeyondTap) {
-                longPressTriggered = true
-                if (!isGestureCapture) {
-                    session.joystickActive.value = false
+                if (!movedBeyondTap) {
+                    longPressTriggered = true
+                    if (!isGestureCapture) {
+                        session.joystickActive.value = false
+                    }
+                    if (longPressAction is GestureAction.None) {
+                        host.onDismiss()
+                    } else {
+                        host.onHaptic()
+                        if (isGestureCapture) {
+                            session.armGestureCaptureJoystickOffset(lastRawX, lastRawY)
+                        }
+                        host.onJoystickLongPressAction(longPressAction)
+                    }
                 }
-                if (longPressAction is GestureAction.None) {
-                    host.onDismiss()
-                } else {
-                    host.onHaptic()
-                    host.onJoystickLongPressAction(longPressAction)
-                }
-            }
         }
         longPressRunnable = runnable
         val delayMs = if (isGestureCaptureLongPressAction(longPressAction)) {

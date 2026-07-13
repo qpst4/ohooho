@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SlideIndex"
+rootProject.name = "Cebian"
 include(":app")
 include(":core:common")
 include(":core:autofill")

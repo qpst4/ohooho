@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CeBian</string>
+    <string name="app_name">Cebian</string>
     <string name="main_settings_subtitle">Edge gestures and sidebar panels</string>
     <!-- Bottom nav "Notifications" groups filter box + verification codes; "Messages" may fit better in some contexts -->
     <string name="main_nav_home">Home</string>
@@ -212,9 +212,9 @@
     <string name="permissions_pending_title">Permissions pending</string>
     <string name="search_clear">Clear search</string>
     <string name="search_actions_hint">Search actions…</string>
-    <string name="service_notification_title">CeBian is running</string>
+    <string name="service_notification_title">Cebian is running</string>
     <string name="service_notification_text">Swipe from the screen edge to open app index</string>
-    <string name="permission_usage_desc">Required to detect the foreground app and automatically disable CeBian triggers in selected apps</string>
+    <string name="permission_usage_desc">Required to detect the foreground app and automatically disable Cebian triggers in selected apps</string>
     <string name="gesture_switch">Gesture switch</string>
     <string name="gesture_switch_hint">Edge gestures run only when this is on</string>
     <string name="battery_optimization_title">Battery optimization</string>
@@ -230,9 +230,9 @@
     <string name="app_keep_alive_entry_summary_battery">Battery whitelisted</string>
     <string name="app_keep_alive_entry_summary_recents">Hidden from recents</string>
     <string name="app_keep_alive_entry_summary_all">Battery whitelist, hidden recents</string>
-    <string name="secure_settings_title">Sidebar keep-alive</string>
-    <string name="secure_settings_desc">Automatically restore Sidebar if the system disables it (requires WRITE_SECURE_SETTINGS)</string>
-    <string name="secure_settings_enabled_summary">Sidebar keep-alive on</string>
+    <string name="secure_settings_title">Cebian keep-alive</string>
+    <string name="secure_settings_desc">Automatically restore Cebian if the system disables it (requires WRITE_SECURE_SETTINGS)</string>
+    <string name="secure_settings_enabled_summary">Cebian keep-alive on</string>
     <string name="secure_settings_grant_success">Granted via Shizuku</string>
     <string name="secure_settings_grant_failed">Grant failed. Please run the ADB command manually.</string>
     <string name="secure_settings_adb_dialog_title">ADB grant instructions</string>
@@ -242,24 +242,24 @@
     <string name="gesture_action_switch_input_method">Switch input method</string>
     <string name="hide_from_recents_title">Hide from recents</string>
     <string name="hide_from_recents_desc">When enabled, this app\'s settings screen won\'t appear in the system recents list</string>
-    <string name="permission_accessibility_title">Sidebar</string>
+    <string name="permission_accessibility_title">Cebian</string>
     <string name="permission_accessibility_desc">Required for edge gestures and sidebar panels; also used for Back, Home, Recents, and tap passthrough without Shizuku.</string>
-    <string name="permission_accessibility_grant">Enable Sidebar</string>
+    <string name="permission_accessibility_grant">Enable Cebian</string>
     <string name="settings_section_service">Service</string>
     <string name="debug_section_title">Debug</string>
     <string name="debug_performance_monitor">Performance monitor</string>
     <string name="debug_performance_monitor_desc">Log overlay FPS and main-thread slow messages in Logcat (Debug builds only)</string>
     <string name="hidden_apps_entry_desc">Hide apps from the app index list</string>
-    <string name="hidden_apps_desc">Hidden apps won\'t appear in CeBian panels, but can still be opened from the home screen and elsewhere.</string>
-    <string name="excluded_apps_entry_title">Apps with CeBian disabled</string>
-    <string name="excluded_apps_title">Apps with CeBian disabled</string>
-    <string name="excluded_apps_desc">CeBian edge triggers won\'t appear while you\'re using these apps.</string>
-    <string name="excluded_apps_add">Disable CeBian</string>
-    <string name="accessibility_service_name">Sidebar</string>
+    <string name="hidden_apps_desc">Hidden apps won\'t appear in Cebian panels, but can still be opened from the home screen and elsewhere.</string>
+    <string name="excluded_apps_entry_title">Apps with Cebian disabled</string>
+    <string name="excluded_apps_title">Apps with Cebian disabled</string>
+    <string name="excluded_apps_desc">Cebian edge triggers won\'t appear while you\'re using these apps.</string>
+    <string name="excluded_apps_add">Disable Cebian</string>
+    <string name="accessibility_service_name">Cebian</string>
     <string name="accessibility_service_desc">Required for edge gestures and sidebar panels, plus Back, Home, Recents, and tap passthrough without Shizuku.</string>
     <string name="side_gestures_desc">Each gesture slot can be configured independently, including app index, volume/brightness sliders, quick launcher, and more.</string>
     <string name="gesture_action_open_index">App index</string>
-    <string name="gesture_hint_style_capsule_desc">Rounded capsule expands with CeBian</string>
+    <string name="gesture_hint_style_capsule_desc">Rounded capsule expands with Cebian</string>
     <string name="settings_section_features">Features</string>
     <string name="settings_section_feedback_appearance">Interaction &amp; appearance</string>
     <string name="gesture_angle_entry_title">Gesture angle</string>
@@ -309,15 +309,15 @@
     <string name="trigger_remove_side_confirm_title">Remove %1$s?</string>
     <string name="trigger_remove_side_confirm_message">This removes the trigger and its gesture config on this side only.</string>
     <string name="gesture_action_floating_pointer">Floating pointer</string>
-    <string name="gesture_action_floating_pointer_permission">Requires Sidebar</string>
+    <string name="gesture_action_floating_pointer_permission">Requires Cebian</string>
     <string name="gesture_action_pointer_gesture_recorder">Pointer gesture recorder</string>
     <string name="gesture_action_pointer_gesture_recorder_desc">Hold and slide to replay as Swipe from the pointer</string>
     <string name="gesture_action_pointer_realtime_gesture">Pointer realtime gesture</string>
     <string name="gesture_action_pointer_realtime_gesture_desc">Hold and slide to simulate touch in realtime from the pointer</string>
-    <string name="gesture_action_pointer_gesture_record_permission">Requires Sidebar</string>
+    <string name="gesture_action_pointer_gesture_record_permission">Requires Cebian</string>
     <string name="gesture_action_open_floating_pointer_radial_menu">Open action ring</string>
     <string name="gesture_action_open_floating_pointer_radial_menu_desc">Open the joystick action ring on long-press</string>
-    <string name="gesture_action_open_floating_pointer_radial_menu_permission">Requires Sidebar</string>
+    <string name="gesture_action_open_floating_pointer_radial_menu_permission">Requires Cebian</string>
     <string name="floating_pointer_settings_title">Floating pointer</string>
     <string name="floating_pointer_settings_desc">Touch the screen to show a finger-following joystick (the whole circle is the control). Move the ring pointer; tap to click at the pointer. Bind the Floating pointer gesture to show it.</string>
     <string name="floating_pointer_settings_section_appearance">Appearance</string>
@@ -417,7 +417,7 @@
     <string name="floating_pointer_radial_slot_top_left">Top left</string>
     <string name="gesture_action_pointer_swipe">Swipe</string>
     <string name="gesture_action_pointer_swipe_desc">Simulate a swipe at the pointer position</string>
-    <string name="gesture_action_pointer_swipe_permission">Requires Sidebar</string>
+    <string name="gesture_action_pointer_swipe_permission">Requires Cebian</string>
     <string name="pointer_swipe_config_title">Operation settings</string>
     <string name="pointer_swipe_config_desc">Swipe from the current pointer position using the chosen direction and distance.</string>
     <string name="pointer_swipe_direction_title">Direction</string>
@@ -597,7 +597,7 @@
     <string name="otp_test_result_success">Extracted: %1$s</string>
     <string name="otp_test_result_failed">No code extracted</string>
     <string name="otp_auto_input_entry_title">Auto-input</string>
-    <string name="otp_auto_input_entry_desc">Auto-fill codes via Sidebar</string>
+    <string name="otp_auto_input_entry_desc">Auto-fill codes via Cebian</string>
     <string name="otp_auto_input_title">Auto-input</string>
     <string name="otp_auto_input_desc">Automatically fill the code into the focused input field</string>
     <string name="otp_auto_input_enabled_title">Auto-input verification code</string>
@@ -611,12 +611,12 @@
     <string name="otp_auto_input_interval_title">Per-character interval</string>
     <string name="otp_auto_input_interval_value">%1$d ms</string>
     <string name="otp_auto_input_service_section">Service status</string>
-    <string name="otp_auto_input_service_ready">Sidebar is enabled for auto-fill</string>
-    <string name="otp_auto_input_service_setup_title">Enable Sidebar</string>
-    <string name="otp_auto_input_service_setup_desc">Edge gestures and OTP auto-fill share the Sidebar service</string>
-    <string name="otp_fill_method_pipeline_inject">Fill order: LSPosed system inject 鈫?Sidebar SET_TEXT</string>
-    <string name="otp_fill_method_pipeline_a11y_only">Fill method: Sidebar SET_TEXT</string>
-    <string name="otp_fill_method_a11y_fallback_hint">Sidebar SET_TEXT is the fallback when inject fails or is disabled</string>
+    <string name="otp_auto_input_service_ready">Cebian is enabled for auto-fill</string>
+    <string name="otp_auto_input_service_setup_title">Enable Cebian</string>
+    <string name="otp_auto_input_service_setup_desc">Edge gestures and OTP auto-fill share the Cebian service</string>
+    <string name="otp_fill_method_pipeline_inject">Fill order: LSPosed system inject → Cebian SET_TEXT</string>
+    <string name="otp_fill_method_pipeline_a11y_only">Fill method: Cebian SET_TEXT</string>
+    <string name="otp_fill_method_a11y_fallback_hint">Cebian SET_TEXT is the fallback when inject fails or is disabled</string>
     <string name="otp_lsposed_inject_title">LSPosed system inject</string>
     <string name="otp_lsposed_inject_desc_short">Requires LSPosed module with android scope; simulates system keyboard input</string>
     <string name="otp_extraction_extensions_section">Extraction extras</string>
@@ -626,7 +626,7 @@
     <string name="otp_lsposed_probe_title">Test LSPosed system inject</string>
     <string name="otp_lsposed_probe_desc">Tap to check whether the inject hook is loaded in system_server</string>
     <string name="otp_lsposed_probe_checking">Checking…</string>
-    <string name="xposed_module_description">SlideIndex OTP: SMS hooks, system keyboard inject, Sidebar auto-fill</string>
+    <string name="xposed_module_description">Cebian OTP: SMS hooks, system keyboard inject, Cebian auto-fill</string>
     <string name="otp_records_title">Verification code records</string>
     <string name="otp_records_entry_title">Verification code records</string>
     <string name="otp_records_entry_desc">View extracted verification code history</string>
@@ -819,9 +819,9 @@
     <string name="gesture_action_scroll_to_bottom_desc">Simulated swipe on Android 7.0+</string>
     <string name="gesture_action_shell_command_panel">Shell command panel</string>
     <string name="gesture_action_quick_tools_overlay">Quick tools (overlay)</string>
-    <string name="gesture_action_quick_tools_overlay_permission">Requires sidebar enabled</string>
+    <string name="gesture_action_quick_tools_overlay_permission">Requires Cebian enabled</string>
     <string name="gesture_action_widget_popup_overlay">Widget popup</string>
-    <string name="gesture_action_widget_popup_overlay_permission">Requires sidebar enabled</string>
+    <string name="gesture_action_widget_popup_overlay_permission">Requires Cebian enabled</string>
     <string name="gesture_action_toggle_dnd">Toggle Do Not Disturb</string>
     <string name="gesture_action_screen_record">Screen record</string>
     <string name="gesture_action_toggle_wifi">Toggle Wi鈥慒i</string>
@@ -834,7 +834,7 @@
     <string name="side_gestures_behavior_section">Layout &amp; behavior</string>
     <string name="default_trigger_mode">Default trigger mode</string>
     <string name="default_trigger_mode_desc">Used when a gesture has no mode of its own</string>
-    <string name="trigger_mode_default_slot_desc">Follow sidebar default (%1$s)</string>
+    <string name="trigger_mode_default_slot_desc">Follow Cebian default (%1$s)</string>
     <string name="slot_pick_action">Choose action type</string>
     <string name="slot_pick_trigger_mode">Choose trigger mode</string>
     <string name="trigger_mode_default">Default</string>
@@ -1091,7 +1091,7 @@
     <string name="settings_backup_sensitive_hint">Sensitive data stays in your local backup file only; nothing is uploaded.</string>
     <string name="settings_backup_export">Export settings</string>
     <string name="settings_backup_import">Import settings</string>
-    <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
+    <string name="settings_backup_default_filename">cebian-settings-%1$d.json</string>
     <string name="settings_backup_entry_title">Settings backup</string>
     <string name="settings_backup_entry_desc">Export or import a JSON configuration file</string>
     <string name="settings_backup_export_failed">Export failed. Please try again later.</string>
@@ -1120,8 +1120,8 @@
     <string name="onboarding_next">Next</string>
     <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_progress">Step %1$d of %2$d</string>
-    <string name="onboarding_welcome_title">Welcome to SlideIndex</string>
-    <string name="onboarding_welcome_body">SlideIndex enhances your phone with edge gestures, shake actions, and notification tools. A few system permissions are required next.</string>
+    <string name="onboarding_welcome_title">Welcome to Cebian</string>
+    <string name="onboarding_welcome_body">Cebian enhances your phone with edge gestures, shake actions, and notification tools. A few system permissions are required next.</string>
     <string name="onboarding_overlay_title">Display over other apps</string>
     <string name="onboarding_overlay_body">Needed for edge triggers, side panels, and floating message reminders.</string>
     <string name="onboarding_grant_overlay">Grant overlay permission</string>
@@ -1133,7 +1133,7 @@
     <string name="privacy_policy_subtitle">How data is handled and whether it is uploaded</string>
     <string name="privacy_policy_entry_title">Privacy policy</string>
     <string name="privacy_policy_entry_desc">Local data handling and permission purposes</string>
-    <string name="privacy_policy_body">SlideIndex is designed around on-device processing.
+    <string name="privacy_policy_body">Cebian is designed around on-device processing.
 
 • Notifications and OTP: read, filtered, extracted, and displayed locally only. Nothing is uploaded by default.
 • OTP records and notification history: stored in app-private storage and excluded from system backup by default; optional export in settings backup.
@@ -1167,7 +1167,7 @@ Questions: open a GitHub Issue on the project repository.</string>
     <string name="shell_panel_history_exit_code">Exit code %1$d</string>
 
 
-    <string name="tile_gesture_switch">SlideIndex</string>
+    <string name="tile_gesture_switch">Cebian</string>
     <string name="shortcut_toggle_gesture">Toggle gestures</string>
     <string name="shortcut_notification_hub">Notification filter</string>
     <string name="shortcut_shell_panel">Shell panel</string>
@@ -1175,5 +1175,5 @@ Questions: open a GitHub Issue on the project repository.</string>
     <string name="about_release_notes_title">Release notes</string>
     <string name="about_release_notes_desc">View the latest features and fixes on GitHub</string>
     <string name="about_project_url_title">Project URL</string>
-    <string name="about_project_url_desc">https://github.com/qpst4/ohooho</string>
+    <string name="about_project_url_desc">https://github.com/qpst4/cebian</string>
 </resources>

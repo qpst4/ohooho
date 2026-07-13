@@ -1,6 +1,7 @@
 package com.slideindex.app.ui.gesturepicker
 
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -8,9 +9,31 @@ import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
 import com.slideindex.app.gesture.GestureShortcutPayload
+import com.slideindex.app.ui.compose.rememberAppRepository
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.PinyinHelper
 import com.slideindex.app.util.TaskManagerUtil
+
+private fun resolveAppDisplayName(context: Context, packageName: String): String {
+    if (packageName.isBlank()) return packageName
+    return try {
+        val pm = context.packageManager
+        val info = pm.getApplicationInfo(packageName, 0)
+        pm.getApplicationLabel(info).toString()
+    } catch (_: PackageManager.NameNotFoundException) {
+        packageName
+    }
+}
+
+private fun launchAppActionLabel(context: Context, packageName: String): String =
+    if (packageName.isBlank()) {
+        context.getString(R.string.gesture_action_launch_app)
+    } else {
+        context.getString(
+            R.string.gesture_action_launch_app_named,
+            resolveAppDisplayName(context, packageName),
+        )
+    }
 
 fun filterGestureActions(
     context: Context,
@@ -38,13 +61,7 @@ private fun gestureActionDescriptionText(context: Context, action: GestureAction
     }
 
 fun gestureActionLabelText(context: Context, action: GestureAction): String = when (action) {
-    is GestureAction.LaunchApp -> {
-        if (action.packageName.isBlank()) {
-            context.getString(R.string.gesture_action_launch_app)
-        } else {
-            context.getString(R.string.gesture_action_launch_app_named, action.packageName)
-        }
-    }
+    is GestureAction.LaunchApp -> launchAppActionLabel(context, action.packageName)
     is GestureAction.LaunchShortcut -> {
         val shortcutLabel = action.label.ifBlank {
             GestureShortcutPayload.decode(action.payloadKey)?.label.orEmpty()
@@ -105,12 +122,16 @@ fun gestureActionSortKey(context: Context, action: GestureAction): String =
     PinyinHelper.sortKey(gestureActionLabelText(context, action))
 
 @Composable
-fun gestureActionLabel(action: GestureAction): String = when (action) {
+fun gestureActionLabel(action: GestureAction): String {
+    val appRepository = rememberAppRepository()
+    return when (action) {
     is GestureAction.LaunchApp -> {
         if (action.packageName.isBlank()) {
             stringResource(R.string.gesture_action_launch_app)
         } else {
-            stringResource(R.string.gesture_action_launch_app_named, action.packageName)
+            val appLabel = appRepository.ensureAppInfo(action.packageName)?.label
+                ?: resolveAppDisplayName(LocalContext.current, action.packageName)
+            stringResource(R.string.gesture_action_launch_app_named, appLabel)
         }
     }
     is GestureAction.LaunchShortcut -> {
@@ -167,6 +188,7 @@ fun gestureActionLabel(action: GestureAction): String = when (action) {
         GestureActionType.SWITCH_INPUT_METHOD -> stringResource(R.string.gesture_action_switch_input_method)
         GestureActionType.LAUNCH_APP -> stringResource(R.string.gesture_action_launch_app)
         GestureActionType.LAUNCH_SHORTCUT -> stringResource(R.string.gesture_action_launch_shortcut)
+    }
     }
 }
 

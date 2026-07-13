@@ -101,6 +101,9 @@ internal class FloatingPointerSession(
     /** Joystick dock position saved on finger lift during gesture capture (QC-style). */
     private var gestureCaptureDockX: Float? = null
     private var gestureCaptureDockY: Float? = null
+    /** Finger-to-joystick-center offset armed when gesture capture starts on a radial slot. */
+    private var gestureCaptureCenterOffsetX = 0f
+    private var gestureCaptureCenterOffsetY = 0f
 
     /** True while a recorded gesture is being injected (overlay must not track touches). */
     val gestureReplayActive = mutableStateOf(false)
@@ -188,11 +191,30 @@ internal class FloatingPointerSession(
         pendingGestureCaptureAction = null
     }
 
-    fun dockJoystickAfterGestureCapture(x: Float, y: Float) {
-        gestureCaptureDockX = x
-        gestureCaptureDockY = y
-        joystickCenterX.floatValue = x
-        joystickCenterY.floatValue = y
+    fun dockJoystickAfterGestureCapture(fingerX: Float, fingerY: Float) {
+        val (centerX, centerY) = gestureCaptureJoystickCenterForFinger(fingerX, fingerY)
+        gestureCaptureDockX = centerX
+        gestureCaptureDockY = centerY
+        joystickCenterX.floatValue = centerX
+        joystickCenterY.floatValue = centerY
+        clearGestureCaptureJoystickOffset()
+    }
+
+    /**
+     * Keep the radial-menu slot (or joystick) fixed under the finger while gesture capture moves.
+     * Offset is center - finger at the moment capture arms.
+     */
+    fun armGestureCaptureJoystickOffset(fingerX: Float, fingerY: Float) {
+        gestureCaptureCenterOffsetX = joystickCenterX.floatValue - fingerX
+        gestureCaptureCenterOffsetY = joystickCenterY.floatValue - fingerY
+    }
+
+    fun gestureCaptureJoystickCenterForFinger(fingerX: Float, fingerY: Float): Pair<Float, Float> =
+        (fingerX + gestureCaptureCenterOffsetX) to (fingerY + gestureCaptureCenterOffsetY)
+
+    fun clearGestureCaptureJoystickOffset() {
+        gestureCaptureCenterOffsetX = 0f
+        gestureCaptureCenterOffsetY = 0f
     }
 
     fun takeGestureCaptureDock(): Pair<Float, Float>? {
@@ -206,6 +228,7 @@ internal class FloatingPointerSession(
     fun releaseGestureRecorder() {
         gestureRecorder = null
         gestureRecordingActive.value = false
+        clearGestureCaptureJoystickOffset()
     }
 
     fun prepareGesturePointerRestore(x: Float, y: Float) {
@@ -231,6 +254,7 @@ internal class FloatingPointerSession(
         trailLifespanOverrideMs = null
         pointerVisible.value = !settings.floatingPointerHideWhenJoystickReleased
         pointerRestoreGeneration.intValue++
+        clearGestureCaptureJoystickOffset()
         return true
     }
 

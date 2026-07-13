@@ -1,4 +1,4 @@
-# SlideIndex（边栏）
+# Cebian（边栏）
 
 Android 边缘手势与系统增强工具，支持侧滑面板、摇一摇手势、通知管理、验证码助手、悬浮指针等功能。
 
@@ -96,7 +96,7 @@ Android 边缘手势与系统增强工具，支持侧滑面板、摇一摇手势
 ### 使用步骤
 
 1. 在设备上安装并启动 **Shizuku**（通过无线调试或 root 激活）。
-2. 打开 SlideIndex，在首页权限卡片中点击 **授予 Shizuku 权限**。
+2. 打开 Cebian（边栏），在首页权限卡片中点击 **授予 Shizuku 权限**。
 3. 在 Shizuku 弹窗中确认授权。
 4. 授权成功后，任务切换、Shell 命令等功能即可使用。
 
@@ -152,7 +152,7 @@ gradlew.bat assembleRelease   # Windows
      -keyalg RSA -keysize 2048 -validity 10000 ^
      -storepass YOUR_STORE_PASSWORD ^
      -keypass YOUR_KEY_PASSWORD ^
-     -dname "CN=SlideIndex, OU=Dev, O=SlideIndex, L=Unknown, ST=Unknown, C=CN"
+     -dname "CN=Cebian, OU=Dev, O=Cebian, L=Unknown, ST=Unknown, C=CN"
    ```
 
 3. 在 `keystore.properties` 中设置 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`。
@@ -341,7 +341,7 @@ base64 -i app/keystore/release.jks | tr -d '\n'
 
 ## 许可证
 
-本项目采用 [MIT License](LICENSE) 开源。
+本项目采用 [GNU General Public License v3.0](LICENSE)（GPLv3）开源。
 
 ## Release Notes
 

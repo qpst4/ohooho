@@ -191,7 +191,7 @@ internal class TaskManagerShortcutDumpsysLoader(
         )
 
     private fun loadBulkDumpsysViaFile(useRoot: Boolean): String? {
-        val path = "/data/local/tmp/ohooho_shortcut_${android.os.Process.myUid()}.txt"
+        val path = "/data/local/tmp/cebian_shortcut_${android.os.Process.myUid()}.txt"
         val script = "rm -f $path; dumpsys shortcut --user 0 -n > $path 2>/dev/null; cat $path"
         val output = shortcutCommandOutput(
             useRoot = useRoot,

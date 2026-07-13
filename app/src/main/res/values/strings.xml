@@ -996,7 +996,7 @@
     <string name="otp_lsposed_probe_desc">点击检测 system_server 内注入 Hook 是否已加载</string>
     <string name="otp_lsposed_probe_checking">正在检测…</string>
     <string name="otp_lsposed_scope_hint">魅族 / Flyme 建议与 XposedSmsCode 一致，勾选 LSPosed 推荐的 4 项：电话服务、电话和短信存储、Flyme 系统服务、系统框架。不必勾选边栏自身。修改作用域后需重启手机。</string>
-    <string name="xposed_module_description">SlideIndex OTP：短信 Hook、系统键盘注入、边栏自动填充</string>
+    <string name="xposed_module_description">Cebian OTP：短信 Hook、系统键盘注入、边栏自动填充</string>
     <string name="otp_records_title">验证码记录</string>
     <string name="otp_records_entry_title">验证码记录</string>
     <string name="otp_records_entry_desc">查看已提取的验证码历史</string>
@@ -1088,7 +1088,7 @@
     <string name="settings_backup_sensitive_hint">敏感数据仅保存在本地备份文件中，不会上传到任何服务器。</string>
     <string name="settings_backup_export">导出设置</string>
     <string name="settings_backup_import">导入设置</string>
-    <string name="settings_backup_default_filename">slideindex-settings-%1$d.json</string>
+    <string name="settings_backup_default_filename">cebian-settings-%1$d.json</string>
     <string name="settings_backup_entry_title">设置备份</string>
     <string name="settings_backup_entry_desc">导出或导入 JSON 配置文件</string>
     <string name="settings_backup_export_failed">导出失败，请稍后重试</string>
@@ -1136,7 +1136,7 @@
     <string name="privacy_policy_subtitle">数据如何处理、是否上传</string>
     <string name="privacy_policy_entry_title">隐私政策</string>
     <string name="privacy_policy_entry_desc">本地数据处理说明与权限用途</string>
-    <string name="privacy_policy_body">边栏（SlideIndex）以本地处理为基本原则。
+    <string name="privacy_policy_body">边栏（Cebian）以本地处理为基本原则。
 
 • 通知与验证码：仅在设备本地读取、过滤、提取与展示；默认不上传云端。
 • OTP 记录与通知历史：保存在应用私有目录，默认不纳入系统备份；可在设置备份中可选导出。
@@ -1173,6 +1173,6 @@
     <string name="about_release_notes_title">更新说明</string>
     <string name="about_release_notes_desc">在 GitHub 查看最新功能变更与修复</string>
     <string name="about_project_url_title">项目地址</string>
-    <string name="about_project_url_desc">https://github.com/qpst4/ohooho</string>
+    <string name="about_project_url_desc">https://github.com/qpst4/cebian</string>
 
 </resources>

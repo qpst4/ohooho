@@ -99,7 +99,16 @@ internal class IndexPanelRenderer(
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                host.gestureSession().onTouchUp(event.rawX, event.rawY, localX, localY)
+                if (host.gestureSession().releaseImmediateGestureLock()) {
+                    host.invalidate()
+                    return true
+                }
+                if (host.zoneLayout().isInRailZone(touchX)) {
+                    host.indexSession().updateSelection(touchX, localY)
+                    host.invalidate()
+                    return true
+                }
+                host.gestureSession().onTouchUp(event.rawX, event.rawY, touchX, localY)
                 return true
             }
         }
