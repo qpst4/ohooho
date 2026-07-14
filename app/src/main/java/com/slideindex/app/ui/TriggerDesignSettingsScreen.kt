@@ -18,7 +18,9 @@ import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +32,8 @@ import com.slideindex.app.R
 import com.slideindex.app.gesture.TriggerCornerMode
 import com.slideindex.app.gesture.TriggerDesignKind
 import com.slideindex.app.gesture.TriggerDesignPreset
+import com.slideindex.app.gesture.TriggerDesignPresets
+import com.slideindex.app.gesture.TriggerRectanglePresetLogic
 import com.slideindex.app.gesture.TriggerHandleDesign
 import com.slideindex.app.settings.primaryTriggerHandle
 import com.slideindex.app.settings.triggerCollectionEntries
@@ -64,8 +68,61 @@ fun TriggerDesignSettingsScreen(
     val pairCount = settings.triggerCollectionEntries().size
     val selectedHandle = settings.triggerHandle(side, handleId)
         ?: settings.primaryTriggerHandle(side)
-    val design = selectedHandle.design
+    val persistedDesign = selectedHandle.design
+    var pendingDesign by remember(side, handleId) { mutableStateOf<TriggerHandleDesign?>(null) }
+    val design = pendingDesign ?: persistedDesign
+    LaunchedEffect(persistedDesign) {
+        if (pendingDesign != null && pendingDesign == persistedDesign) {
+            pendingDesign = null
+        }
+    }
+    var lastRectangleDesign by remember(side, handleId) {
+        mutableStateOf(
+            persistedDesign.takeIf {
+                it.kind == TriggerDesignKind.CONFIGURABLE_RECTANGLE &&
+                    (it.sizeDp > 0f || it.haloSizeDp > 0f || it.borderSizeDp > 0f)
+            },
+        )
+    }
     val pairSuffix = if (pairCount > 1) " · $pairIndex" else ""
+
+    fun rememberRectangleDesign(updated: TriggerHandleDesign) {
+        if (updated.kind == TriggerDesignKind.CONFIGURABLE_RECTANGLE &&
+            (updated.sizeDp > 0f || updated.haloSizeDp > 0f || updated.borderSizeDp > 0f)
+        ) {
+            lastRectangleDesign = updated
+        }
+    }
+
+    fun updateDesign(updated: TriggerHandleDesign) {
+        rememberRectangleDesign(updated)
+        pendingDesign = updated
+        onDesignChange(updated)
+    }
+
+    fun applyKind(kind: TriggerDesignKind) {
+        val updated = when (kind) {
+            TriggerDesignKind.CONFIGURABLE_RECTANGLE -> {
+                val withKind = design.copy(kind = kind)
+                when {
+                    withKind.sizeDp > 0f || withKind.haloSizeDp > 0f || withKind.borderSizeDp > 0f -> withKind
+                    lastRectangleDesign != null -> lastRectangleDesign!!.copy(kind = kind)
+                    else -> TriggerDesignPresets.apply(TriggerDesignPreset.BAR)
+                }
+            }
+            else -> design.copy(kind = kind)
+        }
+        updateDesign(updated)
+    }
+
+    fun applyPreset(preset: TriggerDesignPreset) {
+        val updatedHandle = TriggerRectanglePresetLogic.switchPreset(
+            handle = selectedHandle.copy(design = design),
+            target = preset,
+        )
+        pendingDesign = updatedHandle.design
+        onPresetApply(preset)
+    }
 
     var pickingKind by remember { mutableStateOf(false) }
     var pickingPreset by remember { mutableStateOf(false) }
@@ -85,7 +142,7 @@ fun TriggerDesignSettingsScreen(
                     null -> design
                 }
                 colorTarget = null
-                onDesignChange(updated)
+                updateDesign(updated)
             },
         )
     }
@@ -95,7 +152,7 @@ fun TriggerDesignSettingsScreen(
             current = design.kind,
             onDismiss = { pickingKind = false },
             onSelect = { kind ->
-                onDesignChange(design.copy(kind = kind))
+                applyKind(kind)
                 pickingKind = false
             },
         )
@@ -105,7 +162,7 @@ fun TriggerDesignSettingsScreen(
         TriggerDesignPresetDialog(
             onDismiss = { pickingPreset = false },
             onSelect = { preset ->
-                onPresetApply(preset)
+                applyPreset(preset)
                 pickingPreset = false
             },
         )
@@ -116,7 +173,7 @@ fun TriggerDesignSettingsScreen(
             current = design.cornerMode,
             onDismiss = { pickingCornerMode = false },
             onSelect = { mode ->
-                onDesignChange(design.copy(cornerMode = mode))
+                updateDesign(design.copy(cornerMode = mode))
                 pickingCornerMode = false
             },
         )
@@ -138,81 +195,94 @@ fun TriggerDesignSettingsScreen(
         }
 
         if (design.kind == TriggerDesignKind.CONFIGURABLE_RECTANGLE) {
-            SettingsSectionTitle(stringResource(R.string.trigger_design_customize))
-            SettingsCard {
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_design_size),
-                    value = design.sizeDp,
-                    valueRange = 0f..48f,
-                    enabled = serviceEnabled,
-                    label = "${design.sizeDp.roundToInt()} dp",
-                    onValueChange = { onDesignChange(design.copy(sizeDp = it)) },
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_design_margin),
-                    value = design.marginDp,
-                    valueRange = 0f..24f,
-                    enabled = serviceEnabled,
-                    label = "${design.marginDp.roundToInt()} dp",
-                    onValueChange = { onDesignChange(design.copy(marginDp = it)) },
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_design_corner_radius),
-                    value = design.cornerRadiusDp,
-                    valueRange = 0f..32f,
-                    enabled = serviceEnabled,
-                    label = "${design.cornerRadiusDp.roundToInt()} dp",
-                    onValueChange = { onDesignChange(design.copy(cornerRadiusDp = it)) },
-                )
-                SettingLinkRow(
-                    title = stringResource(R.string.trigger_design_corner_mode),
-                    subtitle = triggerDesignCornerModeLabel(design.cornerMode),
-                    enabled = serviceEnabled,
-                    onClick = { pickingCornerMode = true },
-                )
-                AnimationStyleColorRow(
-                    title = stringResource(R.string.trigger_design_background_color),
-                    color = design.backgroundColor,
-                    enabled = serviceEnabled,
-                    onClick = {
-                        pickerInitialColor = design.backgroundColor
-                        colorTarget = TriggerDesignColorTarget.Background
-                    },
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_design_border_size),
-                    value = design.borderSizeDp,
-                    valueRange = 0f..8f,
-                    enabled = serviceEnabled,
-                    label = "${design.borderSizeDp.roundToInt()} dp",
-                    onValueChange = { onDesignChange(design.copy(borderSizeDp = it)) },
-                )
-                AnimationStyleColorRow(
-                    title = stringResource(R.string.trigger_design_border_color),
-                    color = design.borderColor,
-                    enabled = serviceEnabled,
-                    onClick = {
-                        pickerInitialColor = design.borderColor
-                        colorTarget = TriggerDesignColorTarget.Border
-                    },
-                )
-                SettingsSliderRow(
-                    title = stringResource(R.string.trigger_design_halo_size),
-                    value = design.haloSizeDp,
-                    valueRange = 0f..48f,
-                    enabled = serviceEnabled,
-                    label = "${design.haloSizeDp.roundToInt()} dp",
-                    onValueChange = { onDesignChange(design.copy(haloSizeDp = it)) },
-                )
-                AnimationStyleColorRow(
-                    title = stringResource(R.string.trigger_design_halo_color),
-                    color = design.haloColor,
-                    enabled = serviceEnabled,
-                    onClick = {
-                        pickerInitialColor = design.haloColor
-                        colorTarget = TriggerDesignColorTarget.Halo
-                    },
-                )
+            val showBodySettings = design.showsRectangleBodySettings
+            val showBorderSettings = design.showsRectangleBorderSettings
+            val showHaloSettings = design.showsRectangleHaloSettings
+            if (showBodySettings || showBorderSettings || showHaloSettings) {
+                key(showBodySettings, showBorderSettings, showHaloSettings, design.marginDp, design.sizeDp, design.haloSizeDp) {
+                SettingsSectionTitle(stringResource(R.string.trigger_design_customize))
+                SettingsCard {
+                    SettingsSliderRow(
+                        title = stringResource(R.string.trigger_design_margin),
+                        value = design.marginDp,
+                        valueRange = 0f..24f,
+                        enabled = serviceEnabled,
+                        label = "${design.marginDp.roundToInt()} dp",
+                        onValueChange = { updateDesign(design.copy(marginDp = it)) },
+                    )
+                    if (showBodySettings) {
+                        SettingsSliderRow(
+                            title = stringResource(R.string.trigger_design_size),
+                            value = design.sizeDp,
+                            valueRange = 0f..48f,
+                            enabled = serviceEnabled,
+                            label = "${design.sizeDp.roundToInt()} dp",
+                            onValueChange = { updateDesign(design.copy(sizeDp = it)) },
+                        )
+                        SettingsSliderRow(
+                            title = stringResource(R.string.trigger_design_corner_radius),
+                            value = design.cornerRadiusDp,
+                            valueRange = 0f..32f,
+                            enabled = serviceEnabled,
+                            label = "${design.cornerRadiusDp.roundToInt()} dp",
+                            onValueChange = { updateDesign(design.copy(cornerRadiusDp = it)) },
+                        )
+                        SettingLinkRow(
+                            title = stringResource(R.string.trigger_design_corner_mode),
+                            subtitle = triggerDesignCornerModeLabel(design.cornerMode),
+                            enabled = serviceEnabled,
+                            onClick = { pickingCornerMode = true },
+                        )
+                        AnimationStyleColorRow(
+                            title = stringResource(R.string.trigger_design_background_color),
+                            color = design.backgroundColor,
+                            enabled = serviceEnabled,
+                            onClick = {
+                                pickerInitialColor = design.backgroundColor
+                                colorTarget = TriggerDesignColorTarget.Background
+                            },
+                        )
+                    }
+                    if (showBorderSettings) {
+                        SettingsSliderRow(
+                            title = stringResource(R.string.trigger_design_border_size),
+                            value = design.borderSizeDp,
+                            valueRange = 0f..8f,
+                            enabled = serviceEnabled,
+                            label = "${design.borderSizeDp.roundToInt()} dp",
+                            onValueChange = { updateDesign(design.copy(borderSizeDp = it)) },
+                        )
+                        AnimationStyleColorRow(
+                            title = stringResource(R.string.trigger_design_border_color),
+                            color = design.borderColor,
+                            enabled = serviceEnabled,
+                            onClick = {
+                                pickerInitialColor = design.borderColor
+                                colorTarget = TriggerDesignColorTarget.Border
+                            },
+                        )
+                    }
+                    if (showHaloSettings) {
+                        SettingsSliderRow(
+                            title = stringResource(R.string.trigger_design_halo_size),
+                            value = design.haloSizeDp,
+                            valueRange = 0f..48f,
+                            enabled = serviceEnabled,
+                            label = "${design.haloSizeDp.roundToInt()} dp",
+                            onValueChange = { updateDesign(design.copy(haloSizeDp = it)) },
+                        )
+                        AnimationStyleColorRow(
+                            title = stringResource(R.string.trigger_design_halo_color),
+                            color = design.haloColor,
+                            enabled = serviceEnabled,
+                            onClick = {
+                                pickerInitialColor = design.haloColor
+                                colorTarget = TriggerDesignColorTarget.Halo
+                            },
+                        )
+                    }
+                }
+                }
             }
         }
 
@@ -224,7 +294,12 @@ fun TriggerDesignSettingsScreen(
             title = stringResource(R.string.trigger_design_reset),
             subtitle = stringResource(R.string.trigger_design_reset_desc),
             enabled = serviceEnabled,
-            onClick = onResetDefaults,
+            onClick = {
+                lastRectangleDesign = null
+                val resetDesign = TriggerRectanglePresetLogic.resetDesign(selectedHandle).design
+                pendingDesign = resetDesign
+                onDesignChange(resetDesign)
+            },
         )
     }
 }

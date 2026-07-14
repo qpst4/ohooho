@@ -99,6 +99,8 @@ data class AppSettings(
     val floatingPointerTrailDurationMs: Int = 150,
     val floatingPointerTrailColorArgb: Int = 0x66FF5252,
     val floatingPointerHideWhenJoystickReleased: Boolean = false,
+    /** QC `clickDistanceThreshold`: max tracker travel to still count as click/long-press (dp). */
+    val floatingPointerClickDistanceThresholdDp: Float = 6f,
     val floatingPointerJoystickInnerColorArgb: Int = 0x80FFFFFF.toInt(),
     val floatingPointerJoystickOuterColorArgb: Int = 0x80C0C0C0.toInt(),
     val floatingPointerJoystickGradientRadiusFraction: Float = 1f,
@@ -121,6 +123,16 @@ data class AppSettings(
     val floatingPointerRadialIconColorArgb: Int = 0xFFFFFFFF.toInt(),
     val floatingPointerRadialSlotActions: List<com.slideindex.app.gesture.GestureAction> =
         FloatingPointerRadialMenuCodec.defaultSlots(),
+    /** QC edge actions: pointer pushed past screen edge triggers configured shortcuts. */
+    val floatingPointerEdgeThresholdDp: Float = 30f,
+    val floatingPointerEdgePreviewSensitivity: Int = 3,
+    val floatingPointerEdgePreviewGlowSize: Int = 4,
+    val floatingPointerEdgePreviewShowIcon: Boolean = true,
+    val floatingPointerEdgeVisualSizeDp: Float = 0f,
+    val floatingPointerEdgeVisualOpacity: Int = 75,
+    val floatingPointerEdgeVisualColorArgb: Int = 0xFFFD746C.toInt(),
+    val floatingPointerEdgeActionsConfig: FloatingPointerEdgeActionsConfig =
+        FloatingPointerEdgeActionsCodec.defaultConfig(),
     val otpCopyToClipboard: Boolean = false,
     val otpKeywordsRegex: String = OtpKeywords.DEFAULT_KEYWORDS_REGEX,
     val otpUserMatchRules: List<com.slideindex.app.otp.OtpMatchRule> = emptyList(),

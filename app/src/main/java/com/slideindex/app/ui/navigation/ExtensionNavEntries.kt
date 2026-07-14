@@ -5,6 +5,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.EntryProviderScope
 import com.slideindex.app.ui.ExtensionHubScreen
+import com.slideindex.app.ui.FloatingPointerEdgeActionsSettingsScreen
+import com.slideindex.app.ui.FloatingPointerEdgeSideSettingsScreen
 import com.slideindex.app.ui.FloatingPointerJoystickSettingsScreen
 import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
 import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
@@ -118,6 +120,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onOpenPointerSettings = { ctx.navigate(AppNavKey.FloatingPointerPointer) },
             onOpenJoystickSettings = { ctx.navigate(AppNavKey.FloatingPointerJoystick) },
             onOpenRadialMenuSettings = { ctx.navigate(AppNavKey.FloatingPointerRadialMenu) },
+            onOpenEdgeActionsSettings = { ctx.navigate(AppNavKey.FloatingPointerEdgeActions) },
             onJoystickAreaZoomChange = viewModel::setFloatingPointerJoystickAreaZoomFraction,
             onJoystickAreaWidthChange = viewModel::setFloatingPointerJoystickAreaWidthPx,
             onJoystickAreaHeightChange = viewModel::setFloatingPointerJoystickAreaHeightPx,
@@ -165,6 +168,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onHideOnQuickSwipeChange = viewModel::setFloatingPointerHideOnQuickSwipe,
             onHideWhenIdleChange = viewModel::setFloatingPointerHideWhenIdle,
             onIdleDelayChange = viewModel::setFloatingPointerIdleHideDelayMs,
+            onClickDistanceThresholdChange = viewModel::setFloatingPointerClickDistanceThresholdDp,
             onResetVisualDefaults = viewModel::resetFloatingPointerJoystickVisualDefaults,
             onResetBehaviorDefaults = viewModel::resetFloatingPointerJoystickBehaviorDefaults,
         )
@@ -189,6 +193,41 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onIconSizeFractionChange = viewModel::setFloatingPointerRadialIconSizeFraction,
             onIconColorChange = viewModel::setFloatingPointerRadialIconColor,
             onResetDesignDefaults = viewModel::resetFloatingPointerRadialDesignDefaults,
+        )
+    }
+
+    entry<AppNavKey.FloatingPointerEdgeActions> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        FloatingPointerEdgeActionsSettingsScreen(
+            settings = settings,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointer) },
+            onThresholdChange = viewModel::setFloatingPointerEdgeThresholdDp,
+            onPreviewSensitivityChange = viewModel::setFloatingPointerEdgePreviewSensitivity,
+            onPreviewGlowSizeChange = viewModel::setFloatingPointerEdgePreviewGlowSize,
+            onPreviewShowIconChange = viewModel::setFloatingPointerEdgePreviewShowIcon,
+            onVisualColorChange = viewModel::setFloatingPointerEdgeVisualColor,
+            onOpenSideSettings = { side ->
+                ctx.navigate(AppNavKey.FloatingPointerEdgeSideSettings(side.toNavSide()))
+            },
+            onResetDefaults = viewModel::resetFloatingPointerEdgeDefaults,
+        )
+    }
+
+    entry<AppNavKey.FloatingPointerEdgeSideSettings> { key ->
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val side = key.side.toFloatingPointerEdgeSide()
+        FloatingPointerEdgeSideSettingsScreen(
+            side = side,
+            settings = settings,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatingPointerEdgeActions) },
+            onEnabledChange = { enabled -> viewModel.setFloatingPointerEdgeBarEnabled(side, enabled) },
+            onSlotActionChange = { slotIndex, action ->
+                viewModel.setFloatingPointerEdgeBarSlotAction(side, slotIndex, action)
+            },
+            onAddSlot = { viewModel.addFloatingPointerEdgeBarSlot(side) },
+            onRemoveSlot = { slotIndex -> viewModel.removeFloatingPointerEdgeBarSlot(side, slotIndex) },
         )
     }
 }

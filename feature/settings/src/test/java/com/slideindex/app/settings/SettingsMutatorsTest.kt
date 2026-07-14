@@ -127,6 +127,18 @@ class SettingsMutatorsTest {
     }
 
     @Test
+    fun addFloatingPointerEdgeBarSlot_appendsZones() = runBlocking {
+        val initial = awaitSettings().floatingPointerEdgeActionsConfig.top.layoutSlots().size
+        repeat(3) {
+            repository.addFloatingPointerEdgeBarSlot(FloatingPointerEdgeSide.TOP)
+        }
+        val updated = awaitSettings {
+            it.floatingPointerEdgeActionsConfig.top.layoutSlots().size == initial + 3
+        }.floatingPointerEdgeActionsConfig.top.layoutSlots().size
+        assertEquals(initial + 3, updated)
+    }
+
+    @Test
     fun readSnapshot_reflectsLatestFlowEmission() = runBlocking {
         repository.setServiceEnabled(true)
         awaitSettings { it.serviceEnabled }

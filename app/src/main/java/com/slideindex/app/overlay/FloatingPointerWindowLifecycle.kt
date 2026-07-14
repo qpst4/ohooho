@@ -173,6 +173,11 @@ internal class FloatingPointerWindowLifecycle(
         window.visibleState = visible
         window.settingsState = settingsHolder
         window.session = pointerSession
+        pointerSession.onEdgeActionTriggered = { action ->
+            val currentSettings = settingsHolder.value
+            displayCompose.let { HapticHelper.appTick(it, currentSettings) }
+            window.executeEdgeAction(action)
+        }
         window.touchLayoutParams = touchParams
         window.appContext = hostContext
         val deps = OverlayDependencyAccess.overlayDependencies(hostContext)

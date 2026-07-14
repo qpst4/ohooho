@@ -91,6 +91,8 @@ internal object SettingsPreferenceKeys {
     val FLOATING_POINTER_TRAIL_DURATION = intPreferencesKey("floating_pointer_trail_duration_ms")
     val FLOATING_POINTER_TRAIL_COLOR = intPreferencesKey("floating_pointer_trail_color")
     val FLOATING_POINTER_HIDE_ON_RELEASE = booleanPreferencesKey("floating_pointer_hide_on_release")
+    val FLOATING_POINTER_CLICK_DISTANCE_THRESHOLD_DP =
+        floatPreferencesKey("floating_pointer_click_distance_threshold_dp")
     val FLOATING_POINTER_JOYSTICK_INNER_COLOR = intPreferencesKey("floating_pointer_joystick_inner_color")
     val FLOATING_POINTER_JOYSTICK_OUTER_COLOR = intPreferencesKey("floating_pointer_joystick_outer_color")
     val FLOATING_POINTER_JOYSTICK_GRADIENT = floatPreferencesKey("floating_pointer_joystick_gradient")
@@ -111,6 +113,17 @@ internal object SettingsPreferenceKeys {
     val FLOATING_POINTER_RADIAL_ICON_SIZE = floatPreferencesKey("floating_pointer_radial_icon_size_fraction")
     val FLOATING_POINTER_RADIAL_ICON_COLOR = intPreferencesKey("floating_pointer_radial_icon_color")
     val FLOATING_POINTER_RADIAL_SLOTS = stringSetPreferencesKey("floating_pointer_radial_slots")
+    val FLOATING_POINTER_EDGE_THRESHOLD_DP = floatPreferencesKey("floating_pointer_edge_threshold_dp")
+    val FLOATING_POINTER_EDGE_PREVIEW_SENSITIVITY =
+        intPreferencesKey("floating_pointer_edge_preview_sensitivity")
+    val FLOATING_POINTER_EDGE_PREVIEW_GLOW_SIZE =
+        intPreferencesKey("floating_pointer_edge_preview_glow_size")
+    val FLOATING_POINTER_EDGE_PREVIEW_SHOW_ICON =
+        booleanPreferencesKey("floating_pointer_edge_preview_show_icon")
+    val FLOATING_POINTER_EDGE_VISUAL_SIZE_DP = floatPreferencesKey("floating_pointer_edge_visual_size_dp")
+    val FLOATING_POINTER_EDGE_VISUAL_OPACITY = intPreferencesKey("floating_pointer_edge_visual_opacity")
+    val FLOATING_POINTER_EDGE_VISUAL_COLOR = intPreferencesKey("floating_pointer_edge_visual_color")
+    val FLOATING_POINTER_EDGE_ACTIONS = stringSetPreferencesKey("floating_pointer_edge_actions")
     val OTP_COPY_TO_CLIPBOARD = booleanPreferencesKey("otp_copy_to_clipboard")
     val OTP_KEYWORDS_REGEX = stringPreferencesKey("otp_keywords_regex")
     val OTP_USER_MATCH_RULES = stringSetPreferencesKey("otp_user_match_rules")

@@ -2,6 +2,7 @@ package com.slideindex.app.ui
 
 import android.os.Handler
 import android.os.Looper
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,6 +63,8 @@ fun GestureActionPickerScreen(
     var shortcutCatalogLoading by remember { mutableStateOf(true) }
     var scanProgress by remember { mutableStateOf<ShortcutScanProgress?>(null) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
+
+    BackHandler(onBack = onDismiss)
 
     LaunchedEffect(Unit) {
         allApps = appRepository.loadApps(force = true)

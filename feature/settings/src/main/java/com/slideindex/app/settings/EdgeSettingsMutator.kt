@@ -9,8 +9,8 @@ import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.gesture.TriggerHandle
 import com.slideindex.app.gesture.TriggerHandleDesign
+import com.slideindex.app.gesture.TriggerRectanglePresetLogic
 import com.slideindex.app.gesture.TriggerDesignPreset
-import com.slideindex.app.gesture.TriggerDesignPresets
 import com.slideindex.app.gesture.coerceInLimits
 import com.slideindex.app.overlay.PanelSide
 import javax.inject.Inject
@@ -125,10 +125,10 @@ class EdgeSettingsMutator @Inject constructor(
                         topFraction = source.topFraction,
                         heightFraction = source.heightFraction,
                     )
-                    current = current.withSyncedTriggerHandleDesign(
+                    current = current.withSyncedTriggerHandle(
                         sourceSide = sourceSide,
                         handleId = handleId,
-                        design = source.design,
+                        handle = source,
                     )
                 }
             }
@@ -152,10 +152,12 @@ class EdgeSettingsMutator @Inject constructor(
         design: TriggerHandleDesign,
     ) = editor.edit { prefs ->
         val current = SettingsTriggerStore.readTriggerSettings(prefs)
-        val updated = current.withSyncedTriggerHandleDesign(
+        val sourceHandle = current.triggerHandle(side, handleId) ?: return@edit
+        val updatedHandle = TriggerRectanglePresetLogic.updateDesign(sourceHandle, design)
+        val updated = current.withSyncedTriggerHandle(
             sourceSide = side,
             handleId = handleId,
-            design = design.coerceInLimits(),
+            handle = updatedHandle,
         )
         SettingsTriggerStore.writeTriggerHandles(prefs, updated)
     }
@@ -164,11 +166,17 @@ class EdgeSettingsMutator @Inject constructor(
         side: PanelSide,
         handleId: String,
         preset: TriggerDesignPreset,
-    ) = setTriggerHandleDesign(
-        side = side,
-        handleId = handleId,
-        design = TriggerDesignPresets.apply(preset),
-    )
+    ) = editor.edit { prefs ->
+        val current = SettingsTriggerStore.readTriggerSettings(prefs)
+        val sourceHandle = current.triggerHandle(side, handleId) ?: return@edit
+        val updatedHandle = TriggerRectanglePresetLogic.switchPreset(sourceHandle, preset)
+        val updated = current.withSyncedTriggerHandle(
+            sourceSide = side,
+            handleId = handleId,
+            handle = updatedHandle,
+        )
+        SettingsTriggerStore.writeTriggerHandles(prefs, updated)
+    }
 
     suspend fun setInterceptSystemBackGesture(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.INTERCEPT_SYSTEM_BACK] = enabled }
     suspend fun setLimitMaxInterceptLength(enabled: Boolean) = editor.edit { it[SettingsPreferenceKeys.LIMIT_MAX_INTERCEPT_LENGTH] = enabled }

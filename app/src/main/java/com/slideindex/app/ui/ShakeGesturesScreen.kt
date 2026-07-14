@@ -44,8 +44,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureTriggerType
@@ -283,26 +281,17 @@ fun ShakeGesturesScreen(
         }
     }
 
-    val pickingType = pickingGesture
-    if (pickingType != null) {
-        Dialog(
-            onDismissRequest = { pickingGesture = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background,
-            ) {
-                GestureActionPickerScreen(
-                    trigger = GestureTriggerType.SHORT_SINGLE_TAP,
-                    current = settings.actionFor(pickingType),
-                    onDismiss = { pickingGesture = null },
-                    onSelect = { action ->
-                        onBasicActionChange(pickingType, action)
-                        pickingGesture = null
-                    },
-                )
-            }
+    AnimatedFullScreenOverlay(visible = pickingGesture != null) {
+        pickingGesture?.let { pickingType ->
+            GestureActionPickerScreen(
+                trigger = GestureTriggerType.SHORT_SINGLE_TAP,
+                current = settings.actionFor(pickingType),
+                onDismiss = { pickingGesture = null },
+                onSelect = { action ->
+                    onBasicActionChange(pickingType, action)
+                    pickingGesture = null
+                },
+            )
         }
     }
 }

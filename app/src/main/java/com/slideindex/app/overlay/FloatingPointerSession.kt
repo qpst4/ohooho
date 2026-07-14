@@ -17,7 +17,11 @@ internal class FloatingPointerSession(
     val screenHeight: Float,
     private val settingsSource: () -> AppSettings,
 ) {
-    val tapSlopPx = 10f * density
+    val tapSlopPx: Float
+        get() = clickDistanceThresholdPx()
+
+    fun clickDistanceThresholdPx(settings: AppSettings = settingsSource()): Float =
+        settings.floatingPointerClickDistanceThresholdDp.coerceIn(1f, 30f) * density
 
     fun joystickDiameterPx(): Float = settingsSource().floatingPointerJoystickDiameterPx
     fun joystickRadiusPx(): Float = joystickDiameterPx() / 2f
@@ -42,6 +46,12 @@ internal class FloatingPointerSession(
 
     val pointerX = mutableFloatStateOf(screenWidth / 2f)
     val pointerY = mutableFloatStateOf(screenHeight / 2f)
+    /** Unclamped pointer used for edge-action overscroll detection (QC raw tracker position). */
+    val rawPointerX = mutableFloatStateOf(screenWidth / 2f)
+    val rawPointerY = mutableFloatStateOf(screenHeight / 2f)
+    val edgeActionSegments = mutableStateListOf<FloatingPointerEdgeActionSegment>()
+    val edgePreviewVisible = mutableStateOf(false)
+    internal var onEdgeActionTriggered: ((GestureAction) -> Unit)? = null
     val joystickCenterX = mutableFloatStateOf(0f)
     val joystickCenterY = mutableFloatStateOf(0f)
     val joystickActive = mutableStateOf(false)
@@ -107,6 +117,8 @@ internal class FloatingPointerSession(
 
     /** True while a recorded gesture is being injected (overlay must not track touches). */
     val gestureReplayActive = mutableStateOf(false)
+    private var edgeOverscrollActive = false
+    private var edgeSettingsFingerprint = 0
 
     fun beginGestureReplay() {
         gestureReplayActive.value = true
@@ -285,12 +297,8 @@ internal class FloatingPointerSession(
         radialHighlightedSlot.intValue = -1
     }
 
-    fun keepRadialMenuOpenAfterLift() {
-        radialMenuIdle.value = true
-    }
-
     fun updateRadialHighlight(fingerX: Float, fingerY: Float, settings: AppSettings): Boolean {
-        if (!radialMenuActive.value) return false
+        if (!radialMenuActive.value && !radialMenuIdle.value) return false
         val inner = settings.floatingPointerRadialInnerDiameterPx / 2f
         val outer = settings.floatingPointerRadialOuterDiameterPx / 2f
         val previous = radialHighlightedSlot.intValue
@@ -320,6 +328,19 @@ internal class FloatingPointerSession(
     private var dragFingerAnchorY = 0f
     private var dragPointerAnchorX = 0f
     private var dragPointerAnchorY = 0f
+    /** Joystick center minus finger at touch-down; keeps grab point fixed while dragging. */
+    private var dragJoystickOffsetX = 0f
+    private var dragJoystickOffsetY = 0f
+
+    /**
+     * Re-anchors drag when gesture capture arms mid-gesture (e.g. sliding into a radial
+     * "gesture record" sector). Radial-menu drags skip [applyPointerFromTouch]; reset anchors
+     * at the current finger without moving the pointer so the next MOVE does not jump.
+     */
+    fun syncPointerForGestureCapture(fingerX: Float, fingerY: Float) {
+        clearTrail()
+        armDrag(fingerX, fingerY)
+    }
 
     /** Starts a QC-style gesture recorder at the given pointer position. */
     fun startGestureRecorder(
@@ -336,6 +357,7 @@ internal class FloatingPointerSession(
         gestureReplayTotalMs = null
         gesturePointerRestoreX = null
         gesturePointerRestoreY = null
+        clearTrail()
         clearGestureRecorderTrail()
         trailLifespanOverrideMs = GESTURE_CAPTURE_TRAIL_MS
         gestureRecordingActive.value = true
@@ -455,8 +477,11 @@ internal class FloatingPointerSession(
         )
         pointerX.floatValue = pointer.x
         pointerY.floatValue = pointer.y
+        rawPointerX.floatValue = pointer.x
+        rawPointerY.floatValue = pointer.y
         awaitingPlacement = false
         armDrag(rawX, rawY)
+        updateEdgeActions(settings)
     }
 
     /** Arms a new drag without moving the pointer or re-anchoring the joystick area. */
@@ -473,6 +498,16 @@ internal class FloatingPointerSession(
         dragFingerAnchorY = fingerY
         dragPointerAnchorX = pointerX.floatValue
         dragPointerAnchorY = pointerY.floatValue
+        dragJoystickOffsetX = joystickCenterX.floatValue - fingerX
+        dragJoystickOffsetY = joystickCenterY.floatValue - fingerY
+    }
+
+    fun joystickCenterForFinger(fingerX: Float, fingerY: Float): Pair<Float, Float> =
+        (fingerX + dragJoystickOffsetX) to (fingerY + dragJoystickOffsetY)
+
+    /** Re-anchors drag after joystick center is adjusted externally (e.g. edge continue-gesture). */
+    fun rearmJoystickDrag(fingerX: Float, fingerY: Float) {
+        armDrag(fingerX, fingerY)
     }
 
     fun hasEstablishedGestureArea(): Boolean =
@@ -589,18 +624,20 @@ internal class FloatingPointerSession(
         // temporary lifespan overrides (e.g. during gesture recording) are respected.
     }
 
-    fun applyPointerFromTouch(rawX: Float, rawY: Float, @Suppress("UNUSED_PARAMETER") settings: AppSettings) {
+    fun applyPointerFromTouch(rawX: Float, rawY: Float, settings: AppSettings) {
         if (gestureReplayActive.value) return
         if (gestureAreaWidth <= 0f || gestureAreaHeight <= 0f) return
-        val next = FloatingPointerBounds.pointerForFingerDeltaInArea(
-            deltaX = rawX - dragFingerAnchorX,
-            deltaY = rawY - dragFingerAnchorY,
-            areaWidth = gestureAreaWidth,
-            areaHeight = gestureAreaHeight,
-            screenWidth = screenWidth,
-            screenHeight = screenHeight,
-            pointerAnchorX = dragPointerAnchorX,
-            pointerAnchorY = dragPointerAnchorY,
+        val normDeltaX = if (gestureAreaWidth > 0f) (rawX - dragFingerAnchorX) / gestureAreaWidth else 0f
+        val normDeltaY = if (gestureAreaHeight > 0f) (rawY - dragFingerAnchorY) / gestureAreaHeight else 0f
+        val unclamped = Offset(
+            x = dragPointerAnchorX + normDeltaX * screenWidth,
+            y = dragPointerAnchorY + normDeltaY * screenHeight,
+        )
+        rawPointerX.floatValue = unclamped.x
+        rawPointerY.floatValue = unclamped.y
+        val next = Offset(
+            x = unclamped.x.coerceIn(0f, screenWidth),
+            y = unclamped.y.coerceIn(0f, screenHeight),
         )
         pointerX.floatValue = next.x
         pointerY.floatValue = next.y
@@ -609,6 +646,72 @@ internal class FloatingPointerSession(
         }
         updateGestureRecorder()
         updateRealtimeGesture()
+        updateEdgeActions(settings)
+    }
+
+    private fun updateEdgeActions(settings: AppSettings) {
+        if (gestureCaptureActive || gestureReplayActive.value) {
+            edgePreviewVisible.value = false
+            edgeActionSegments.forEach { it.proximity = 0f }
+            return
+        }
+        val fingerprint = edgeSettingsFingerprint(settings)
+        if (fingerprint != edgeSettingsFingerprint || edgeActionSegments.isEmpty()) {
+            edgeSettingsFingerprint = fingerprint
+            edgeActionSegments.clear()
+            edgeActionSegments.addAll(
+                FloatingPointerEdgeActionsEngine.buildSegments(
+                    settings = settings,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight,
+                    density = density,
+                ),
+            )
+        }
+        val previewRadius = FloatingPointerEdgeActionsEngine.previewRadiusPx(settings, density)
+        FloatingPointerEdgeActionsEngine.updateProximity(
+            segments = edgeActionSegments,
+            rawX = rawPointerX.floatValue,
+            rawY = rawPointerY.floatValue,
+            previewRadiusPx = previewRadius,
+        )
+        edgePreviewVisible.value = FloatingPointerEdgeActionsEngine.shouldShowPreview(
+            settings = settings,
+            segments = edgeActionSegments,
+            gestureCaptureActive = gestureCaptureActive,
+            gestureReplayActive = gestureReplayActive.value,
+            armedAction = null,
+        )
+        val triggered = FloatingPointerEdgeActionsEngine.resolveTriggeredAction(
+            settings = settings,
+            screenWidth = screenWidth,
+            screenHeight = screenHeight,
+            clampedX = pointerX.floatValue,
+            clampedY = pointerY.floatValue,
+            rawX = rawPointerX.floatValue,
+            rawY = rawPointerY.floatValue,
+            density = density,
+        )
+        if (triggered != null) {
+            if (!edgeOverscrollActive) {
+                edgeOverscrollActive = true
+                onEdgeActionTriggered?.invoke(triggered)
+            }
+        } else {
+            edgeOverscrollActive = false
+        }
+    }
+
+    private fun edgeSettingsFingerprint(settings: AppSettings): Int {
+        var hash = settings.floatingPointerEdgeThresholdDp.hashCode()
+        hash = 31 * hash + settings.floatingPointerEdgePreviewSensitivity
+        hash = 31 * hash + settings.floatingPointerEdgePreviewGlowSize
+        hash = 31 * hash + settings.floatingPointerEdgeVisualSizeDp.hashCode()
+        hash = 31 * hash + settings.floatingPointerEdgeVisualColorArgb
+        hash = 31 * hash + settings.floatingPointerEdgeActionsConfig.hashCode()
+        hash = 31 * hash + screenWidth.hashCode()
+        hash = 31 * hash + screenHeight.hashCode()
+        return hash
     }
 
     private companion object {

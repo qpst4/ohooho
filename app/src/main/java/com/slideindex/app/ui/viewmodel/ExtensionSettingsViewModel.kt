@@ -3,6 +3,7 @@ package com.slideindex.app.ui.viewmodel
 import android.content.Context
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.launcher.QuickLauncherItem
+import com.slideindex.app.settings.FloatingPointerEdgeSide
 import com.slideindex.app.settings.FloatingPointerTrailType
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shell.ShellCommand
@@ -158,6 +159,10 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setFloatingPointerHideWhenIdle(enabled)
     }
 
+    fun setFloatingPointerClickDistanceThresholdDp(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerClickDistanceThresholdDp(value)
+    }
+
     fun setFloatingPointerIdleHideDelayMs(delayMs: Int) = launchSettingsWrite {
         settingsRepository.setFloatingPointerIdleHideDelayMs(delayMs)
     }
@@ -220,5 +225,49 @@ class ExtensionSettingsViewModel @Inject constructor(
 
     fun resetFloatingPointerRadialDesignDefaults() = launchSettingsWrite {
         settingsRepository.resetFloatingPointerRadialDesignDefaults()
+    }
+
+    fun setFloatingPointerEdgeThresholdDp(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgeThresholdDp(value)
+    }
+
+    fun setFloatingPointerEdgePreviewSensitivity(value: Int) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgePreviewSensitivity(value)
+    }
+
+    fun setFloatingPointerEdgePreviewGlowSize(value: Int) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgePreviewGlowSize(value)
+    }
+
+    fun setFloatingPointerEdgePreviewShowIcon(enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgePreviewShowIcon(enabled)
+    }
+
+    fun setFloatingPointerEdgeVisualColor(color: Int) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgeVisualColor(color)
+    }
+
+    fun setFloatingPointerEdgeBarEnabled(side: FloatingPointerEdgeSide, enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgeBarEnabled(side, enabled)
+    }
+
+    fun setFloatingPointerEdgeBarSlotAction(
+        side: FloatingPointerEdgeSide,
+        slotIndex: Int,
+        action: GestureAction,
+    ) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerEdgeBarSlotAction(side, slotIndex, action)
+    }
+
+    fun addFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide) = launchSettingsWrite {
+        settingsRepository.addFloatingPointerEdgeBarSlot(side)
+    }
+
+    fun removeFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide, slotIndex: Int) = launchSettingsWrite {
+        settingsRepository.removeFloatingPointerEdgeBarSlot(side, slotIndex)
+    }
+
+    fun resetFloatingPointerEdgeDefaults() = launchSettingsWrite {
+        settingsRepository.resetFloatingPointerEdgeDefaults()
     }
 }

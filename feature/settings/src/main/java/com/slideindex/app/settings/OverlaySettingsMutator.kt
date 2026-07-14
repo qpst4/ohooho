@@ -123,6 +123,10 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_ON_RELEASE] = enabled
     }
 
+    suspend fun setFloatingPointerClickDistanceThresholdDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_DISTANCE_THRESHOLD_DP] = value.coerceIn(1f, 30f)
+    }
+
     suspend fun setFloatingPointerJoystickInnerColor(argb: Int) = editor.edit {
         it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_INNER_COLOR] = argb
     }
@@ -245,7 +249,98 @@ class OverlaySettingsMutator @Inject constructor(
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_QUICK_SWIPE] = true
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_IDLE] = true
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_IDLE_DELAY] = 3000
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_DISTANCE_THRESHOLD_DP] = 6f
         prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION] = QuickLauncherItemCodec.encodeActionPayload(GestureAction.OpenFloatingPointerRadialMenu)
+    }
+
+    suspend fun setFloatingPointerEdgeThresholdDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_THRESHOLD_DP] = value.coerceIn(5f, 160f)
+    }
+
+    suspend fun setFloatingPointerEdgePreviewSensitivity(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SENSITIVITY] = value.coerceIn(0, 5)
+    }
+
+    suspend fun setFloatingPointerEdgePreviewGlowSize(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_GLOW_SIZE] = value.coerceIn(0, 7)
+    }
+
+    suspend fun setFloatingPointerEdgePreviewShowIcon(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SHOW_ICON] = enabled
+    }
+
+    suspend fun setFloatingPointerEdgeVisualSizeDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_SIZE_DP] = value.coerceIn(0f, 80f)
+    }
+
+    suspend fun setFloatingPointerEdgeVisualOpacity(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_OPACITY] = value.coerceIn(0, 100)
+    }
+
+    suspend fun setFloatingPointerEdgeVisualColor(argb: Int) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_COLOR] = argb
+    }
+
+    suspend fun setFloatingPointerEdgeBarEnabled(side: FloatingPointerEdgeSide, enabled: Boolean) = editor.edit { prefs ->
+        val config = FloatingPointerEdgeActionsCodec.decode(
+            prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] ?: emptySet(),
+        )
+        val updated = config.withBar(side, config.bar(side).copy(enabled = enabled))
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] = FloatingPointerEdgeActionsCodec.encode(updated)
+    }
+
+    suspend fun setFloatingPointerEdgeBarSlotAction(
+        side: FloatingPointerEdgeSide,
+        slotIndex: Int,
+        action: GestureAction,
+    ) = editor.edit { prefs ->
+        val config = FloatingPointerEdgeActionsCodec.decode(
+            prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] ?: emptySet(),
+        )
+        val bar = config.bar(side)
+        val slots = bar.layoutSlots().toMutableList()
+        if (slotIndex !in slots.indices) return@edit
+        slots[slotIndex] = slots[slotIndex].copy(action = action)
+        val updated = config.withBar(side, bar.copy(actions = slots))
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] = FloatingPointerEdgeActionsCodec.encode(updated)
+    }
+
+    suspend fun addFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide) = editor.edit { prefs ->
+        val config = FloatingPointerEdgeActionsCodec.decode(
+            prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] ?: emptySet(),
+        )
+        val bar = config.bar(side)
+        if (bar.layoutSlots().size >= FloatingPointerEdgeActionsCodec.MAX_SLOTS_PER_EDGE) return@edit
+        val updated = config.withBar(
+            side,
+            bar.copy(actions = bar.layoutSlots() + FloatingPointerEdgeActionSlot(GestureAction.None)),
+        )
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] = FloatingPointerEdgeActionsCodec.encode(updated)
+    }
+
+    suspend fun removeFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide, slotIndex: Int) =
+        editor.edit { prefs ->
+            val config = FloatingPointerEdgeActionsCodec.decode(
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] ?: emptySet(),
+            )
+            val bar = config.bar(side)
+            val slots = bar.layoutSlots().toMutableList()
+            if (slots.size <= 1 || slotIndex !in slots.indices) return@edit
+            slots.removeAt(slotIndex)
+            val updated = config.withBar(side, bar.copy(actions = slots))
+            prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] = FloatingPointerEdgeActionsCodec.encode(updated)
+        }
+
+    suspend fun resetFloatingPointerEdgeDefaults() = editor.edit { prefs ->
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_THRESHOLD_DP] = 30f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SENSITIVITY] = 3
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_GLOW_SIZE] = 4
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SHOW_ICON] = true
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_SIZE_DP] = 0f
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_OPACITY] = 75
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_COLOR] = 0xFFFD746C.toInt()
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] =
+            FloatingPointerEdgeActionsCodec.encode(FloatingPointerEdgeActionsCodec.defaultConfig())
     }
 
     suspend fun setQuickLauncherItems(

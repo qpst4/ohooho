@@ -2,6 +2,7 @@ package com.slideindex.app.ui.gesturepicker
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -57,6 +58,7 @@ private fun gestureActionDescriptionText(context: Context, action: GestureAction
         GestureActionType.ADJUST_BRIGHTNESS -> context.getString(R.string.gesture_action_adjust_brightness_desc)
         GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top_desc)
         GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom_desc)
+        GestureActionType.POINTER_REALTIME_GESTURE -> context.getString(R.string.gesture_action_pointer_realtime_gesture_desc)
         else -> null
     }
 
@@ -202,6 +204,22 @@ fun gestureActionDescription(action: GestureAction): String? = when (action.type
     GestureActionType.POINTER_GESTURE_RECORDER -> stringResource(R.string.gesture_action_pointer_gesture_recorder_desc)
     GestureActionType.POINTER_REALTIME_GESTURE -> stringResource(R.string.gesture_action_pointer_realtime_gesture_desc)
     GestureActionType.OPEN_FLOATING_POINTER_RADIAL_MENU -> stringResource(R.string.gesture_action_open_floating_pointer_radial_menu_desc)
+    else -> null
+}
+
+fun gestureActionMinSdk(action: GestureAction): Int? = when (action.type) {
+    GestureActionType.POINTER_REALTIME_GESTURE -> 36
+    else -> null
+}
+
+fun isGestureActionEnabledOnDevice(action: GestureAction): Boolean {
+    val minSdk = gestureActionMinSdk(action) ?: return true
+    return Build.VERSION.SDK_INT >= minSdk
+}
+
+@Composable
+fun gestureActionRequirementHint(action: GestureAction): String? = when (action.type) {
+    GestureActionType.POINTER_REALTIME_GESTURE -> stringResource(R.string.gesture_action_require_min_sdk_36)
     else -> null
 }
 

@@ -78,8 +78,8 @@ internal fun ActionPickerActionsTab(
             if (includePointerGestureActions) {
                 add(GestureAction.PointerGestureRecorder)
                 add(GestureAction.PointerRealtimeGesture)
+                add(GestureAction.OpenFloatingPointerRadialMenu)
             }
-            add(GestureAction.OpenFloatingPointerRadialMenu)
             add(GestureAction.Back)
             add(GestureAction.Home)
             add(GestureAction.Recents)
@@ -170,23 +170,30 @@ private fun ActionPickerActionRow(
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val enabled = isGestureActionEnabledOnDevice(action)
     val description = gestureActionDescription(action)
-    val permissionHint = gestureActionPermissionHint(action, context)
+    val ancillaryHint = listOfNotNull(
+        gestureActionPermissionHint(action, context),
+        gestureActionRequirementHint(action),
+    ).joinToString("\n").takeIf { it.isNotBlank() }
     Md3PickerListRow(
         segmentIndex = segmentIndex,
         segmentCount = segmentCount,
         title = gestureActionLabel(action),
         subtitle = null,
         selected = selected,
-        onClick = onClick,
+        enabled = enabled,
+        onClick = {
+            if (enabled) onClick()
+        },
         leadingContent = {
             Md3PickerIconLeading(
                 icon = gestureActionIcon(action),
                 selected = selected,
             )
         },
-        supportingContent = if (description != null || permissionHint != null) {
-            { Md3PickerSupportingHints(description, permissionHint) }
+        supportingContent = if (description != null || ancillaryHint != null) {
+            { Md3PickerSupportingHints(description, ancillaryHint) }
         } else {
             null
         },

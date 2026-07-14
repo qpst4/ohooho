@@ -16,6 +16,7 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
 import com.slideindex.app.message.MessageReminderOrchestrator
 import com.slideindex.app.overlay.EdgeOverlayHost
+import com.slideindex.app.overlay.FloatingPointerOverlayWindow
 import com.slideindex.app.overlay.LayoutPreviewContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
     private lateinit var otpCoordinator: SlideIndexAccessibilityOtpCoordinator
     private lateinit var foregroundTracker: SlideIndexAccessibilityForegroundTracker
     private lateinit var watchdog: SlideIndexAccessibilityWatchdog
+    private var lastOrientation = Configuration.ORIENTATION_UNDEFINED
 
     @SuppressLint("SwitchIntDef") // Only handle the event types this service cares about
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -161,11 +163,20 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         edgeOverlayHost = EdgeOverlayHost(this, serviceScope, deps).also { it.start() }
         watchdog.registerScreenLockReceiver()
         otpCoordinator.registerReceiver()
+        lastOrientation = resources.configuration.orientation
         Log.i(TAG, "onServiceConnected: edge overlays attached")
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        val newOrientation = newConfig.orientation
+        if (lastOrientation != Configuration.ORIENTATION_UNDEFINED &&
+            newOrientation != lastOrientation &&
+            FloatingPointerOverlayWindow.isShowing
+        ) {
+            FloatingPointerOverlayWindow.dismiss()
+        }
+        lastOrientation = newOrientation
         messageReminderOrchestrator.onConfigurationChanged(this, newConfig)
         edgeOverlayHost?.refreshTriggerVisibility()
     }

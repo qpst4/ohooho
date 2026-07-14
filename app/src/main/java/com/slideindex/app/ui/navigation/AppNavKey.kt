@@ -57,6 +57,8 @@ sealed interface AppNavKey : NavKey {
     @Serializable data object FloatingPointerPointer : AppNavKey
     @Serializable data object FloatingPointerJoystick : AppNavKey
     @Serializable data object FloatingPointerRadialMenu : AppNavKey
+    @Serializable data object FloatingPointerEdgeActions : AppNavKey
+    @Serializable data class FloatingPointerEdgeSideSettings(val side: String) : AppNavKey
 }
 
 @Serializable

@@ -9,6 +9,7 @@ data class TriggerHandle(
     val shortSwipeDistanceDp: Float = DEFAULT_SHORT_SWIPE_DISTANCE_DP,
     val longSwipeDistanceDp: Float = DEFAULT_LONG_SWIPE_DISTANCE_DP,
     val design: TriggerHandleDesign = TriggerHandleDesign(),
+    val rectanglePresetState: TriggerRectanglePresetState = TriggerRectanglePresetState.Empty,
 ) {
     val bottomFraction: Float get() = topFraction + heightFraction
 
@@ -36,6 +37,7 @@ object TriggerHandleCodec {
         handle.shortSwipeDistanceDp.toString(),
         handle.longSwipeDistanceDp.toString(),
         TriggerHandleDesignCodec.encode(handle.design),
+        TriggerRectanglePresetStateCodec.encode(handle.rectanglePresetState),
     ).joinToString(SEP)
 
     fun decode(
@@ -44,7 +46,7 @@ object TriggerHandleCodec {
         defaultLongSwipeDistanceDp: Float = TriggerHandle.DEFAULT_LONG_SWIPE_DISTANCE_DP,
     ): TriggerHandle? {
         val parts = raw.split(SEP)
-        if (parts.size !in 4..8) return null
+        if (parts.size !in 4..9) return null
         val top = parts[1].toFloatOrNull() ?: return null
         val height = parts[2].toFloatOrNull() ?: return null
         val short = parts.getOrNull(5)?.toFloatOrNull() ?: defaultShortSwipeDistanceDp
@@ -58,7 +60,8 @@ object TriggerHandleCodec {
             shortSwipeDistanceDp = short,
             longSwipeDistanceDp = long.coerceAtLeast(short + 16f),
             design = TriggerHandleDesignCodec.decode(parts.getOrNull(7)),
-        )
+            rectanglePresetState = TriggerRectanglePresetStateCodec.decode(parts.getOrNull(8)),
+        ).let(TriggerRectanglePresetLogic::ensureMigrated)
     }
 
     fun encodeAll(handles: List<TriggerHandle>): Set<String> = handles.map { encode(it) }.toSet()

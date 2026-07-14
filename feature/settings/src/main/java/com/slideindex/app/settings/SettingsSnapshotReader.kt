@@ -116,6 +116,8 @@ internal object SettingsSnapshotReader {
             floatingPointerTrailDurationMs = prefs[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_DURATION] ?: 150,
             floatingPointerTrailColorArgb = prefs[SettingsPreferenceKeys.FLOATING_POINTER_TRAIL_COLOR] ?: 0x66FF5252,
             floatingPointerHideWhenJoystickReleased = prefs[SettingsPreferenceKeys.FLOATING_POINTER_HIDE_ON_RELEASE] ?: false,
+            floatingPointerClickDistanceThresholdDp =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_CLICK_DISTANCE_THRESHOLD_DP] ?: 6f,
             floatingPointerJoystickInnerColorArgb = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_INNER_COLOR] ?: 0x80FFFFFF.toInt(),
             floatingPointerJoystickOuterColorArgb = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_OUTER_COLOR] ?: 0x80C0C0C0.toInt(),
             floatingPointerJoystickGradientRadiusFraction = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_GRADIENT] ?: 1f,
@@ -136,6 +138,22 @@ internal object SettingsSnapshotReader {
             floatingPointerRadialIconColorArgb = prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_ICON_COLOR] ?: 0xFFFFFFFF.toInt(),
             floatingPointerRadialSlotActions = FloatingPointerRadialMenuCodec.decode(
                 prefs[SettingsPreferenceKeys.FLOATING_POINTER_RADIAL_SLOTS] ?: emptySet(),
+            ),
+            floatingPointerEdgeThresholdDp = prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_THRESHOLD_DP] ?: 30f,
+            floatingPointerEdgePreviewSensitivity =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SENSITIVITY] ?: 3,
+            floatingPointerEdgePreviewGlowSize =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_GLOW_SIZE] ?: 4,
+            floatingPointerEdgePreviewShowIcon =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_PREVIEW_SHOW_ICON] ?: true,
+            floatingPointerEdgeVisualSizeDp =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_SIZE_DP] ?: 0f,
+            floatingPointerEdgeVisualOpacity =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_OPACITY] ?: 75,
+            floatingPointerEdgeVisualColorArgb =
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_VISUAL_COLOR] ?: 0xFFFD746C.toInt(),
+            floatingPointerEdgeActionsConfig = FloatingPointerEdgeActionsCodec.decode(
+                prefs[SettingsPreferenceKeys.FLOATING_POINTER_EDGE_ACTIONS] ?: emptySet(),
             ),
             otpCopyToClipboard = prefs[SettingsPreferenceKeys.OTP_COPY_TO_CLIPBOARD] ?: false,
             otpKeywordsRegex = resolveOtpKeywordsRegex(prefs[SettingsPreferenceKeys.OTP_KEYWORDS_REGEX]),

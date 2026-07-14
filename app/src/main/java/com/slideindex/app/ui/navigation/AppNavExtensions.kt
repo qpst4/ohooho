@@ -2,6 +2,7 @@ package com.slideindex.app.ui.navigation
 
 import androidx.navigation3.runtime.NavBackStack
 import com.slideindex.app.overlay.PanelSide
+import com.slideindex.app.settings.FloatingPointerEdgeSide
 
 fun PanelSide.toNavSide(): String = when (this) {
     PanelSide.LEFT -> "LEFT"
@@ -13,6 +14,11 @@ fun String.toPanelSide(): PanelSide = when (this) {
     "RIGHT" -> PanelSide.RIGHT
     else -> PanelSide.LEFT
 }
+
+fun FloatingPointerEdgeSide.toNavSide(): String = name
+
+fun String.toFloatingPointerEdgeSide(): FloatingPointerEdgeSide =
+    runCatching { FloatingPointerEdgeSide.valueOf(this) }.getOrDefault(FloatingPointerEdgeSide.TOP)
 
 fun AppNavKey.isNotificationBranch(): Boolean = when (this) {
     AppNavKey.NotificationHub,

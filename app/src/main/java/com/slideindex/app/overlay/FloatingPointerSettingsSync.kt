@@ -27,6 +27,12 @@ internal class FloatingPointerSettingsSync(
 
     fun onSettingsUpdated(settings: AppSettings) {
         window.session?.applyLayoutSettings(settings)
+        if (settings.floatingPointerHideWhenJoystickReleased &&
+            window.session?.joystickActive?.value != true &&
+            window.session?.gestureCaptureActive != true
+        ) {
+            window.session?.pointerVisible?.value = false
+        }
         if (window.session?.joystickActive?.value == true || window.session?.radialMenuActive?.value == true) {
             resetIdleTimer()
             return

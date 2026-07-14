@@ -5,6 +5,7 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureTriggerMode
 import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.gesture.TriggerDesignPreset
+import com.slideindex.app.gesture.TriggerRectanglePresetLogic
 import com.slideindex.app.gesture.TriggerHandleDesign
 import com.slideindex.app.overlay.PanelSide
 import com.slideindex.app.gesture.GestureAngleConfig
@@ -17,6 +18,8 @@ import com.slideindex.app.ui.feedback.UserMessageBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @HiltViewModel
 class HomeDetailSettingsViewModel @Inject constructor(
@@ -24,6 +27,8 @@ class HomeDetailSettingsViewModel @Inject constructor(
     userMessageBus: UserMessageBus,
     @ApplicationContext context: Context,
 ) : SettingsViewModel(settingsRepository, userMessageBus, context) {
+    private val triggerDesignWriteMutex = Mutex()
+
     fun setIndexHeightFraction(value: Float) = launchSettingsWrite {
         settingsRepository.setIndexHeightFraction(value)
     }
@@ -133,13 +138,17 @@ class HomeDetailSettingsViewModel @Inject constructor(
     }
 
     fun setTriggerHandleDesign(side: PanelSide, handleId: String, design: TriggerHandleDesign) =
-        launchSettingsWrite {
-            settingsRepository.setTriggerHandleDesign(side, handleId, design)
+        launchRepositoryWrite {
+            triggerDesignWriteMutex.withLock {
+                settingsRepository.setTriggerHandleDesign(side, handleId, design)
+            }
         }
 
     fun applyTriggerDesignPreset(side: PanelSide, handleId: String, preset: TriggerDesignPreset) =
-        launchSettingsWrite {
-            settingsRepository.applyTriggerDesignPreset(side, handleId, preset)
+        launchRepositoryWrite {
+            triggerDesignWriteMutex.withLock {
+                settingsRepository.applyTriggerDesignPreset(side, handleId, preset)
+            }
         }
 
     fun setGestureAngleConfig(config: GestureAngleConfig) = launchSettingsWrite {

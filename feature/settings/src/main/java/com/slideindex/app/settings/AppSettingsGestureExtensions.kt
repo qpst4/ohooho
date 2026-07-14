@@ -332,6 +332,38 @@ fun AppSettings.triggerCollectionEntries(): List<TriggerCollectionEntry> {
     }
 }
 
+fun AppSettings.withReplacedTriggerHandle(
+    side: PanelSide,
+    handleId: String,
+    handle: TriggerHandle,
+): AppSettings {
+    var matched = false
+    val updated = allTriggerHandles(side).map { existing ->
+        if (!matched && existing.id == handleId) {
+            matched = true
+            handle
+        } else {
+            existing
+        }
+    }
+    return withTriggerHandles(side, updated)
+}
+
+fun AppSettings.withSyncedTriggerHandle(
+    sourceSide: PanelSide,
+    handleId: String,
+    handle: TriggerHandle,
+): AppSettings {
+    var updated = withReplacedTriggerHandle(sourceSide, handleId, handle)
+    if (handle.alignOppositeSide != false) {
+        val otherSide = sourceSide.opposite()
+        if (updated.triggerHandle(otherSide, handleId) != null) {
+            updated = updated.withReplacedTriggerHandle(otherSide, handleId, handle)
+        }
+    }
+    return updated
+}
+
 fun AppSettings.withUpdatedTriggerHandleDesign(
     side: PanelSide,
     handleId: String,

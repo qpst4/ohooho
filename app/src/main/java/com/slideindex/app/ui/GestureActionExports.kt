@@ -16,6 +16,10 @@ fun gestureActionDescription(action: GestureAction): String? =
 fun gestureActionPermissionHint(action: GestureAction, context: Context): String? =
     com.slideindex.app.ui.gesturepicker.gestureActionPermissionHint(action, context)
 
+@Composable
+fun gestureActionRequirementHint(action: GestureAction): String? =
+    com.slideindex.app.ui.gesturepicker.gestureActionRequirementHint(action)
+
 fun filterGestureActions(
     context: Context,
     actions: List<GestureAction>,

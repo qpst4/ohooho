@@ -50,12 +50,37 @@ data class TriggerHandleDesign(
                 kind == TriggerDesignKind.CONFIGURABLE_RECTANGLE &&
                 (sizeDp > 0f || haloSizeDp > 0f || borderSizeDp > 0f))
 
+    /** 可配置矩形：触钮本体（填充条/块）已启用。 */
+    val showsRectangleBodySettings: Boolean
+        get() = sizeDp > 0f
+
+    /** 可配置矩形：边框设置（绘制在触钮本体路径上）。 */
+    val showsRectangleBorderSettings: Boolean
+        get() = sizeDp > 0f
+
+    /** 可配置矩形：边缘光晕已启用。 */
+    val showsRectangleHaloSettings: Boolean
+        get() = haloSizeDp > 0f
+
     companion object {
         const val DEFAULT_BACKGROUND_COLOR = 0xA6FD746C.toInt()
         const val DEFAULT_BORDER_COLOR = 0xA6FD746C.toInt()
         const val DEFAULT_HALO_COLOR = 0xCCFD746C.toInt()
     }
 }
+
+fun TriggerDesignPresets.detectPreset(design: TriggerHandleDesign): TriggerDesignPreset? {
+    if (design.kind != TriggerDesignKind.CONFIGURABLE_RECTANGLE) return null
+    return TriggerDesignPreset.entries.firstOrNull { preset ->
+        design.matchesPresetStructure(TriggerDesignPresets.apply(preset))
+    }
+}
+
+private fun TriggerHandleDesign.matchesPresetStructure(base: TriggerHandleDesign): Boolean =
+    sizeDp == base.sizeDp &&
+        haloSizeDp == base.haloSizeDp &&
+        cornerRadiusDp == base.cornerRadiusDp &&
+        cornerMode == base.cornerMode
 
 object TriggerDesignPresets {
     fun apply(preset: TriggerDesignPreset): TriggerHandleDesign = when (preset) {

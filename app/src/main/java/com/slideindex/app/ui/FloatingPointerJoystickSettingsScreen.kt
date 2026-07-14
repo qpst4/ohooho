@@ -6,6 +6,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
@@ -40,11 +42,13 @@ fun FloatingPointerJoystickSettingsScreen(
     onHideOnQuickSwipeChange: (Boolean) -> Unit,
     onHideWhenIdleChange: (Boolean) -> Unit,
     onIdleDelayChange: (Int) -> Unit,
+    onClickDistanceThresholdChange: (Float) -> Unit,
     onResetVisualDefaults: () -> Unit,
     onResetBehaviorDefaults: () -> Unit,
 ) {
     var colorTarget by remember { mutableStateOf<JoystickColorTarget?>(null) }
     var pickerInitialColor by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current.density
 
     if (colorTarget != null) {
         AnimationStyleColorPickerDialog(
@@ -126,6 +130,25 @@ fun FloatingPointerJoystickSettingsScreen(
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_joystick_behavior_section))
         SettingsCard {
+            SettingsSliderRow(
+                title = stringResource(R.string.floating_pointer_click_distance_threshold),
+                value = settings.floatingPointerClickDistanceThresholdDp,
+                valueRange = 1f..30f,
+                steps = 28,
+                enabled = true,
+                label = stringResource(
+                    R.string.floating_pointer_size_px_dp_value,
+                    (settings.floatingPointerClickDistanceThresholdDp * density).roundToInt(),
+                    settings.floatingPointerClickDistanceThresholdDp,
+                ),
+                onValueChange = onClickDistanceThresholdChange,
+            )
+            Text(
+                text = stringResource(R.string.floating_pointer_click_distance_threshold_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            )
             SettingSwitchRow(
                 title = stringResource(R.string.floating_pointer_hide_outside_click),
                 subtitle = stringResource(R.string.floating_pointer_hide_outside_click_desc),

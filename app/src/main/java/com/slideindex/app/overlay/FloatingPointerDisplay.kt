@@ -96,6 +96,15 @@ internal fun FloatingPointerDisplay(
             ),
             label = "radialMenuProgress",
         )
+        val edgePreviewTarget = if (session.edgePreviewVisible.value) 1f else 0f
+        val edgePreviewAlpha by animateFloatAsState(
+            targetValue = edgePreviewTarget,
+            animationSpec = tween(
+                durationMillis = FLOATING_POINTER_EDGE_PREVIEW_ANIMATION_MS.toInt(),
+                easing = if (edgePreviewTarget > 0f) FastOutSlowInEasing else LinearOutSlowInEasing,
+            ),
+            label = "edgePreviewAlpha",
+        )
         val suppressPointerForGestureAftermath =
             gestureRecordingActive ||
                 gestureReplayActive ||
@@ -286,6 +295,15 @@ internal fun FloatingPointerDisplay(
             trailPointCount
             Canvas(Modifier.fillMaxSize()) {
                 val now = session.effectiveTrailNowMs(System.currentTimeMillis())
+                if (edgePreviewAlpha > 0.001f && session.edgeActionSegments.isNotEmpty()) {
+                    FloatingPointerEdgeActionsRenderer.draw(
+                        scope = this,
+                        settings = settings,
+                        segments = session.edgeActionSegments,
+                        previewAlpha = edgePreviewAlpha,
+                        density = density,
+                    )
+                }
                 if (session.trailPoints.size >= 2 &&
                     !gestureRecordingActive &&
                     !gestureTrailRetreatActive &&

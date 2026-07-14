@@ -155,6 +155,9 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatingPointerTrailColor(argb: Int) = overlay.setFloatingPointerTrailColor(argb)
     suspend fun setFloatingPointerHideWhenJoystickReleased(enabled: Boolean) =
         overlay.setFloatingPointerHideWhenJoystickReleased(enabled)
+
+    suspend fun setFloatingPointerClickDistanceThresholdDp(value: Float) =
+        overlay.setFloatingPointerClickDistanceThresholdDp(value)
     suspend fun setFloatingPointerJoystickInnerColor(argb: Int) = overlay.setFloatingPointerJoystickInnerColor(argb)
     suspend fun setFloatingPointerJoystickOuterColor(argb: Int) = overlay.setFloatingPointerJoystickOuterColor(argb)
     suspend fun setFloatingPointerJoystickGradientRadiusFraction(value: Float) =
@@ -178,6 +181,27 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatingPointerRadialSlotAction(index: Int, action: GestureAction) =
         overlay.setFloatingPointerRadialSlotAction(index, action)
     suspend fun resetFloatingPointerRadialDesignDefaults() = overlay.resetFloatingPointerRadialDesignDefaults()
+    suspend fun setFloatingPointerEdgeThresholdDp(value: Float) = overlay.setFloatingPointerEdgeThresholdDp(value)
+    suspend fun setFloatingPointerEdgePreviewSensitivity(value: Int) =
+        overlay.setFloatingPointerEdgePreviewSensitivity(value)
+    suspend fun setFloatingPointerEdgePreviewGlowSize(value: Int) = overlay.setFloatingPointerEdgePreviewGlowSize(value)
+    suspend fun setFloatingPointerEdgePreviewShowIcon(enabled: Boolean) =
+        overlay.setFloatingPointerEdgePreviewShowIcon(enabled)
+    suspend fun setFloatingPointerEdgeVisualSizeDp(value: Float) = overlay.setFloatingPointerEdgeVisualSizeDp(value)
+    suspend fun setFloatingPointerEdgeVisualOpacity(value: Int) = overlay.setFloatingPointerEdgeVisualOpacity(value)
+    suspend fun setFloatingPointerEdgeVisualColor(argb: Int) = overlay.setFloatingPointerEdgeVisualColor(argb)
+    suspend fun setFloatingPointerEdgeBarEnabled(side: FloatingPointerEdgeSide, enabled: Boolean) =
+        overlay.setFloatingPointerEdgeBarEnabled(side, enabled)
+    suspend fun setFloatingPointerEdgeBarSlotAction(
+        side: FloatingPointerEdgeSide,
+        slotIndex: Int,
+        action: GestureAction,
+    ) = overlay.setFloatingPointerEdgeBarSlotAction(side, slotIndex, action)
+    suspend fun addFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide) =
+        overlay.addFloatingPointerEdgeBarSlot(side)
+    suspend fun removeFloatingPointerEdgeBarSlot(side: FloatingPointerEdgeSide, slotIndex: Int) =
+        overlay.removeFloatingPointerEdgeBarSlot(side, slotIndex)
+    suspend fun resetFloatingPointerEdgeDefaults() = overlay.resetFloatingPointerEdgeDefaults()
     suspend fun resetFloatingPointerVisualDefaults() = overlay.resetFloatingPointerVisualDefaults()
     suspend fun resetFloatingPointerJoystickVisualDefaults() = overlay.resetFloatingPointerJoystickVisualDefaults()
     suspend fun resetFloatingPointerJoystickBehaviorDefaults() = overlay.resetFloatingPointerJoystickBehaviorDefaults()

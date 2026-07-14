@@ -1,6 +1,7 @@
 ﻿package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.TouchApp
@@ -24,6 +25,7 @@ fun FloatingPointerSettingsScreen(
     onOpenPointerSettings: () -> Unit,
     onOpenJoystickSettings: () -> Unit,
     onOpenRadialMenuSettings: () -> Unit,
+    onOpenEdgeActionsSettings: () -> Unit,
     onJoystickAreaZoomChange: (Float) -> Unit,
     onJoystickAreaWidthChange: (Float) -> Unit,
     onJoystickAreaHeightChange: (Float) -> Unit,
@@ -126,6 +128,12 @@ fun FloatingPointerSettingsScreen(
                 title = stringResource(R.string.floating_pointer_radial_settings_title),
                 subtitle = gestureActionLabel(settings.floatingPointerJoystickLongPressAction),
                 onClick = onOpenRadialMenuSettings,
+            )
+            SettingNavigationRow(
+                icon = { label -> Icon(Icons.Default.KeyboardArrowUp, contentDescription = label) },
+                title = stringResource(R.string.floating_pointer_edge_settings_title),
+                subtitle = stringResource(R.string.floating_pointer_edge_settings_summary),
+                onClick = onOpenEdgeActionsSettings,
             )
         }
 

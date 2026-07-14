@@ -133,6 +133,17 @@ object FloatingPointerOverlayWindow {
         mainHandler.postDelayed(runnable, RADIAL_ACTION_INJECT_DELAY_MS)
     }
 
+    internal fun executeEdgeAction(action: GestureAction) {
+        val settings = settingsState?.value ?: return
+        val pointerSession = session ?: return
+        executePointerAction(
+            action = action,
+            settings = settings,
+            anchorRawX = pointerSession.pointerX.floatValue,
+            anchorRawY = pointerSession.pointerY.floatValue,
+        )
+    }
+
     internal fun executeRadialSlotAction(slotIndex: Int, fingerStillDown: Boolean) {
         val settings = settingsState?.value ?: return
         val slots = settings.floatingPointerRadialSlotActions
