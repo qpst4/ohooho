@@ -317,13 +317,8 @@ internal class FloatingPointerSession(
     /** True until the first touch places joystick and pointer near the finger. */
     var awaitingPlacement = false
 
-    /** Joystick center when the gesture started; the joystick area is anchored here. */
-    private var gestureCenterX = 0f
-    private var gestureCenterY = 0f
-    private var gestureAreaLeft = 0f
-    private var gestureAreaTop = 0f
-    private var gestureAreaWidth = 0f
-    private var gestureAreaHeight = 0f
+    private var pointerTravelWidth = 0f
+    private var pointerTravelHeight = 0f
     private var dragFingerAnchorX = 0f
     private var dragFingerAnchorY = 0f
     private var dragPointerAnchorX = 0f
@@ -462,31 +457,44 @@ internal class FloatingPointerSession(
         val center = clampJoystickCenter(rawX, rawY, settings)
         joystickCenterX.floatValue = center.x
         joystickCenterY.floatValue = center.y
-        gestureCenterX = center.x
-        gestureCenterY = center.y
-        establishGestureArea(settings)
-        val pointer = FloatingPointerBounds.pointerForFingerInArea(
-            fingerX = rawX,
-            fingerY = rawY,
-            areaLeft = gestureAreaLeft,
-            areaTop = gestureAreaTop,
-            areaWidth = gestureAreaWidth,
-            areaHeight = gestureAreaHeight,
-            screenWidth = screenWidth,
-            screenHeight = screenHeight,
-        )
-        pointerX.floatValue = pointer.x
-        pointerY.floatValue = pointer.y
-        rawPointerX.floatValue = pointer.x
-        rawPointerY.floatValue = pointer.y
+        establishPointerTravel(settings)
         awaitingPlacement = false
         armDrag(rawX, rawY)
         updateEdgeActions(settings)
     }
 
+    /**
+     * Arms edge-continued control without lifting the finger. Joystick stays under the finger;
+     * pointer snaps to the nearest screen edge at the trigger height/position.
+     */
+    fun prepareContinuedEdgeGesture(rawX: Float, rawY: Float, settings: AppSettings) {
+        establishPointerTravel(settings)
+        joystickCenterX.floatValue = rawX
+        joystickCenterY.floatValue = rawY
+        applyEdgePointerStart(rawX, rawY)
+        awaitingPlacement = false
+        armDrag(rawX, rawY)
+        updateEdgeActions(settings)
+    }
+
+    private fun applyEdgePointerStart(rawX: Float, rawY: Float) {
+        val edgeThresholdPx = 48f * density
+        val start = FloatingPointerBounds.pointerStartForEdgeTrigger(
+            rawX = rawX,
+            rawY = rawY,
+            screenWidth = screenWidth,
+            screenHeight = screenHeight,
+            edgeThresholdPx = edgeThresholdPx,
+        )
+        pointerX.floatValue = start.x
+        pointerY.floatValue = start.y
+        rawPointerX.floatValue = start.x
+        rawPointerY.floatValue = start.y
+    }
+
     /** Arms a new drag without moving the pointer or re-anchoring the joystick area. */
     fun beginGesture(rawX: Float, rawY: Float, settings: AppSettings) {
-        if (awaitingPlacement || !hasEstablishedGestureArea()) {
+        if (awaitingPlacement || !hasEstablishedPointerTravel()) {
             placeAtTouch(rawX, rawY, settings)
         } else {
             armDrag(rawX, rawY)
@@ -510,28 +518,26 @@ internal class FloatingPointerSession(
         armDrag(fingerX, fingerY)
     }
 
-    fun hasEstablishedGestureArea(): Boolean =
-        gestureAreaWidth > 0f && gestureAreaHeight > 0f
+    fun hasEstablishedPointerTravel(): Boolean =
+        pointerTravelWidth > 0f && pointerTravelHeight > 0f
 
-    private fun establishGestureArea(settings: AppSettings) {
-        val (areaWidth, areaHeight) = FloatingPointerBounds.effectiveJoystickAreaSize(
+    private fun establishPointerTravel(settings: AppSettings) {
+        val (travelWidth, travelHeight) = FloatingPointerBounds.effectivePointerTravel(
             settings = settings,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
         )
-        gestureAreaWidth = areaWidth
-        gestureAreaHeight = areaHeight
-        gestureAreaLeft = gestureCenterX - areaWidth / 2f
-        gestureAreaTop = gestureCenterY - areaHeight / 2f
+        pointerTravelWidth = travelWidth
+        pointerTravelHeight = travelHeight
     }
 
-    fun refreshGestureArea(settings: AppSettings) {
-        if (!hasEstablishedGestureArea()) return
-        establishGestureArea(settings)
+    fun refreshPointerTravel(settings: AppSettings) {
+        if (!hasEstablishedPointerTravel()) return
+        establishPointerTravel(settings)
     }
 
     private fun clampJoystickCenter(rawX: Float, rawY: Float, settings: AppSettings): Offset {
-        val (areaWidth, areaHeight) = FloatingPointerBounds.effectiveJoystickAreaSize(
+        val (travelWidth, travelHeight) = FloatingPointerBounds.effectivePointerTravel(
             settings = settings,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
@@ -540,8 +546,8 @@ internal class FloatingPointerSession(
             rawX = rawX,
             rawY = rawY,
             joystickRadiusPx = joystickRadiusPx(),
-            areaWidth = areaWidth,
-            areaHeight = areaHeight,
+            travelWidth = travelWidth,
+            travelHeight = travelHeight,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
             density = density,
@@ -556,7 +562,7 @@ internal class FloatingPointerSession(
         )
         pointerX.floatValue = next.x
         pointerY.floatValue = next.y
-        refreshGestureArea(settings)
+        refreshPointerTravel(settings)
     }
 
     fun clearTrail() {
@@ -626,9 +632,9 @@ internal class FloatingPointerSession(
 
     fun applyPointerFromTouch(rawX: Float, rawY: Float, settings: AppSettings) {
         if (gestureReplayActive.value) return
-        if (gestureAreaWidth <= 0f || gestureAreaHeight <= 0f) return
-        val normDeltaX = if (gestureAreaWidth > 0f) (rawX - dragFingerAnchorX) / gestureAreaWidth else 0f
-        val normDeltaY = if (gestureAreaHeight > 0f) (rawY - dragFingerAnchorY) / gestureAreaHeight else 0f
+        if (pointerTravelWidth <= 0f || pointerTravelHeight <= 0f) return
+        val normDeltaX = if (pointerTravelWidth > 0f) (rawX - dragFingerAnchorX) / pointerTravelWidth else 0f
+        val normDeltaY = if (pointerTravelHeight > 0f) (rawY - dragFingerAnchorY) / pointerTravelHeight else 0f
         val unclamped = Offset(
             x = dragPointerAnchorX + normDeltaX * screenWidth,
             y = dragPointerAnchorY + normDeltaY * screenHeight,

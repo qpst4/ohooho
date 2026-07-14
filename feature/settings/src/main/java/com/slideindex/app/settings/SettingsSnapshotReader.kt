@@ -95,10 +95,7 @@ internal object SettingsSnapshotReader {
             widgetPanelHeightFraction = prefs[SettingsPreferenceKeys.WIDGET_PANEL_HEIGHT] ?: 0.55f,
             widgetPanelTopFraction = prefs[SettingsPreferenceKeys.WIDGET_PANEL_TOP] ?: 0.15f,
             widgetPanelBlurEnabled = prefs[SettingsPreferenceKeys.WIDGET_PANEL_BLUR] ?: true,
-            floatingPointerJoystickAreaWidthPx = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_WIDTH] ?: 703f,
-            floatingPointerJoystickAreaHeightPx = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_HEIGHT] ?: 711f,
-            floatingPointerJoystickAreaZoomFraction = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_ZOOM] ?: 0.8f,
-            floatingPointerMatchJoystickToScreenAspect = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] ?: false,
+            floatingPointerSensitivityFraction = readFloatingPointerSensitivityFraction(prefs),
             floatingPointerJoystickDiameterPx = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_SIZE] ?: 275f,
             floatingPointerPointerDiameterPx = prefs[SettingsPreferenceKeys.FLOATING_POINTER_POINTER_SIZE] ?: 100f,
             floatingPointerDesignId = prefs[SettingsPreferenceKeys.FLOATING_POINTER_DESIGN_ID] ?: FloatingPointerDesignIds.RING,
@@ -192,6 +189,16 @@ internal object SettingsSnapshotReader {
             blacklistedPackages = prefs[SettingsPreferenceKeys.SHAKE_BLACKLIST_PACKAGES] ?: emptySet(),
         )
 
+    private fun readFloatingPointerSensitivityFraction(prefs: Preferences): Float {
+        prefs[SettingsPreferenceKeys.FLOATING_POINTER_SENSITIVITY]?.let { stored ->
+            return stored.coerceIn(0.2f, 0.75f)
+        }
+        val legacyWidth = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_WIDTH] ?: 703f
+        val legacyZoom = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_ZOOM] ?: 0.8f
+        val legacyTravelPx = legacyWidth.coerceIn(120f, 800f) * legacyZoom.coerceIn(0.1f, 1f)
+        return (legacyTravelPx / LEGACY_POINTER_TRAVEL_REFERENCE_WIDTH_PX).coerceIn(0.2f, 0.75f)
+    }
+
     private fun readFloatingPointerJoystickLongPressAction(prefs: Preferences): com.slideindex.app.gesture.GestureAction {
         val encoded = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_LONG_PRESS_ACTION]
         if (encoded.isNullOrBlank()) return com.slideindex.app.gesture.GestureAction.OpenFloatingPointerRadialMenu
@@ -280,4 +287,6 @@ internal object SettingsSnapshotReader {
         if (left.isNotEmpty()) return left
         return QuickLauncherItemCodec.decodeAll(prefs[SettingsPreferenceKeys.QUICK_LAUNCHER_RIGHT] ?: emptySet())
     }
+
+    private const val LEGACY_POINTER_TRAVEL_REFERENCE_WIDTH_PX = 1080f
 }

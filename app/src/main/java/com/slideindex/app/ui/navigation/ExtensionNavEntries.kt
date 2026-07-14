@@ -121,10 +121,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onOpenJoystickSettings = { ctx.navigate(AppNavKey.FloatingPointerJoystick) },
             onOpenRadialMenuSettings = { ctx.navigate(AppNavKey.FloatingPointerRadialMenu) },
             onOpenEdgeActionsSettings = { ctx.navigate(AppNavKey.FloatingPointerEdgeActions) },
-            onJoystickAreaZoomChange = viewModel::setFloatingPointerJoystickAreaZoomFraction,
-            onJoystickAreaWidthChange = viewModel::setFloatingPointerJoystickAreaWidthPx,
-            onJoystickAreaHeightChange = viewModel::setFloatingPointerJoystickAreaHeightPx,
-            onMatchJoystickToScreenAspectChange = viewModel::setFloatingPointerMatchJoystickToScreenAspect,
+            onPointerSensitivityChange = viewModel::setFloatingPointerSensitivityFraction,
         )
     }
 

@@ -135,11 +135,8 @@ class SettingsRepository @Inject constructor(
         overlay.setFreeWindowLayout(widthFraction, heightFraction, leftFraction, topFraction)
     suspend fun setAppLaunchPolicyId(id: Int) = overlay.setAppLaunchPolicyId(id)
     suspend fun setLongPressLaunchDurationMs(value: Int) = overlay.setLongPressLaunchDurationMs(value)
-    suspend fun setFloatingPointerJoystickAreaWidthPx(value: Float) = overlay.setFloatingPointerJoystickAreaWidthPx(value)
-    suspend fun setFloatingPointerJoystickAreaHeightPx(value: Float) = overlay.setFloatingPointerJoystickAreaHeightPx(value)
-    suspend fun setFloatingPointerJoystickAreaZoomFraction(value: Float) = overlay.setFloatingPointerJoystickAreaZoomFraction(value)
-    suspend fun setFloatingPointerMatchJoystickToScreenAspect(enabled: Boolean) =
-        overlay.setFloatingPointerMatchJoystickToScreenAspect(enabled)
+    suspend fun setFloatingPointerSensitivityFraction(value: Float) =
+        overlay.setFloatingPointerSensitivityFraction(value)
     suspend fun setFloatingPointerJoystickDiameterPx(value: Float) = overlay.setFloatingPointerJoystickDiameterPx(value)
     suspend fun setFloatingPointerPointerDiameterPx(value: Float) = overlay.setFloatingPointerPointerDiameterPx(value)
     suspend fun setFloatingPointerDesignId(designId: String) = overlay.setFloatingPointerDesignId(designId)

@@ -1,13 +1,9 @@
 ﻿package com.slideindex.app.overlay
 
-import android.util.DisplayMetrics
-import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import com.slideindex.app.settings.AppSettings
-import kotlin.math.hypot
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 
 internal object FloatingPointerBounds {
@@ -15,81 +11,103 @@ internal object FloatingPointerBounds {
     const val EDGE_CURVE_POWER_X = 1.0f
     const val EDGE_CURVE_POWER_Y = 1.0f
 
-    fun pointerForFingerInArea(
-        fingerX: Float,
-        fingerY: Float,
-        areaLeft: Float,
-        areaTop: Float,
-        areaWidth: Float,
-        areaHeight: Float,
+    const val SENSITIVITY_MIN = 0.2f
+    const val SENSITIVITY_MAX = 0.75f
+    const val DEFAULT_SENSITIVITY_FRACTION = 0.52f
+  /** Reference width used when migrating legacy px-based area settings. */
+    private const val MIGRATION_REFERENCE_SCREEN_WIDTH = 1080f
+
+    fun sensitivityFraction(settings: AppSettings): Float =
+        settings.floatingPointerSensitivityFraction.coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
+
+    /**
+     * Finger travel along each axis needed to move the pointer across the full screen.
+     * Higher sensitivity = shorter travel = faster pointer.
+     */
+    fun effectivePointerTravel(
+        settings: AppSettings,
         screenWidth: Float,
         screenHeight: Float,
-        curvePowerX: Float = EDGE_CURVE_POWER_X,
-        curvePowerY: Float = EDGE_CURVE_POWER_Y,
-    ): Offset {
-        val normX = if (areaWidth > 0f) {
-            ((fingerX - areaLeft) / areaWidth).coerceIn(0f, 1f)
-        } else {
-            0.5f
-        }
-        val normY = if (areaHeight > 0f) {
-            ((fingerY - areaTop) / areaHeight).coerceIn(0f, 1f)
-        } else {
-            0.5f
-        }
-        return Offset(
-            x = mapTravel(0f, normX, 0f, screenWidth, curvePowerX),
-            y = mapTravel(0f, normY, 0f, screenHeight, curvePowerY),
-        )
+    ): Pair<Float, Float> {
+        val fraction = sensitivityFraction(settings)
+        return (screenWidth * fraction) to (screenHeight * fraction)
+    }
+
+    /** Migrates legacy width/zoom area prefs to the unified sensitivity fraction. */
+    fun migrateLegacySensitivityFraction(
+        legacyWidthPx: Float,
+        legacyZoomFraction: Float,
+    ): Float {
+        val travelPx = legacyWidthPx.coerceIn(120f, 800f) * legacyZoomFraction.coerceIn(0.1f, 1f)
+        return (travelPx / MIGRATION_REFERENCE_SCREEN_WIDTH).coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
     }
 
     /** Maps finger travel since touch-down to pointer movement from the pointer position at down. */
     fun pointerForFingerDeltaInArea(
         deltaX: Float,
         deltaY: Float,
-        areaWidth: Float,
-        areaHeight: Float,
+        travelWidth: Float,
+        travelHeight: Float,
         screenWidth: Float,
         screenHeight: Float,
         pointerAnchorX: Float,
         pointerAnchorY: Float,
     ): Offset {
-        val normDeltaX = if (areaWidth > 0f) deltaX / areaWidth else 0f
-        val normDeltaY = if (areaHeight > 0f) deltaY / areaHeight else 0f
+        val normDeltaX = if (travelWidth > 0f) deltaX / travelWidth else 0f
+        val normDeltaY = if (travelHeight > 0f) deltaY / travelHeight else 0f
         return Offset(
             x = (pointerAnchorX + normDeltaX * screenWidth).coerceIn(0f, screenWidth),
             y = (pointerAnchorY + normDeltaY * screenHeight).coerceIn(0f, screenHeight),
         )
     }
 
-    fun effectiveJoystickAreaSize(
-        settings: AppSettings,
+    /**
+     * Initial pointer position when continuing an in-flight edge gesture without lifting the finger.
+     * Snaps to the nearest screen edge at the trigger finger's proportional position.
+     */
+    fun pointerStartForEdgeTrigger(
+        rawX: Float,
+        rawY: Float,
         screenWidth: Float,
         screenHeight: Float,
-    ): Pair<Float, Float> {
-        val zoom = settings.floatingPointerJoystickAreaZoomFraction.coerceIn(0.1f, 1f)
-        val width = settings.floatingPointerJoystickAreaWidthPx.coerceIn(120f, 800f) * zoom
-        val height = if (settings.floatingPointerMatchJoystickToScreenAspect && screenWidth > 0f) {
-            width * (screenHeight / screenWidth)
-        } else {
-            settings.floatingPointerJoystickAreaHeightPx.coerceIn(120f, 1400f) * zoom
+        edgeThresholdPx: Float,
+    ): Offset {
+        if (screenWidth <= 0f || screenHeight <= 0f) {
+            return Offset(screenWidth / 2f, screenHeight / 2f)
         }
-        return width to height
+        val x = rawX.coerceIn(0f, screenWidth)
+        val y = rawY.coerceIn(0f, screenHeight)
+        val threshold = edgeThresholdPx.coerceAtLeast(1f)
+        val nearLeft = x <= threshold
+        val nearRight = x >= screenWidth - threshold
+        val nearTop = y <= threshold
+        val nearBottom = y >= screenHeight - threshold
+        return when {
+            nearLeft && nearTop -> Offset(0f, 0f)
+            nearRight && nearTop -> Offset(screenWidth, 0f)
+            nearLeft && nearBottom -> Offset(0f, screenHeight)
+            nearRight && nearBottom -> Offset(screenWidth, screenHeight)
+            nearLeft -> Offset(0f, y)
+            nearRight -> Offset(screenWidth, y)
+            nearTop -> Offset(x, 0f)
+            nearBottom -> Offset(x, screenHeight)
+            else -> Offset(x, y)
+        }
     }
 
     fun clampJoystickCenter(
         rawX: Float,
         rawY: Float,
         joystickRadiusPx: Float,
-        areaWidth: Float,
-        areaHeight: Float,
+        travelWidth: Float,
+        travelHeight: Float,
         screenWidth: Float,
         screenHeight: Float,
         density: Float,
     ): Offset {
         val margin = 16f * density
-        val insetX = maxOf(joystickRadiusPx, areaWidth / 2f) + margin
-        val insetY = maxOf(joystickRadiusPx, areaHeight / 2f) + margin
+        val insetX = maxOf(joystickRadiusPx, travelWidth / 2f) + margin
+        val insetY = maxOf(joystickRadiusPx, travelHeight / 2f) + margin
         val x = if (insetX * 2f > screenWidth) {
             screenWidth / 2f
         } else {
@@ -107,10 +125,10 @@ internal object FloatingPointerBounds {
         val trigger: Offset,
         val joystickCenter: Offset,
         val joystickRadiusPx: Float,
-        val areaWidth: Float,
-        val areaHeight: Float,
-        val areaRect: Rect,
-        val areaRectOnScreen: Rect,
+        val travelWidth: Float,
+        val travelHeight: Float,
+        val travelRect: Rect,
+        val travelRectOnScreen: Rect,
         val pointerPosition: Offset,
     )
 
@@ -123,44 +141,42 @@ internal object FloatingPointerBounds {
         triggerRawY: Float,
     ): AreaPreviewLayout {
         val joystickRadiusPx = settings.floatingPointerJoystickDiameterPx / 2f
-        val (areaWidth, areaHeight) = effectiveJoystickAreaSize(settings, screenWidth, screenHeight)
+        val (travelWidth, travelHeight) = effectivePointerTravel(settings, screenWidth, screenHeight)
         val joystickCenter = clampJoystickCenter(
             rawX = triggerRawX,
             rawY = triggerRawY,
             joystickRadiusPx = joystickRadiusPx,
-            areaWidth = areaWidth,
-            areaHeight = areaHeight,
+            travelWidth = travelWidth,
+            travelHeight = travelHeight,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
             density = density,
         )
-        val areaLeft = joystickCenter.x - areaWidth / 2f
-        val areaTop = joystickCenter.y - areaHeight / 2f
-        val areaRect = Rect(
-            left = areaLeft,
-            top = areaTop,
-            right = areaLeft + areaWidth,
-            bottom = areaTop + areaHeight,
+        val travelLeft = joystickCenter.x - travelWidth / 2f
+        val travelTop = joystickCenter.y - travelHeight / 2f
+        val travelRect = Rect(
+            left = travelLeft,
+            top = travelTop,
+            right = travelLeft + travelWidth,
+            bottom = travelTop + travelHeight,
         )
         val screenRect = Rect(0f, 0f, screenWidth, screenHeight)
-        val pointerPosition = pointerForFingerInArea(
-            fingerX = triggerRawX,
-            fingerY = triggerRawY,
-            areaLeft = areaLeft,
-            areaTop = areaTop,
-            areaWidth = areaWidth,
-            areaHeight = areaHeight,
+        val edgeThresholdPx = 48f * density
+        val pointerPosition = pointerStartForEdgeTrigger(
+            rawX = triggerRawX,
+            rawY = triggerRawY,
             screenWidth = screenWidth,
             screenHeight = screenHeight,
+            edgeThresholdPx = edgeThresholdPx,
         )
         return AreaPreviewLayout(
             trigger = Offset(triggerRawX, triggerRawY),
             joystickCenter = joystickCenter,
             joystickRadiusPx = joystickRadiusPx,
-            areaWidth = areaWidth,
-            areaHeight = areaHeight,
-            areaRect = areaRect,
-            areaRectOnScreen = areaRect.intersect(screenRect),
+            travelWidth = travelWidth,
+            travelHeight = travelHeight,
+            travelRect = travelRect,
+            travelRectOnScreen = travelRect.intersect(screenRect),
             pointerPosition = pointerPosition,
         )
     }

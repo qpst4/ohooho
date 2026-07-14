@@ -322,17 +322,13 @@
     <string name="floating_pointer_settings_title">Floating pointer</string>
     <string name="floating_pointer_settings_desc">Touch the screen to show a finger-following joystick (the whole circle is the control). Move the ring pointer; tap to click at the pointer. Bind the Floating pointer gesture to show it.</string>
     <string name="floating_pointer_settings_section_appearance">Appearance</string>
-    <string name="floating_pointer_joystick_area_section">Joystick area</string>
-    <string name="floating_pointer_joystick_area_zoom">Joystick area zoom</string>
-    <string name="floating_pointer_joystick_area_width">Width</string>
-    <string name="floating_pointer_joystick_area_height">Height</string>
-    <string name="floating_pointer_match_joystick_aspect">Scale joystick to pointer area</string>
-    <string name="floating_pointer_match_joystick_aspect_desc">Match the joystick area aspect ratio to the screen so pointer speed is equal horizontally and vertically.</string>
-    <string name="floating_pointer_joystick_area_hint">Joystick area width and height control pointer speed: a larger area means slower pointer movement for the same finger travel. Pointer can reach the full screen by default.</string>
-    <string name="floating_pointer_preview_pointer_range">Pointer range</string>
-    <string name="floating_pointer_preview_drag_hint">With preview on, an overlay appears on the real display. Use your configured edge gestures (e.g. swipe from the left edge) to preview the joystick area at each trigger position. Sliders update the area in real time. Dashed = full area; solid = on-screen portion.</string>
-    <string name="floating_pointer_area_preview_title">Joystick area preview</string>
-    <string name="floating_pointer_area_preview_desc">Show joystick area bounds on the real screen</string>
+    <string name="floating_pointer_joystick_area_section">Pointer movement</string>
+    <string name="floating_pointer_sensitivity">Pointer speed</string>
+    <string name="floating_pointer_sensitivity_hint">Higher values move the pointer faster. Sliding your finger across roughly this fraction of the screen width (or height) moves the pointer across the full screen horizontally (or vertically).</string>
+    <string name="floating_pointer_preview_drag_hint">With preview on, an overlay appears on the real display. Use your configured edge gestures (e.g. swipe from the left edge) to preview joystick and travel bounds at each trigger position. Sliders update in real time. Dashed = full travel; solid = on-screen portion. The dot shows the pointer start when continuing from an edge.</string>
+    <string name="floating_pointer_area_preview_title">Travel bounds preview</string>
+    <string name="floating_pointer_area_preview_desc">Show joystick travel bounds on the real screen</string>
+    <string name="floating_pointer_preview_pointer_range">Pointer start</string>
     <string name="floating_pointer_pointer_settings_title">Pointer settings</string>
     <string name="floating_pointer_pointer_settings_summary">Ring %1$d px 路 Dot %2$d px</string>
     <string name="floating_pointer_joystick_settings_title">Joystick settings</string>
@@ -386,7 +382,7 @@
     <string name="floating_pointer_size_px_value">%1$d px</string>
     <string name="floating_pointer_size_px_dp_value">%1$d px (%2$.1f dp)</string>
     <string name="floating_pointer_entry_desc">Configure joystick, pointer appearance, and movement</string>
-    <string name="floating_pointer_entry_summary">Joystick %1$dpx 路 Pointer %2$dpx 路 Area %3$d脳%4$dpx</string>
+    <string name="floating_pointer_entry_summary">Joystick %1$dpx · Pointer %2$dpx · Speed %3$d%%</string>
     <string name="floating_pointer_usage_hint">The rest of the screen stays interactive. Drag the joystick disc to move the pointer; tap to click; long-press to open the action ring (configurable in Joystick functions).</string>
     <string name="floating_pointer_edge_settings_title">Edge actions</string>
     <string name="floating_pointer_edge_settings_summary">Preview and trigger actions when the pointer is pushed past screen edges</string>

@@ -67,14 +67,11 @@ data class AppSettings(
     val widgetPanelHeightFraction: Float = 0.55f,
     val widgetPanelTopFraction: Float = 0.15f,
     val widgetPanelBlurEnabled: Boolean = true,
-    /** Joystick effective movement area width in px; maps to horizontal pointer travel (full screen). */
-    val floatingPointerJoystickAreaWidthPx: Float = 703f,
-    /** Joystick effective movement area height in px; maps to vertical pointer travel (full screen). */
-    val floatingPointerJoystickAreaHeightPx: Float = 711f,
-    /** Scales the joystick movement area (0.1–1). */
-    val floatingPointerJoystickAreaZoomFraction: Float = 0.8f,
-    /** When true, joystick area height is derived from width to match screen aspect ratio. */
-    val floatingPointerMatchJoystickToScreenAspect: Boolean = false,
+    /**
+     * Fraction of each screen axis that finger travel must cover to move the pointer across
+     * that axis (0.2–0.75). Higher = faster pointer.
+     */
+    val floatingPointerSensitivityFraction: Float = 0.52f,
     /** Virtual joystick diameter in screen pixels (QC default 275). */
     val floatingPointerJoystickDiameterPx: Float = 275f,
     /** Ring pointer outer diameter in screen pixels. */

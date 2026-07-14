@@ -39,20 +39,9 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.LONG_PRESS_LAUNCH_DURATION] = value.coerceIn(250, 900)
     }
 
-    suspend fun setFloatingPointerJoystickAreaWidthPx(value: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_WIDTH] = value.coerceIn(120f, 800f)
-    }
-
-    suspend fun setFloatingPointerJoystickAreaHeightPx(value: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_HEIGHT] = value.coerceIn(120f, 1400f)
-    }
-
-    suspend fun setFloatingPointerJoystickAreaZoomFraction(value: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_ZOOM] = value.coerceIn(0.1f, 1f)
-    }
-
-    suspend fun setFloatingPointerMatchJoystickToScreenAspect(enabled: Boolean) = editor.edit {
-        it[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_MATCH_ASPECT] = enabled
+    suspend fun setFloatingPointerSensitivityFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOATING_POINTER_SENSITIVITY] =
+            value.coerceIn(0.2f, 0.75f)
     }
 
     suspend fun setFloatingPointerJoystickDiameterPx(value: Float) = editor.edit {

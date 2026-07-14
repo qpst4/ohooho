@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.slideindex.app.R
+import com.slideindex.app.overlay.FloatingPointerBounds
 import com.slideindex.app.settings.AppSettings
 import kotlin.math.roundToInt
 
@@ -26,10 +27,7 @@ fun FloatingPointerSettingsScreen(
     onOpenJoystickSettings: () -> Unit,
     onOpenRadialMenuSettings: () -> Unit,
     onOpenEdgeActionsSettings: () -> Unit,
-    onJoystickAreaZoomChange: (Float) -> Unit,
-    onJoystickAreaWidthChange: (Float) -> Unit,
-    onJoystickAreaHeightChange: (Float) -> Unit,
-    onMatchJoystickToScreenAspectChange: (Boolean) -> Unit,
+    onPointerSensitivityChange: (Float) -> Unit,
 ) {
     SettingsScreenScaffold(
         title = stringResource(R.string.floating_pointer_settings_title),
@@ -57,50 +55,19 @@ fun FloatingPointerSettingsScreen(
 
         SettingsCard {
             SettingsSliderRow(
-                title = stringResource(R.string.floating_pointer_joystick_area_zoom),
-                value = settings.floatingPointerJoystickAreaZoomFraction,
-                valueRange = 0.1f..1f,
-                steps = 8,
+                title = stringResource(R.string.floating_pointer_sensitivity),
+                value = settings.floatingPointerSensitivityFraction,
+                valueRange = FloatingPointerBounds.SENSITIVITY_MIN..FloatingPointerBounds.SENSITIVITY_MAX,
+                steps = 10,
                 enabled = true,
                 label = stringResource(
                     R.string.floating_pointer_percent_value,
-                    (settings.floatingPointerJoystickAreaZoomFraction * 100).roundToInt(),
+                    (settings.floatingPointerSensitivityFraction * 100).roundToInt(),
                 ),
-                onValueChange = onJoystickAreaZoomChange,
-            )
-            SettingsSliderRow(
-                title = stringResource(R.string.floating_pointer_joystick_area_width),
-                value = settings.floatingPointerJoystickAreaWidthPx,
-                valueRange = 120f..800f,
-                steps = 13,
-                enabled = true,
-                label = stringResource(
-                    R.string.floating_pointer_size_px_value,
-                    settings.floatingPointerJoystickAreaWidthPx.roundToInt(),
-                ),
-                onValueChange = onJoystickAreaWidthChange,
-            )
-            SettingsSliderRow(
-                title = stringResource(R.string.floating_pointer_joystick_area_height),
-                value = settings.floatingPointerJoystickAreaHeightPx,
-                valueRange = 120f..1400f,
-                steps = 12,
-                enabled = !settings.floatingPointerMatchJoystickToScreenAspect,
-                label = stringResource(
-                    R.string.floating_pointer_size_px_value,
-                    settings.floatingPointerJoystickAreaHeightPx.roundToInt(),
-                ),
-                onValueChange = onJoystickAreaHeightChange,
-            )
-            SettingSwitchRow(
-                title = stringResource(R.string.floating_pointer_match_joystick_aspect),
-                subtitle = stringResource(R.string.floating_pointer_match_joystick_aspect_desc),
-                checked = settings.floatingPointerMatchJoystickToScreenAspect,
-                enabled = true,
-                onCheckedChange = onMatchJoystickToScreenAspectChange,
+                onValueChange = onPointerSensitivityChange,
             )
         }
-        SettingsHintText(stringResource(R.string.floating_pointer_joystick_area_hint))
+        SettingsHintText(stringResource(R.string.floating_pointer_sensitivity_hint))
 
         SettingsSectionTitle(stringResource(R.string.floating_pointer_settings_section_appearance))
         SettingsCard {
@@ -152,8 +119,7 @@ fun FloatingPointerEntryCard(
             R.string.floating_pointer_entry_summary,
             settings.floatingPointerJoystickDiameterPx.roundToInt(),
             settings.floatingPointerPointerDiameterPx.roundToInt(),
-            settings.floatingPointerJoystickAreaWidthPx.roundToInt(),
-            settings.floatingPointerJoystickAreaHeightPx.roundToInt(),
+            (settings.floatingPointerSensitivityFraction * 100).roundToInt(),
         )
     } else {
         stringResource(R.string.floating_pointer_entry_desc)

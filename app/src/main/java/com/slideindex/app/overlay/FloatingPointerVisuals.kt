@@ -67,7 +67,7 @@ internal fun DrawScope.drawFloatingPointerAreaPreview(
         style = Stroke(width = 2f),
     )
 
-    val area = layout.areaRect
+    val area = layout.travelRect
     if (area.width > 0f && area.height > 0f) {
         drawRoundRect(
             color = Color(0x22FFFFFF),
@@ -86,7 +86,7 @@ internal fun DrawScope.drawFloatingPointerAreaPreview(
             ),
         )
     }
-    val onScreen = layout.areaRectOnScreen
+    val onScreen = layout.travelRectOnScreen
     if (onScreen.width > 0f && onScreen.height > 0f) {
         drawRoundRect(
             color = Color(0x55FFFFFF),

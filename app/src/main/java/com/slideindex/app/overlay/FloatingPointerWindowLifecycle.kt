@@ -74,9 +74,10 @@ internal class FloatingPointerWindowLifecycle(
             screenHeight = screenBounds.height,
             settingsSource = { settingsHolder.value },
         )
-        if (anchorRawX != null && anchorRawY != null) {
+        val shouldContinueTouch = continueTouch && anchorRawX != null && anchorRawY != null
+        if (anchorRawX != null && anchorRawY != null && !shouldContinueTouch) {
             pointerSession.placeAtTouch(anchorRawX, anchorRawY, settings)
-        } else {
+        } else if (anchorRawX == null || anchorRawY == null) {
             pointerSession.awaitingPlacement = true
         }
 
@@ -143,7 +144,7 @@ internal class FloatingPointerWindowLifecycle(
         )
 
         val displayParams = buildDisplayParams(hostContext)
-        val touchParams = if (pointerSession.awaitingPlacement) {
+        val touchParams = if (pointerSession.awaitingPlacement || shouldContinueTouch) {
             buildExpandedTouchParams(hostContext)
         } else {
             buildCollapsedTouchParams(hostContext, pointerSession, settings)
@@ -207,7 +208,6 @@ internal class FloatingPointerWindowLifecycle(
 
         val anchorX = anchorRawX
         val anchorY = anchorRawY
-        val shouldContinueTouch = continueTouch && anchorX != null && anchorY != null
         window.continuedGestureActive = shouldContinueTouch
         displayCompose.post {
             visible.value = true

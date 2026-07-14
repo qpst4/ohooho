@@ -69,6 +69,7 @@ internal object SettingsPreferenceKeys {
     val WIDGET_PANEL_HEIGHT = floatPreferencesKey("widget_panel_height_fraction")
     val WIDGET_PANEL_TOP = floatPreferencesKey("widget_panel_top_fraction")
     val WIDGET_PANEL_BLUR = booleanPreferencesKey("widget_panel_blur_enabled")
+    val FLOATING_POINTER_SENSITIVITY = floatPreferencesKey("floating_pointer_sensitivity_fraction")
     val FLOATING_POINTER_JOYSTICK_AREA_WIDTH = floatPreferencesKey("floating_pointer_joystick_area_width")
     val FLOATING_POINTER_JOYSTICK_AREA_HEIGHT = floatPreferencesKey("floating_pointer_joystick_area_height")
     val FLOATING_POINTER_JOYSTICK_AREA_ZOOM = floatPreferencesKey("floating_pointer_joystick_area_zoom")

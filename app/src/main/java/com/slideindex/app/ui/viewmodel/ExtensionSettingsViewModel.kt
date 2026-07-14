@@ -47,20 +47,8 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setWidgetPanelWidthFraction(fraction)
     }
 
-    fun setFloatingPointerJoystickAreaZoomFraction(zoom: Float) = launchSettingsWrite {
-        settingsRepository.setFloatingPointerJoystickAreaZoomFraction(zoom)
-    }
-
-    fun setFloatingPointerJoystickAreaWidthPx(width: Float) = launchSettingsWrite {
-        settingsRepository.setFloatingPointerJoystickAreaWidthPx(width)
-    }
-
-    fun setFloatingPointerJoystickAreaHeightPx(height: Float) = launchSettingsWrite {
-        settingsRepository.setFloatingPointerJoystickAreaHeightPx(height)
-    }
-
-    fun setFloatingPointerMatchJoystickToScreenAspect(enabled: Boolean) = launchSettingsWrite {
-        settingsRepository.setFloatingPointerMatchJoystickToScreenAspect(enabled)
+    fun setFloatingPointerSensitivityFraction(fraction: Float) = launchSettingsWrite {
+        settingsRepository.setFloatingPointerSensitivityFraction(fraction)
     }
 
     fun setFloatingPointerPointerDiameterPx(size: Float) = launchSettingsWrite {

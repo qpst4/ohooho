@@ -76,10 +76,7 @@ internal class FloatingPointerInputHandler(
 
         session.joystickActive.value = true
         session.pointerVisible.value = true
-        session.beginGesture(rawX, rawY, settingsProvider())
-        session.joystickCenterX.floatValue = rawX
-        session.joystickCenterY.floatValue = rawY
-        session.rearmJoystickDrag(rawX, rawY)
+        session.prepareContinuedEdgeGesture(rawX, rawY, settingsProvider())
         host.onJoystickPositionChanged(rawX, rawY)
         host.captureAllPointers()
     }
