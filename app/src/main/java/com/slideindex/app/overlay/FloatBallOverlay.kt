@@ -43,15 +43,22 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.di.OverlayDependencyAccess
+import com.slideindex.app.service.AccessibilityTextExtractor
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.FloatBallPositionMode
 import com.slideindex.app.settings.FloatBallSide
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.util.PermissionHelper
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val CROSS_ARM_DP = 14f
 private const val CROSS_STROKE_DP = 2.5f
@@ -65,10 +72,17 @@ object FloatBallOverlay {
     private const val TAG = "FloatBallOverlay"
     private const val EDGE_MARGIN_DP = 8f
     private const val PAUSE_MS = 400L
+    /** Prefetch a11y bounds halfway through the pause wait so yellow + box appear together. */
+    private const val PAUSE_PREFETCH_MS = 200L
     private const val BALL_LAYOUT_MIN_INTERVAL_MS = 16L
-    private const val BOUNDS_LOOKUP_MIN_INTERVAL_MS = 32L
+    private const val CURSOR_UPDATE_MIN_INTERVAL_MS = 16L
+    private const val BOUNDS_LOOKUP_MIN_INTERVAL_MS = 100L
+    private const val BOUNDS_LOOKUP_HEAVY_INTERVAL_MS = 120L
+    private const val BOUNDS_LOOKUP_MIN_MOVE_DP = 14f
+    private const val WECHAT_PACKAGE = "com.tencent.mm"
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val overlayScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val dragSession = FloatBallDragSession()
 
     private var windowManager: WindowManager? = null
@@ -98,6 +112,7 @@ object FloatBallOverlay {
     private var onPositionPersisted: ((xFraction: Float, yFraction: Float) -> Unit)? = null
     private var onActiveSidePersisted: ((FloatBallSide) -> Unit)? = null
     private var pauseRunnable: Runnable? = null
+    private var pausePrefetchRunnable: Runnable? = null
     private var captureSuppressed = false
     private var isDragging = false
     private var dragOriginatedFromLine = false
@@ -108,8 +123,21 @@ object FloatBallOverlay {
     private var finishDragRequested = false
     private var lastBallLayoutMs = 0L
     private var ballLayoutThrottleRunnable: Runnable? = null
+    private var lastCursorUpdateMs = 0L
+    private var cursorUpdateThrottleRunnable: Runnable? = null
+    private var pendingPickAnchor: Offset? = null
+    private var dragScreenBounds: OverlayScreenBounds? = null
+    private var boundsLookupGeneration = 0
     private var lastBoundsLookupMs = 0L
+    private var lastBoundsLookupX = Float.NaN
+    private var lastBoundsLookupY = Float.NaN
     private var boundsLookupThrottleRunnable: Runnable? = null
+
+    private data class PreviewBoundsLookupProfile(
+        val intervalMs: Long,
+        val maxNodes: Int,
+        val minMovePx: Float,
+    )
 
     val isShowing: Boolean get() = ballView != null
 
@@ -691,6 +719,7 @@ object FloatBallOverlay {
     private fun cancelDragWithoutPick() {
         if (!isDragging) return
         cancelBallLayoutThrottle()
+        cancelCursorUpdateThrottle()
         activeSideAtDragStart = null
         val settings = settingsState?.value
         if (settings != null) {
@@ -744,6 +773,7 @@ object FloatBallOverlay {
     private fun finishDrag(settings: AppSettings) {
         if (!isDragging) return
         cancelBallLayoutThrottle()
+        commitPickAnchor()
         if (cursorPausedState?.value == true) {
             handlePickOnRelease(settings)
         }
@@ -770,6 +800,9 @@ object FloatBallOverlay {
         val dragRect = rectBetween(start, end)
         val isRegionalDrag = dragRect.width() >= minSidePx && dragRect.height() >= minSidePx
         val previewBounds = selectionPreviewBoundsState?.value
+        // Only called after pointer pause; preview box is a11y bounds — no OCR fallback.
+        val ocrFallbackEnabled = false
+        val ocrModelId = settings.floatBallOcrModelId
 
         when {
             isRegionalDrag -> {
@@ -783,8 +816,8 @@ object FloatBallOverlay {
                     endX = end.x,
                     endY = end.y,
                     regionalRect = true,
-                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
-                    ocrModelId = settings.floatBallOcrModelId,
+                    ocrFallbackEnabled = ocrFallbackEnabled,
+                    ocrModelId = ocrModelId,
                 ) { result ->
                     FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
                 }
@@ -796,8 +829,8 @@ object FloatBallOverlay {
                 SlideIndexAccessibilityService.pickFloatBallTextInRect(
                     context = host,
                     rect = previewBounds,
-                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
-                    ocrModelId = settings.floatBallOcrModelId,
+                    ocrFallbackEnabled = ocrFallbackEnabled,
+                    ocrModelId = ocrModelId,
                 ) { text ->
                     FloatBallPickResultPanel.showResult(
                         host,
@@ -818,8 +851,8 @@ object FloatBallOverlay {
                     endX = end.x,
                     endY = end.y,
                     regionalRect = false,
-                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
-                    ocrModelId = settings.floatBallOcrModelId,
+                    ocrFallbackEnabled = ocrFallbackEnabled,
+                    ocrModelId = ocrModelId,
                 ) { result ->
                     FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
                 }
@@ -880,7 +913,13 @@ object FloatBallOverlay {
             setBallTouchable(false)
         }
         lastBallLayoutMs = 0L
+        lastCursorUpdateMs = 0L
+        pendingPickAnchor = null
         lastBoundsLookupMs = 0L
+        lastBoundsLookupX = Float.NaN
+        lastBoundsLookupY = Float.NaN
+        cancelBoundsLookupThrottle()
+        dragScreenBounds = overlayScreenBounds(metrics)
         selectionStartState?.value = null
         selectionPreviewBoundsState?.value = null
         cursorVisibleState?.value = true
@@ -911,7 +950,13 @@ object FloatBallOverlay {
         settingsState?.value?.let { restorePassiveOverlayLayout(it) }
         cancelPauseTimer()
         cancelBallLayoutThrottle()
+        cancelCursorUpdateThrottle()
         cancelBoundsLookupThrottle()
+        boundsLookupGeneration++
+        lastBoundsLookupMs = 0L
+        lastBoundsLookupX = Float.NaN
+        lastBoundsLookupY = Float.NaN
+        dragScreenBounds = null
         dragSession.reset()
         cursorVisibleState?.value = false
         cursorPausedState?.value = false
@@ -939,6 +984,7 @@ object FloatBallOverlay {
                 if (kotlin.math.abs(anchor.x - start.x) >= minSidePx ||
                     kotlin.math.abs(anchor.y - start.y) >= minSidePx
                 ) {
+                    boundsLookupGeneration++
                     selectionPreviewBoundsState?.value = null
                 }
             }
@@ -950,6 +996,20 @@ object FloatBallOverlay {
 
     private fun schedulePauseTimer() {
         cancelPauseTimer()
+        val anchor = cursorAnchorState?.value
+        val density = ballView?.resources?.displayMetrics?.density ?: 1f
+        val profile = previewLookupProfile(density)
+        if (anchor != null) {
+            val prefetch = Runnable {
+                pausePrefetchRunnable = null
+                if (!isDragging || cursorPausedState?.value == true) return@Runnable
+                if (!hasRecentPreviewBoundsAt(anchor, profile.minMovePx)) {
+                    launchPreviewBoundsLookup(anchor, profile)
+                }
+            }
+            pausePrefetchRunnable = prefetch
+            mainHandler.postDelayed(prefetch, PAUSE_PREFETCH_MS)
+        }
         val runnable = Runnable { onCursorPaused() }
         pauseRunnable = runnable
         mainHandler.postDelayed(runnable, PAUSE_MS)
@@ -959,9 +1019,92 @@ object FloatBallOverlay {
         if (cursorVisibleState?.value != true) return
         val anchor = cursorAnchorState?.value ?: return
         selectionStartState?.value = anchor
-        selectionPreviewBoundsState?.value =
-            SlideIndexAccessibilityService.findControlBoundsAt(anchor.x, anchor.y)
         cursorPausedState?.value = true
+        val density = ballView?.resources?.displayMetrics?.density ?: 1f
+        val profile = previewLookupProfile(density)
+        if (hasRecentPreviewBoundsAt(anchor, profile.minMovePx)) return
+        launchPreviewBoundsLookup(anchor, profile)
+    }
+
+    private fun previewLookupProfile(density: Float): PreviewBoundsLookupProfile {
+        val heavyApp = SlideIndexAccessibilityService.currentForegroundPackage() == WECHAT_PACKAGE
+        return PreviewBoundsLookupProfile(
+            intervalMs = if (heavyApp) BOUNDS_LOOKUP_HEAVY_INTERVAL_MS else BOUNDS_LOOKUP_MIN_INTERVAL_MS,
+            maxNodes = if (heavyApp) {
+                AccessibilityTextExtractor.HEAVY_PREVIEW_MAX_TRAVERSAL_NODES
+            } else {
+                AccessibilityTextExtractor.PREVIEW_MAX_TRAVERSAL_NODES
+            },
+            minMovePx = BOUNDS_LOOKUP_MIN_MOVE_DP * density,
+        )
+    }
+
+    private fun schedulePreviewBoundsLookup(anchor: Offset, density: Float) {
+        if (cursorVisibleState?.value != true) return
+        if (cursorPausedState?.value == true) return
+        val profile = previewLookupProfile(density)
+        if (!lastBoundsLookupX.isNaN() && !lastBoundsLookupY.isNaN()) {
+            val moved = hypot(anchor.x - lastBoundsLookupX, anchor.y - lastBoundsLookupY)
+            if (moved < profile.minMovePx) return
+        }
+        val now = SystemClock.uptimeMillis()
+        val elapsed = now - lastBoundsLookupMs
+        if (elapsed >= profile.intervalMs) {
+            launchPreviewBoundsLookup(anchor, profile)
+            return
+        }
+        if (boundsLookupThrottleRunnable != null) return
+        val runnable = Runnable {
+            boundsLookupThrottleRunnable = null
+            if (!isDragging || cursorPausedState?.value == true) return@Runnable
+            val latest = pendingPickAnchor ?: cursorAnchorState?.value ?: return@Runnable
+            val latestDensity = ballView?.resources?.displayMetrics?.density ?: density
+            launchPreviewBoundsLookup(latest, previewLookupProfile(latestDensity))
+        }
+        boundsLookupThrottleRunnable = runnable
+        mainHandler.postDelayed(runnable, (profile.intervalMs - elapsed).coerceAtLeast(1L))
+    }
+
+    private fun launchPreviewBoundsLookup(anchor: Offset, profile: PreviewBoundsLookupProfile) {
+        lastBoundsLookupMs = SystemClock.uptimeMillis()
+        lastBoundsLookupX = anchor.x
+        lastBoundsLookupY = anchor.y
+        val generation = ++boundsLookupGeneration
+        val x = anchor.x
+        val y = anchor.y
+        val allowAllWindowsFallback =
+            SlideIndexAccessibilityService.currentForegroundPackage() != WECHAT_PACKAGE
+        overlayScope.launch(Dispatchers.Default) {
+            var bounds = SlideIndexAccessibilityService.findControlBoundsAt(
+                rawX = x,
+                rawY = y,
+                activeWindowOnly = true,
+                maxNodes = profile.maxNodes,
+            )
+            if (bounds == null && allowAllWindowsFallback) {
+                bounds = SlideIndexAccessibilityService.findControlBoundsAt(
+                    rawX = x,
+                    rawY = y,
+                    activeWindowOnly = false,
+                    maxNodes = profile.maxNodes,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                if (generation != boundsLookupGeneration) return@withContext
+                if (!isDragging || cursorVisibleState?.value != true) return@withContext
+                val paused = cursorPausedState?.value == true
+                if (paused) {
+                    val start = selectionStartState?.value ?: return@withContext
+                    if (start != anchor) return@withContext
+                }
+                selectionPreviewBoundsState?.value = bounds
+            }
+        }
+    }
+
+    private fun cancelBoundsLookupThrottle() {
+        boundsLookupThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
+        boundsLookupThrottleRunnable = null
     }
 
     private fun rectBetween(start: Offset, end: Offset): Rect {
@@ -972,9 +1115,17 @@ object FloatBallOverlay {
         return Rect(left, top, right, bottom)
     }
 
+    private fun hasRecentPreviewBoundsAt(anchor: Offset, minMovePx: Float): Boolean {
+        if (selectionPreviewBoundsState?.value == null) return false
+        if (lastBoundsLookupX.isNaN() || lastBoundsLookupY.isNaN()) return false
+        return hypot(anchor.x - lastBoundsLookupX, anchor.y - lastBoundsLookupY) < minMovePx
+    }
+
     private fun cancelPauseTimer() {
         pauseRunnable?.let { mainHandler.removeCallbacks(it) }
         pauseRunnable = null
+        pausePrefetchRunnable?.let { mainHandler.removeCallbacks(it) }
+        pausePrefetchRunnable = null
     }
 
     private fun cancelBallLayoutThrottle() {
@@ -982,47 +1133,39 @@ object FloatBallOverlay {
         ballLayoutThrottleRunnable = null
     }
 
-    private fun cancelBoundsLookupThrottle() {
-        boundsLookupThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
-        boundsLookupThrottleRunnable = null
+    private fun cancelCursorUpdateThrottle() {
+        cursorUpdateThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
+        cursorUpdateThrottleRunnable = null
+        pendingPickAnchor = null
     }
 
-    private fun scheduleThrottledBoundsLookup() {
-        val now = SystemClock.uptimeMillis()
-        val delayMs = BOUNDS_LOOKUP_MIN_INTERVAL_MS - (now - lastBoundsLookupMs)
-        if (delayMs <= 0L) {
-            applyBoundsLookup()
-            return
-        }
-        if (boundsLookupThrottleRunnable != null) return
+    private fun scheduleThrottledCursorUpdate() {
+        if (cursorUpdateThrottleRunnable != null) return
+        val delayMs = CURSOR_UPDATE_MIN_INTERVAL_MS - (SystemClock.uptimeMillis() - lastCursorUpdateMs)
         val runnable = Runnable {
-            boundsLookupThrottleRunnable = null
-            applyBoundsLookup()
+            cursorUpdateThrottleRunnable = null
+            if (!isDragging) return@Runnable
+            commitPickAnchor()
         }
-        boundsLookupThrottleRunnable = runnable
+        cursorUpdateThrottleRunnable = runnable
         mainHandler.postDelayed(runnable, delayMs.coerceAtLeast(1L))
     }
 
-    private fun applyBoundsLookup() {
-        if (cursorVisibleState?.value != true) return
-        val anchor = cursorAnchorState?.value ?: return
-        val start = selectionStartState?.value
-        if (start != null) {
-            val view = ballView
-            val minSidePx = if (view != null) {
-                RECT_MIN_SIDE_DP * view.resources.displayMetrics.density
-            } else {
-                RECT_MIN_SIDE_DP
-            }
-            if (kotlin.math.abs(anchor.x - start.x) >= minSidePx ||
-                kotlin.math.abs(anchor.y - start.y) >= minSidePx
-            ) {
-                return
-            }
+    private fun commitPickAnchor() {
+        val pick = pendingPickAnchor ?: return
+        pendingPickAnchor = null
+        lastCursorUpdateMs = SystemClock.uptimeMillis()
+        cursorAnchorState?.value = pick
+    }
+
+    private fun applyPickAnchor(pick: Offset) {
+        pendingPickAnchor = pick
+        val now = SystemClock.uptimeMillis()
+        if (now - lastCursorUpdateMs >= CURSOR_UPDATE_MIN_INTERVAL_MS) {
+            commitPickAnchor()
+            return
         }
-        lastBoundsLookupMs = SystemClock.uptimeMillis()
-        selectionPreviewBoundsState?.value =
-            SlideIndexAccessibilityService.findControlBoundsAt(anchor.x, anchor.y)
+        scheduleThrottledCursorUpdate()
     }
 
     private fun applyDragBallLayout(settings: AppSettings) {
@@ -1083,7 +1226,7 @@ object FloatBallOverlay {
         val settings = settingsState?.value ?: return
         val metrics = view.resources.displayMetrics
         val density = metrics.density
-        val bounds = overlayScreenBounds(metrics)
+        val bounds = dragScreenBounds ?: overlayScreenBounds(metrics).also { dragScreenBounds = it }
         val ballSizePx = (settings.floatBallSizeDp.coerceIn(36f, 72f) * density).roundToInt()
         val marginPx = (EDGE_MARGIN_DP * density).roundToInt()
         val screenWidth = bounds.width
@@ -1097,9 +1240,9 @@ object FloatBallOverlay {
             density = density,
             marginPx = marginPx,
         )
-        cursorAnchorState?.value = pick
-        if (cursorVisibleState?.value == true) {
-            scheduleThrottledBoundsLookup()
+        applyPickAnchor(pick)
+        if (cursorVisibleState?.value == true && cursorPausedState?.value != true) {
+            schedulePreviewBoundsLookup(pick, density)
         }
 
         if (!moveBallWindow) return

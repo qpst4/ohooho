@@ -1,9 +1,9 @@
 package com.slideindex.app.overlay
 
 import com.slideindex.app.settings.AppSettings
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class FloatingPointerBoundsTest {
     @Test

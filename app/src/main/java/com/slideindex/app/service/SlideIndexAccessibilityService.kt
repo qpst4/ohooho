@@ -148,9 +148,20 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             return AccessibilityTextExtractor.collectTextAt(service, rawX, rawY)
         }
 
-        fun findControlBoundsAt(rawX: Float, rawY: Float): Rect? {
+        fun findControlBoundsAt(
+            rawX: Float,
+            rawY: Float,
+            activeWindowOnly: Boolean = false,
+            maxNodes: Int = AccessibilityTextExtractor.DEFAULT_MAX_TRAVERSAL_NODES,
+        ): Rect? {
             val service = instance ?: return null
-            return AccessibilityTextExtractor.findControlBoundsAt(service, rawX, rawY)
+            return AccessibilityTextExtractor.findControlBoundsAt(
+                service,
+                rawX,
+                rawY,
+                activeWindowOnly,
+                maxNodes,
+            )
         }
 
         fun collectTextInRect(rect: Rect): String {

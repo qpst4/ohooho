@@ -11,6 +11,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.Gravity
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,45 +19,65 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
-import android.widget.Toast
 import com.slideindex.app.R
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.ui.theme.SlideIndexTheme
-import kotlin.math.roundToInt
 
-private const val PANEL_MARGIN_DP = 12f
-private const val PANEL_MAX_WIDTH_DP = 300f
+private val PANEL_HORIZONTAL_PADDING = 12.dp
+private val PANEL_MAX_WIDTH = 340.dp
+private val PANEL_MAX_TEXT_HEIGHT = 180.dp
+private val PANEL_MAX_IMAGE_HEIGHT = 140.dp
 
 /**
- * FV-style floating action panel after float-ball text pick / regional screenshot.
+ * FV-style centered pick-result window after float-ball text pick / regional screenshot.
  */
 object FloatBallPickResultPanel {
     private const val TAG = "FloatBallPickPanel"
@@ -68,39 +89,48 @@ object FloatBallPickResultPanel {
     private var owner: OverlayComposeOwner? = null
     private var screenOffReceiver: BroadcastReceiver? = null
     private var appContext: Context? = null
-    private var layoutParams: WindowManager.LayoutParams? = null
 
     private var loadingState: MutableState<Boolean>? = null
     private var textState: MutableState<String?>? = null
     private var screenshotState: MutableState<Bitmap?>? = null
-    private var anchorState: MutableState<androidx.compose.ui.geometry.Offset>? = null
+    private var textExpandedState: MutableState<Boolean>? = null
+    private var imageExpandedState: MutableState<Boolean>? = null
 
     val isShowing: Boolean get() = composeView != null
 
-    fun showLoading(context: Context, anchorX: Float, anchorY: Float) {
+    fun showLoading(context: Context, anchorX: Float = 0f, anchorY: Float = 0f) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { showLoading(context, anchorX, anchorY) }
             return
         }
         val hostContext = OverlayDependencyAccess.overlayHostContext() ?: context.applicationContext
-        ensureWindow(hostContext, anchorX, anchorY)
+        ensureWindow(hostContext)
         loadingState?.value = true
         textState?.value = null
         screenshotState?.value?.recycle()
         screenshotState?.value = null
+        textExpandedState?.value = true
+        imageExpandedState?.value = true
     }
 
-    fun showResult(context: Context, anchorX: Float, anchorY: Float, result: FloatBallPickResult) {
+    fun showResult(
+        context: Context,
+        anchorX: Float = 0f,
+        anchorY: Float = 0f,
+        result: FloatBallPickResult,
+    ) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { showResult(context, anchorX, anchorY, result) }
             return
         }
         val hostContext = OverlayDependencyAccess.overlayHostContext() ?: context.applicationContext
-        ensureWindow(hostContext, anchorX, anchorY)
+        ensureWindow(hostContext)
         loadingState?.value = false
         textState?.value = result.text
         screenshotState?.value?.recycle()
         screenshotState?.value = result.screenshot
+        textExpandedState?.value = !result.text.isNullOrBlank() || result.screenshot == null
+        imageExpandedState?.value = result.screenshot != null
         if (result.text.isNullOrBlank() && result.screenshot == null) {
             Toast.makeText(hostContext, R.string.float_ball_text_not_found, Toast.LENGTH_SHORT).show()
             dismiss()
@@ -123,30 +153,29 @@ object FloatBallPickResultPanel {
         owner?.destroy()
         owner = null
         composeView = null
-        layoutParams = null
         windowManager = null
         loadingState = null
         textState = null
         screenshotState = null
-        anchorState = null
+        textExpandedState = null
+        imageExpandedState = null
         screenOffReceiver = null
         appContext = null
     }
 
-    private fun ensureWindow(context: Context, anchorX: Float, anchorY: Float) {
-        if (composeView != null) {
-            repositionPanel(context, anchorX, anchorY)
-            return
-        }
+    private fun ensureWindow(context: Context) {
+        if (composeView != null) return
 
         val loadingHolder = mutableStateOf(true)
         val textHolder = mutableStateOf<String?>(null)
         val screenshotHolder = mutableStateOf<Bitmap?>(null)
-        val anchorHolder = mutableStateOf(androidx.compose.ui.geometry.Offset(anchorX, anchorY))
+        val textExpandedHolder = mutableStateOf(true)
+        val imageExpandedHolder = mutableStateOf(true)
         loadingState = loadingHolder
         textState = textHolder
         screenshotState = screenshotHolder
-        anchorState = anchorHolder
+        textExpandedState = textExpandedHolder
+        imageExpandedState = imageExpandedHolder
 
         val dialogOwner = OverlayComposeOwner()
         val overlayContext = OverlayCompose.themedContext(context)
@@ -155,12 +184,16 @@ object FloatBallPickResultPanel {
                 val loading by loadingHolder
                 val text by textHolder
                 val screenshot by screenshotHolder
-                val anchor by anchorHolder
+                val textExpanded by textExpandedHolder
+                val imageExpanded by imageExpandedHolder
                 FloatBallPickResultContent(
-                    anchor = anchor,
                     loading = loading,
                     text = text,
                     screenshot = screenshot,
+                    textExpanded = textExpanded,
+                    imageExpanded = imageExpanded,
+                    onTextExpandedChange = { textExpandedHolder.value = it },
+                    onImageExpandedChange = { imageExpandedHolder.value = it },
                     onDismiss = { dismiss() },
                     onCopy = {
                         val value = textHolder.value ?: return@FloatBallPickResultContent
@@ -174,6 +207,22 @@ object FloatBallPickResultPanel {
                     onShareText = {
                         val value = textHolder.value ?: return@FloatBallPickResultContent
                         FloatBallTextPick.shareText(context, value)
+                    },
+                    onPaste = {
+                        val pasted = FloatBallTextPick.readClipboardText(context)
+                        if (pasted == null) {
+                            Toast.makeText(context, R.string.float_ball_paste_empty, Toast.LENGTH_SHORT).show()
+                        } else {
+                            textHolder.value = pasted
+                        }
+                    },
+                    onTranslate = {
+                        val value = textHolder.value ?: return@FloatBallPickResultContent
+                        FloatBallTextPick.translateText(context, value)
+                    },
+                    onRemoveSpaces = {
+                        val value = textHolder.value ?: return@FloatBallPickResultContent
+                        textHolder.value = value.replace(Regex("\\s+"), "")
                     },
                     onSaveScreenshot = {
                         val bitmap = screenshotHolder.value ?: return@FloatBallPickResultContent
@@ -208,13 +257,8 @@ object FloatBallPickResultPanel {
         windowManager = wm
         composeView = compose
         owner = dialogOwner
-        layoutParams = params
         appContext = context
         registerScreenOffReceiver(context)
-    }
-
-    private fun repositionPanel(context: Context, anchorX: Float, anchorY: Float) {
-        anchorState?.value = androidx.compose.ui.geometry.Offset(anchorX, anchorY)
     }
 
     private fun buildLayoutParams(context: Context): WindowManager.LayoutParams {
@@ -247,89 +291,153 @@ object FloatBallPickResultPanel {
 
 @Composable
 private fun FloatBallPickResultContent(
-    anchor: androidx.compose.ui.geometry.Offset,
     loading: Boolean,
     text: String?,
     screenshot: Bitmap?,
+    textExpanded: Boolean,
+    imageExpanded: Boolean,
+    onTextExpandedChange: (Boolean) -> Unit,
+    onImageExpandedChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onCopy: () -> Unit,
     onSearch: () -> Unit,
     onShareText: () -> Unit,
+    onPaste: () -> Unit,
+    onTranslate: () -> Unit,
+    onRemoveSpaces: () -> Unit,
     onSaveScreenshot: () -> Unit,
     onShareScreenshot: () -> Unit,
 ) {
-    val density = LocalDensity.current
-    val marginPx = with(density) { PANEL_MARGIN_DP.dp.roundToPx() }
-    val panelOffset = IntOffset(
-        (anchor.x - with(density) { (PANEL_MAX_WIDTH_DP.dp / 2).roundToPx() }).roundToInt()
-            .coerceAtLeast(marginPx),
-        (anchor.y + marginPx).roundToInt(),
-    )
+    val hasTextSection = loading || !text.isNullOrBlank()
+    val hasImageSection = screenshot != null
 
     SlideIndexTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.12f))
+                .background(Color.Black.copy(alpha = 0.28f))
                 .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = Modifier
-                    .offset { panelOffset }
-                    .widthIn(max = PANEL_MAX_WIDTH_DP.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                    .padding(PANEL_HORIZONTAL_PADDING)
+                    .widthIn(max = PANEL_MAX_WIDTH)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
                     .clickable(enabled = false) {}
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                if (loading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Text(
-                            text = stringResource(R.string.float_ball_recognizing),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                } else {
-                    if (!text.isNullOrBlank()) {
-                        Text(
-                            text = text,
-                            modifier = Modifier.heightIn(max = 72.dp),
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ActionChip(label = stringResource(R.string.float_ball_action_copy), onClick = onCopy)
-                            ActionChip(label = stringResource(R.string.float_ball_action_search), onClick = onSearch)
-                            ActionChip(label = stringResource(R.string.float_ball_action_share), onClick = onShareText)
+                if (hasTextSection) {
+                    PickResultSectionHeader(
+                        title = stringResource(R.string.float_ball_pick_result_text_section),
+                        expanded = textExpanded,
+                        onToggle = { onTextExpandedChange(!textExpanded) },
+                    )
+                    if (textExpanded) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            if (loading) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.float_ball_recognizing),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                            } else if (!text.isNullOrBlank()) {
+                                Text(
+                                    text = text,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = PANEL_MAX_TEXT_HEIGHT)
+                                        .verticalScroll(rememberScrollState()),
+                                    fontSize = 15.sp,
+                                    lineHeight = 22.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                PickResultTextActionBar(
+                                    enabled = true,
+                                    onSearch = onSearch,
+                                    onShare = onShareText,
+                                    onCopy = onCopy,
+                                    onPaste = onPaste,
+                                    onTranslate = onTranslate,
+                                    onRemoveSpaces = onRemoveSpaces,
+                                )
+                            }
                         }
                     }
-                    if (screenshot != null) {
-                        Image(
-                            bitmap = screenshot.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 120.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Fit,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ActionChip(
-                                label = stringResource(R.string.float_ball_action_save_screenshot),
-                                onClick = onSaveScreenshot,
-                            )
-                            ActionChip(
-                                label = stringResource(R.string.float_ball_action_share_screenshot),
-                                onClick = onShareScreenshot,
-                            )
+                }
+
+                if (hasTextSection && hasImageSection) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
+
+                if (hasImageSection) {
+                    PickResultSectionHeader(
+                        title = stringResource(R.string.float_ball_pick_result_image_section),
+                        expanded = imageExpanded,
+                        onToggle = { onImageExpandedChange(!imageExpanded) },
+                    )
+                    if (imageExpanded) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            val image = screenshot
+                            if (image != null) {
+                                Image(
+                                    bitmap = image.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = PANEL_MAX_IMAGE_HEIGHT)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Fit,
+                                )
+                                PickResultImageActionBar(
+                                    onSave = onSaveScreenshot,
+                                    onShare = onShareScreenshot,
+                                )
+                            }
                         }
+                    }
+                }
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.float_ball_action_collapse))
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = stringResource(R.string.float_ball_action_close),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
@@ -338,15 +446,123 @@ private fun FloatBallPickResultContent(
 }
 
 @Composable
-private fun ActionChip(label: String, onClick: () -> Unit) {
-    Text(
-        text = label,
+private fun PickResultSectionHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        color = MaterialTheme.colorScheme.onPrimaryContainer,
-        fontSize = 13.sp,
-    )
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Icon(
+            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun PickResultTextActionBar(
+    enabled: Boolean,
+    onSearch: () -> Unit,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+    onPaste: () -> Unit,
+    onTranslate: () -> Unit,
+    onRemoveSpaces: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PickResultToolbarIcon(Icons.Default.Search, enabled, onSearch)
+        PickResultToolbarIcon(Icons.Default.Share, enabled, onShare)
+        PickResultToolbarIcon(Icons.Default.ContentCopy, enabled, onCopy)
+        PickResultToolbarIcon(Icons.Default.ContentPaste, enabled, onPaste)
+        PickResultToolbarIcon(Icons.Default.Language, enabled, onTranslate)
+        Box {
+            PickResultToolbarIcon(Icons.Default.MoreVert, enabled) { menuExpanded = true }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.float_ball_menu_remove_spaces)) },
+                    onClick = {
+                        menuExpanded = false
+                        onRemoveSpaces()
+                    },
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = stringResource(R.string.float_ball_menu_segment_soon),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    onClick = { menuExpanded = false },
+                    enabled = false,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickResultImageActionBar(
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PickResultToolbarIcon(Icons.Default.Save, enabled = true, onClick = onSave)
+        Spacer(modifier = Modifier.size(32.dp))
+        PickResultToolbarIcon(Icons.Default.Share, enabled = true, onClick = onShare)
+    }
+}
+
+@Composable
+private fun PickResultToolbarIcon(
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.size(40.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            },
+        )
+    }
 }

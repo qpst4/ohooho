@@ -47,4 +47,36 @@ class AccessibilityTextExtractorTest {
         )
         assertEquals("第一行\n第二行", joined)
     }
+
+    @Test
+    fun isWeakA11yPickResult_detectsMetadataOnly() {
+        assertEquals(
+            true,
+            AccessibilityTextExtractor.isWeakA11yPickResult(
+                "肥婆美妆家族...\n头像\n湖南\n1小时前",
+            ),
+        )
+        assertEquals(
+            false,
+            AccessibilityTextExtractor.isWeakA11yPickResult(
+                "我真的10个视频里面有八个是他的，你别给我推了行不行？",
+            ),
+        )
+    }
+
+    @Test
+    fun preferLongerPickText_favorsOcrWhenA11yIsShort() {
+        val a11y = "头像\n1小时前"
+        val ocr = "我真的10个视频里面有八个是他的，你别给我推了行不行？"
+        assertEquals(ocr, AccessibilityTextExtractor.preferLongerPickText(a11y, ocr))
+    }
+
+    @Test
+    fun dedupeTextLines_removesRepeatedWeChatCommentLines() {
+        val duplicated = "都不怎么登了，开了个季卡，不登又浪费\n都不怎么登了，开了个季卡，不登又浪费"
+        assertEquals(
+            "都不怎么登了，开了个季卡，不登又浪费",
+            AccessibilityTextExtractor.dedupeTextLines(duplicated),
+        )
+    }
 }

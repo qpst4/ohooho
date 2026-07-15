@@ -681,6 +681,16 @@
     <string name="float_ball_action_share_screenshot">分享截图</string>
     <string name="float_ball_action_failed">操作失败</string>
     <string name="float_ball_screenshot_saved">截图已保存到相册</string>
+    <string name="float_ball_pick_result_text_section">文本</string>
+    <string name="float_ball_pick_result_image_section">图片</string>
+    <string name="float_ball_action_paste">粘贴</string>
+    <string name="float_ball_action_translate">翻译</string>
+    <string name="float_ball_action_more">更多</string>
+    <string name="float_ball_action_collapse">收起</string>
+    <string name="float_ball_action_close">关闭</string>
+    <string name="float_ball_paste_empty">剪贴板为空</string>
+    <string name="float_ball_menu_remove_spaces">去除空格</string>
+    <string name="float_ball_menu_segment_soon">分词（即将推出）</string>
     <string name="floating_pointer_settings_title">悬浮指针</string>
     <string name="floating_pointer_settings_desc">触摸屏幕呼出跟手虚拟摇杆（整圆即为摇杆），控制屏幕上的环形指针；轻点可在指针处模拟单击。将手势动作设为「悬浮指针」即可呼出。</string>
     <string name="floating_pointer_settings_section_appearance">外观</string>

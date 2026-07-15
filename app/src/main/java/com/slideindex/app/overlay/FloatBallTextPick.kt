@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import android.os.Environment
 import android.os.Handler
@@ -43,6 +44,25 @@ object FloatBallTextPick {
     fun copyText(context: Context, text: String) {
         val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
         clipboard.setPrimaryClip(ClipData.newPlainText("float_ball_text", text))
+    }
+
+    fun readClipboardText(context: Context): String? {
+        val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return null
+        val clip = clipboard.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+        return clip.getItemAt(0).coerceToText(context)?.toString()?.takeIf { it.isNotBlank() }
+    }
+
+    fun translateText(context: Context, text: String) {
+        val encoded = Uri.encode(text)
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://translate.google.com/?sl=auto&tl=zh-CN&text=$encoded"),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+            .onFailure {
+                searchText(context, "translate $text")
+            }
     }
 
     fun searchText(context: Context, text: String) {

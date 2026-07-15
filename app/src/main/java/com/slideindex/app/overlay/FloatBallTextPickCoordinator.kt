@@ -140,10 +140,17 @@ object FloatBallTextPickCoordinator {
         ocrModelId: String,
     ): String? {
         val a11yText = AccessibilityTextExtractor.collectTextAt(service, rawX, rawY)
-        if (!a11yText.isNullOrBlank()) return a11yText
-        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) return null
+        if (!a11yText.isNullOrBlank() &&
+            !AccessibilityTextExtractor.isWeakA11yPickResult(a11yText)
+        ) {
+            return AccessibilityTextExtractor.dedupeTextLines(a11yText)
+        }
+        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) {
+            return a11yText?.takeIf { it.isNotBlank() }?.let(AccessibilityTextExtractor::dedupeTextLines)
+        }
         val rect = FloatBallOcrRegions.expandPoint(context.resources.displayMetrics, rawX, rawY)
-        return recognizeWithCapture(service, context, rect, ocrModelId)
+        val ocrText = recognizeWithCapture(service, context, rect, ocrModelId)
+        return AccessibilityTextExtractor.preferLongerPickText(a11yText, ocrText)
     }
 
     private suspend fun resolveRectText(
@@ -155,18 +162,35 @@ object FloatBallTextPickCoordinator {
         screenshot: Bitmap?,
     ): String? {
         val a11yText = AccessibilityTextExtractor.collectTextInRect(service, rect)
-        if (a11yText.isNotBlank()) return a11yText
+        if (a11yText.isNotBlank() && !AccessibilityTextExtractor.isWeakA11yPickResult(a11yText)) {
+            return AccessibilityTextExtractor.dedupeTextLines(a11yText)
+        }
         val centerX = rect.centerX().toFloat()
         val centerY = rect.centerY().toFloat()
         val pointText = AccessibilityTextExtractor.collectTextAt(service, centerX, centerY)
-        if (!pointText.isNullOrBlank()) return pointText
-        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) return null
-        if (screenshot != null) {
-            return withContext(Dispatchers.Default) {
+        if (!pointText.isNullOrBlank() && !AccessibilityTextExtractor.isWeakA11yPickResult(pointText)) {
+            return AccessibilityTextExtractor.dedupeTextLines(pointText)
+        }
+        val mergedA11y = listOfNotNull(
+            a11yText.takeIf { it.isNotBlank() },
+            pointText?.takeIf { it.isNotBlank() },
+        ).map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .joinToString("\n")
+            .takeIf { it.isNotBlank() }
+            ?.let(AccessibilityTextExtractor::dedupeTextLines)
+        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) {
+            return mergedA11y
+        }
+        val ocrText = if (screenshot != null) {
+            withContext(Dispatchers.Default) {
                 RegionalScreenshotOcr.recognizeBitmapPublic(context, ocrModelId, screenshot)
             }
+        } else {
+            recognizeWithCapture(service, context, rect, ocrModelId)
         }
-        return recognizeWithCapture(service, context, rect, ocrModelId)
+        return AccessibilityTextExtractor.preferLongerPickText(mergedA11y, ocrText)
     }
 
     private fun ocrReady(context: Context, ocrFallbackEnabled: Boolean, ocrModelId: String): Boolean {

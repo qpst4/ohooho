@@ -10,14 +10,33 @@ import com.slideindex.app.overlay.FloatBallOcrRegions
 /**
  * Accessibility text collection for float-ball point/rect pick.
  *
- * Point pick uses smallest visible text-bearing bounds at the coordinate (FV-style),
+ * Point pick uses smallest text-bearing bounds at the coordinate (FV-style),
  * not QC [defpackage.vo] deepest-first-return, so large transparent overlays like
  * Douyin's full-screen "pause video" button do not mask comment TextViews beneath.
+ *
+ * Nodes with [AccessibilityNodeInfo.isVisibleToUser] false are still considered when they
+ * carry primary [AccessibilityNodeInfo.getText] (WeChat 视频号 comment bodies).
  */
 object AccessibilityTextExtractor {
 
+    /** Lines shorter than this from a11y alone may trigger OCR when enabled. */
+    private const val WEAK_A11Y_PICK_MIN_LONGEST_LINE = 24
+
+    const val DEFAULT_MAX_TRAVERSAL_NODES = Int.MAX_VALUE
+    /** Preview bounds during float-ball drag; keeps heavy apps (WeChat 视频号) responsive. */
+    const val PREVIEW_MAX_TRAVERSAL_NODES = 800
+    const val HEAVY_PREVIEW_MAX_TRAVERSAL_NODES = 400
+
     private const val FV_SKIP_WINDOW_MARKER = "*FV_SKIP_WINDOW*"
     private const val SKIP_MARKER_SCAN_DEPTH = 4
+
+    private class NodeTraversalBudget(private val maxNodes: Int) {
+        var visited = 0
+        fun consume(): Boolean {
+            visited++
+            return visited <= maxNodes
+        }
+    }
 
     private fun isSkipMarkerText(value: CharSequence?): Boolean =
         value?.toString() == FV_SKIP_WINDOW_MARKER
@@ -31,6 +50,39 @@ object AccessibilityTextExtractor {
             return true
         }
         return false
+    }
+
+    /**
+     * Visible nodes are always traversed. Invisible nodes are included only when they have
+     * primary text — avoids hidden chrome while matching QC on WeChat comment TextViews.
+     */
+    private fun includeNodeForPickTraversal(node: AccessibilityNodeInfo): Boolean {
+        if (node.isVisibleToUser) return true
+        return !node.text.isNullOrBlank()
+    }
+
+    internal fun isWeakA11yPickResult(text: String): Boolean {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return true
+        val longestLine = trimmed.lines().maxOfOrNull { line -> line.trim().length } ?: 0
+        return longestLine < WEAK_A11Y_PICK_MIN_LONGEST_LINE
+    }
+
+    internal fun preferLongerPickText(a11yText: String?, ocrText: String?): String? {
+        if (ocrText.isNullOrBlank()) return a11yText?.let(::dedupeTextLines)
+        if (a11yText.isNullOrBlank()) return dedupeTextLines(ocrText)
+        val a11yLongest = a11yText.lines().maxOfOrNull { it.trim().length } ?: 0
+        val ocrLongest = ocrText.lines().maxOfOrNull { it.trim().length } ?: 0
+        return dedupeTextLines(if (ocrLongest > a11yLongest) ocrText else a11yText)
+    }
+
+    /** Collapse repeated lines from duplicate WeChat 视频号 comment nodes. */
+    internal fun dedupeTextLines(text: String): String {
+        val seen = LinkedHashSet<String>()
+        return text.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && seen.add(it) }
+            .joinToString("\n")
     }
 
     private fun shouldSkipWindowRoot(root: AccessibilityNodeInfo, service: AccessibilityService): Boolean {
@@ -80,20 +132,39 @@ object AccessibilityTextExtractor {
             }
         }
         val pointText = best?.text
-        if (!pointText.isNullOrBlank()) return pointText
+        if (!pointText.isNullOrBlank()) return dedupeTextLines(pointText)
 
         val metrics = service.resources.displayMetrics
         val nearbyRect = FloatBallOcrRegions.expandPoint(metrics, rawX, rawY)
         val nearby = collectTextInRect(service, nearbyRect).trim()
-        return nearby.ifBlank { null }
+        return nearby.ifBlank { null }?.let(::dedupeTextLines)
     }
 
-    fun findControlBoundsAt(service: AccessibilityService, rawX: Float, rawY: Float): Rect? {
+    fun findControlBoundsAt(
+        service: AccessibilityService,
+        rawX: Float,
+        rawY: Float,
+        activeWindowOnly: Boolean = false,
+        maxNodes: Int = DEFAULT_MAX_TRAVERSAL_NODES,
+    ): Rect? {
         val px = rawX.toInt()
         val py = rawY.toInt()
+        val nodeBounds = Rect()
+        val budget = NodeTraversalBudget(maxNodes)
+        if (activeWindowOnly) {
+            val active = service.rootInActiveWindow ?: return null
+            if (shouldSkipWindowRoot(active, service)) {
+                releaseNode(active)
+                return null
+            }
+            return try {
+                findControlBoundsInNode(active, px, py, nodeBounds, budget)?.rect
+            } finally {
+                releaseNode(active)
+            }
+        }
         var best: BoundsCandidate? = null
         val windowBounds = Rect()
-        val nodeBounds = Rect()
         for (window in service.windows) {
             window.getBoundsInScreen(windowBounds)
             if (!windowBounds.contains(px, py)) continue
@@ -105,18 +176,19 @@ object AccessibilityTextExtractor {
             try {
                 best = pickBetterBoundsCandidate(
                     best,
-                    findControlBoundsInNode(root, px, py, nodeBounds),
+                    findControlBoundsInNode(root, px, py, nodeBounds, budget),
                 )
             } finally {
                 releaseNode(root)
             }
+            if (budget.visited >= maxNodes) break
         }
         val active = service.rootInActiveWindow
         if (active != null && !shouldSkipWindowRoot(active, service)) {
             try {
                 best = pickBetterBoundsCandidate(
                     best,
-                    findControlBoundsInNode(active, px, py, nodeBounds),
+                    findControlBoundsInNode(active, px, py, nodeBounds, budget),
                 )
             } finally {
                 releaseNode(active)
@@ -153,25 +225,37 @@ object AccessibilityTextExtractor {
         px: Int,
         py: Int,
         bounds: Rect,
+        budget: NodeTraversalBudget,
     ): BoundsCandidate? {
         var best: BoundsCandidate? = null
         val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(node)
+        val childBounds = Rect()
+        stack.addLast(node)
         while (stack.isNotEmpty()) {
-            val current = stack.removeFirst()
+            if (!budget.consume()) break
+            val current = stack.removeLast()
             val owned = current !== node
             try {
                 if (shouldSkipAccessibilityNode(current)) continue
-                if (current.isVisibleToUser) {
-                    current.getBoundsInScreen(bounds)
-                    if (bounds.contains(px, py) && isMeaningfulPickTarget(current)) {
-                        val area = bounds.width().coerceAtLeast(1) * bounds.height().coerceAtLeast(1)
-                        val score = controlTargetScore(current) * 1_000_000 + area
-                        best = pickBetterBoundsCandidate(best, BoundsCandidate(Rect(bounds), score))
-                    }
+                current.getBoundsInScreen(bounds)
+                if (!bounds.contains(px, py)) continue
+                if (includeNodeForPickTraversal(current) && isMeaningfulPickTarget(current)) {
+                    val area = bounds.width().coerceAtLeast(1) * bounds.height().coerceAtLeast(1)
+                    val score = controlTargetScore(current) * 1_000_000 + area
+                    best = pickBetterBoundsCandidate(best, BoundsCandidate(Rect(bounds), score))
                 }
-                for (i in 0 until current.childCount) {
-                    current.getChild(i)?.let { stack.add(it) }
+                for (i in current.childCount - 1 downTo 0) {
+                    val child = current.getChild(i) ?: continue
+                    var keepChild = false
+                    try {
+                        child.getBoundsInScreen(childBounds)
+                        if (childBounds.contains(px, py)) {
+                            stack.addLast(child)
+                            keepChild = true
+                        }
+                    } finally {
+                        if (!keepChild) releaseNode(child)
+                    }
                 }
             } finally {
                 if (owned) releaseNode(current)
@@ -193,6 +277,12 @@ object AccessibilityTextExtractor {
         val entries = ArrayList<TextEntry>()
         val seen = LinkedHashSet<String>()
         val windowBounds = Rect()
+        val scannedRoots = HashSet<Int>()
+        fun scanRoot(root: AccessibilityNodeInfo) {
+            val token = System.identityHashCode(root)
+            if (!scannedRoots.add(token)) return
+            collectIntersectingTexts(root, normalized, entries, seen)
+        }
         for (window in service.windows) {
             when (window.type) {
                 AccessibilityWindowInfo.TYPE_INPUT_METHOD -> continue
@@ -205,7 +295,7 @@ object AccessibilityTextExtractor {
                 continue
             }
             try {
-                collectIntersectingTexts(root, normalized, entries)
+                scanRoot(root)
             } finally {
                 releaseNode(root)
             }
@@ -213,12 +303,12 @@ object AccessibilityTextExtractor {
         val active = service.rootInActiveWindow
         if (active != null && !shouldSkipWindowRoot(active, service)) {
             try {
-                collectIntersectingTexts(active, normalized, entries)
+                scanRoot(active)
             } finally {
                 releaseNode(active)
             }
         }
-        return joinSortedTexts(entries, seen)
+        return dedupeTextLines(joinSortedTexts(entries))
     }
 
     internal data class TextCandidate(
@@ -236,7 +326,7 @@ object AccessibilityTextExtractor {
     }
 
     /**
-     * Smallest visible text-bearing bounds at [px],[py]; scans the full subtree.
+     * Smallest text-bearing bounds at [px],[py]; scans the full subtree.
      */
     internal fun findTextAtNode(node: AccessibilityNodeInfo, px: Int, py: Int): String? =
         findTextCandidateAtNode(node, px, py)?.text
@@ -256,7 +346,7 @@ object AccessibilityTextExtractor {
             try {
                 current.getBoundsInScreen(bounds)
                 if (shouldSkipAccessibilityNode(current)) continue
-                if (current.isVisibleToUser && bounds.contains(px, py)) {
+                if (includeNodeForPickTraversal(current) && bounds.contains(px, py)) {
                     best = pickBetterCandidate(best, textCandidateAt(bounds, current))
                 }
                 for (i in 0 until current.childCount) {
@@ -293,6 +383,7 @@ object AccessibilityTextExtractor {
         root: AccessibilityNodeInfo,
         rect: Rect,
         out: MutableList<TextEntry>,
+        seen: MutableSet<String>,
     ) {
         val stack = ArrayDeque<AccessibilityNodeInfo>()
         stack.add(root)
@@ -301,12 +392,15 @@ object AccessibilityTextExtractor {
             val node = stack.removeFirst()
             val owned = node !== root
             try {
-                if (!node.isVisibleToUser) continue
+                if (!includeNodeForPickTraversal(node)) continue
                 if (shouldSkipAccessibilityNode(node)) continue
                 node.getBoundsInScreen(bounds)
                 if (!Rect.intersects(bounds, rect)) continue
-                nodeText(node)?.let { text ->
-                    out.add(TextEntry(text = text, top = bounds.top, left = bounds.left))
+                nodeText(node)?.let { raw ->
+                    val text = raw.trim()
+                    if (text.isNotEmpty() && seen.add(text)) {
+                        out.add(TextEntry(text = text, top = bounds.top, left = bounds.left))
+                    }
                 }
                 for (i in 0 until node.childCount) {
                     node.getChild(i)?.let { stack.add(it) }
