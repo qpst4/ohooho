@@ -166,6 +166,23 @@ internal object SettingsSnapshotReader {
             messageReminderSettings = readMessageReminderSettings(prefs),
             debugPerformanceMonitorEnabled = prefs[SettingsPreferenceKeys.DEBUG_PERFORMANCE_MONITOR] ?: false,
             onboardingCompleted = prefs[SettingsPreferenceKeys.ONBOARDING_COMPLETED] ?: false,
+            floatBallEnabled = prefs[SettingsPreferenceKeys.FLOAT_BALL_ENABLED] ?: false,
+            floatBallSizeDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_SIZE_DP] ?: 48f,
+            floatBallOpacity = prefs[SettingsPreferenceKeys.FLOAT_BALL_OPACITY] ?: 0.88f,
+            floatBallPositionXFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] ?: 0.92f,
+            floatBallPositionYFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] ?: 0.55f,
+            floatBallOcrFallbackEnabled = prefs[SettingsPreferenceKeys.FLOAT_BALL_OCR_FALLBACK_ENABLED] ?: true,
+            floatBallPointerSpeedFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SPEED_FRACTION]
+                ?: 0.3f,
+            floatBallPositionMode = FloatBallPositionMode.fromStorageKey(
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_MODE],
+            ),
+            floatBallActiveSide = FloatBallSide.fromStorageKey(
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_ACTIVE_SIDE],
+            ),
+            floatBallLineHeightFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_HEIGHT_FRACTION] ?: 0.08f,
+            floatBallLineWidthFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_WIDTH_FRACTION] ?: 0.30f,
+            floatBallLineOpacity = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] ?: 0.9f,
         ).withResolvedHandleEdgeWidths()
     }
 
@@ -196,7 +213,9 @@ internal object SettingsSnapshotReader {
         val legacyWidth = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_WIDTH] ?: 703f
         val legacyZoom = prefs[SettingsPreferenceKeys.FLOATING_POINTER_JOYSTICK_AREA_ZOOM] ?: 0.8f
         val legacyTravelPx = legacyWidth.coerceIn(120f, 800f) * legacyZoom.coerceIn(0.1f, 1f)
-        return (legacyTravelPx / LEGACY_POINTER_TRAVEL_REFERENCE_WIDTH_PX).coerceIn(0.2f, 0.75f)
+        val travelFraction =
+            (legacyTravelPx / LEGACY_POINTER_TRAVEL_REFERENCE_WIDTH_PX).coerceIn(0.2f, 0.75f)
+        return 0.2f + 0.75f - travelFraction
     }
 
     private fun readFloatingPointerJoystickLongPressAction(prefs: Preferences): com.slideindex.app.gesture.GestureAction {

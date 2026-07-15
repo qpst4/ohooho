@@ -1,0 +1,183 @@
+package com.slideindex.app.overlay
+
+import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.os.Build
+import android.util.Log
+import com.slideindex.app.service.AccessibilityTextExtractor
+import com.slideindex.app.service.RegionalScreenshotOcr
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * Float-ball text pick: accessibility first (QC), then regional screenshot + OCR fallback.
+ * Results are delivered to [FloatBallPickResultPanel] — never copied immediately.
+ */
+object FloatBallTextPickCoordinator {
+    private const val TAG = "FloatBallTextPick"
+    private const val CAPTURE_HIDE_DELAY_MS = 64L
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val pickInFlight = AtomicBoolean(false)
+
+    fun pickAt(
+        service: AccessibilityService,
+        context: Context,
+        rawX: Float,
+        rawY: Float,
+        ocrFallbackEnabled: Boolean,
+        onResult: (String?) -> Unit,
+    ) {
+        if (!pickInFlight.compareAndSet(false, true)) return
+        scope.launch {
+            try {
+                onResult(resolvePointText(service, context, rawX, rawY, ocrFallbackEnabled))
+            } finally {
+                pickInFlight.set(false)
+            }
+        }
+    }
+
+    fun pickInRect(
+        service: AccessibilityService,
+        context: Context,
+        rect: Rect,
+        ocrFallbackEnabled: Boolean,
+        onResult: (String?) -> Unit,
+    ) {
+        if (!pickInFlight.compareAndSet(false, true)) return
+        scope.launch {
+            try {
+                onResult(resolveRectText(service, context, rect, ocrFallbackEnabled, screenshot = null))
+            } finally {
+                pickInFlight.set(false)
+            }
+        }
+    }
+
+    fun pickOnRelease(
+        service: AccessibilityService,
+        context: Context,
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        regionalRect: Boolean,
+        ocrFallbackEnabled: Boolean,
+        onResult: (FloatBallPickResult) -> Unit,
+    ) {
+        if (!pickInFlight.compareAndSet(false, true)) return
+        scope.launch {
+            try {
+                val metrics = context.resources.displayMetrics
+                val result = if (regionalRect) {
+                    val rect = rectBetween(startX, startY, endX, endY)
+                    val safeRect = FloatBallOcrRegions.clampToScreen(
+                        rect,
+                        metrics.widthPixels,
+                        metrics.heightPixels,
+                    )
+                    val screenshot = captureRect(service, safeRect)
+                    val text = resolveRectText(service, context, safeRect, ocrFallbackEnabled, screenshot)
+                    FloatBallPickResult(text = text, screenshot = screenshot, screenRect = safeRect)
+                } else {
+                    val text = resolvePointText(service, context, startX, startY, ocrFallbackEnabled)
+                    FloatBallPickResult(text = text, screenshot = null, screenRect = null)
+                }
+                onResult(result)
+            } catch (error: Throwable) {
+                Log.w(TAG, "pickOnRelease failed", error)
+                onResult(FloatBallPickResult(text = null, screenshot = null, screenRect = null))
+            } finally {
+                pickInFlight.set(false)
+            }
+        }
+    }
+
+    private suspend fun resolvePointText(
+        service: AccessibilityService,
+        context: Context,
+        rawX: Float,
+        rawY: Float,
+        ocrFallbackEnabled: Boolean,
+    ): String? {
+        val a11yText = AccessibilityTextExtractor.collectTextAt(service, rawX, rawY)
+        if (!a11yText.isNullOrBlank()) return a11yText
+        if (!ocrFallbackEnabled) return null
+        val rect = FloatBallOcrRegions.expandPoint(context.resources.displayMetrics, rawX, rawY)
+        return recognizeWithCapture(service, rect)
+    }
+
+    private suspend fun resolveRectText(
+        service: AccessibilityService,
+        context: Context,
+        rect: Rect,
+        ocrFallbackEnabled: Boolean,
+        screenshot: Bitmap?,
+    ): String? {
+        val a11yText = AccessibilityTextExtractor.collectTextInRect(service, rect)
+        if (a11yText.isNotBlank()) return a11yText
+        if (!ocrFallbackEnabled) return null
+        if (screenshot != null) {
+            return withContext(Dispatchers.Default) {
+                RegionalScreenshotOcr.recognizeBitmapPublic(screenshot)
+            }
+        }
+        return recognizeWithCapture(service, rect)
+    }
+
+    private suspend fun captureRect(
+        service: AccessibilityService,
+        rect: Rect,
+    ): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        return try {
+            FloatBallOverlay.suppressForScreenshotCapture()
+            delay(CAPTURE_HIDE_DELAY_MS)
+            withContext(Dispatchers.Default) {
+                RegionalScreenshotOcr.captureRectBitmap(service, rect)
+            }
+        } catch (error: Throwable) {
+            Log.w(TAG, "capture rect failed", error)
+            null
+        } finally {
+            FloatBallOverlay.restoreAfterScreenshotCapture()
+        }
+    }
+
+    private suspend fun recognizeWithCapture(
+        service: AccessibilityService,
+        rect: Rect,
+    ): String? {
+        return try {
+            FloatBallOverlay.suppressForScreenshotCapture()
+            delay(CAPTURE_HIDE_DELAY_MS)
+            withContext(Dispatchers.Default) {
+                RegionalScreenshotOcr.recognizeInRect(service, rect)
+            }
+        } catch (error: Throwable) {
+            Log.w(TAG, "ocr fallback failed", error)
+            null
+        } finally {
+            FloatBallOverlay.restoreAfterScreenshotCapture()
+        }
+    }
+
+    private fun rectBetween(startX: Float, startY: Float, endX: Float, endY: Float): Rect {
+        val left = min(startX, endX).roundToInt()
+        val top = min(startY, endY).roundToInt()
+        val right = max(startX, endX).roundToInt()
+        val bottom = max(startY, endY).roundToInt()
+        return Rect(left, top, right, bottom)
+    }
+}

@@ -6,6 +6,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -16,6 +17,8 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.PointerSwipeConfig
 import com.slideindex.app.message.MessageReminderOrchestrator
 import com.slideindex.app.overlay.EdgeOverlayHost
+import com.slideindex.app.overlay.FloatBallTextPickCoordinator
+import com.slideindex.app.overlay.FloatBallPickResult
 import com.slideindex.app.overlay.FloatingPointerOverlayWindow
 import com.slideindex.app.overlay.LayoutPreviewContent
 import com.slideindex.app.overlay.LayoutPreviewFocus
@@ -140,6 +143,70 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         fun overlayHostContext(): Context? = instance
 
+        fun collectTextAt(rawX: Float, rawY: Float): String? {
+            val service = instance ?: return null
+            return AccessibilityTextExtractor.collectTextAt(service, rawX, rawY)
+        }
+
+        fun collectTextInRect(rect: Rect): String {
+            val service = instance ?: return ""
+            return AccessibilityTextExtractor.collectTextInRect(service, rect)
+        }
+
+        fun pickFloatBallTextAt(
+            context: Context,
+            rawX: Float,
+            rawY: Float,
+            ocrFallbackEnabled: Boolean,
+            onResult: (String?) -> Unit,
+        ) {
+            val service = instance ?: run {
+                onResult(null)
+                return
+            }
+            FloatBallTextPickCoordinator.pickAt(service, context, rawX, rawY, ocrFallbackEnabled, onResult)
+        }
+
+        fun pickFloatBallTextInRect(
+            context: Context,
+            rect: Rect,
+            ocrFallbackEnabled: Boolean,
+            onResult: (String?) -> Unit,
+        ) {
+            val service = instance ?: run {
+                onResult(null)
+                return
+            }
+            FloatBallTextPickCoordinator.pickInRect(service, context, rect, ocrFallbackEnabled, onResult)
+        }
+
+        fun pickFloatBallOnRelease(
+            context: Context,
+            startX: Float,
+            startY: Float,
+            endX: Float,
+            endY: Float,
+            regionalRect: Boolean,
+            ocrFallbackEnabled: Boolean,
+            onResult: (FloatBallPickResult) -> Unit,
+        ) {
+            val service = instance ?: run {
+                onResult(FloatBallPickResult(null, null, null))
+                return
+            }
+            FloatBallTextPickCoordinator.pickOnRelease(
+                service,
+                context,
+                startX,
+                startY,
+                endX,
+                endY,
+                regionalRect,
+                ocrFallbackEnabled,
+                onResult,
+            )
+        }
+
         fun currentForegroundPackage(): String? = instance?.foregroundPackageName()
 
         fun scheduleOtpAutoFill() {
@@ -180,6 +247,7 @@ class SlideIndexAccessibilityService : AccessibilityService() {
         }
         lastOrientation = newOrientation
         messageReminderOrchestrator.onConfigurationChanged(this, newConfig)
+        edgeOverlayHost?.onConfigurationChanged()
         edgeOverlayHost?.refreshTriggerVisibility()
     }
 

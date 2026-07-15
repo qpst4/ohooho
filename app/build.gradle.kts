@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.tinypinyin)
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
+    implementation(libs.mlkit.text.recognition.chinese)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

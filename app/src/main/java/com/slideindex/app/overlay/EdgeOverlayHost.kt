@@ -23,6 +23,7 @@ class EdgeOverlayHost(
 ) {
     private var overlayManager: OverlayManager? = null
     private var foregroundTracker: ForegroundAppTracker? = null
+    private var floatBallController: FloatBallController? = null
     private var settingsJob: Job? = null
     private var previewActive = false
     private var previewContent: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY
@@ -61,12 +62,15 @@ class EdgeOverlayHost(
         if (TaskManagerUtil.hasPermission()) {
             TaskManagerUtil.warmUp()
         }
+        floatBallController = FloatBallController(context, scope, deps.settingsRepository)
         settingsJob = scope.launch {
             deps.settingsRepository.settings.collectLatest { settings ->
                 if (!PermissionHelper.isAccessibilityServiceEnabled(context)) {
                     overlayManager?.destroy()
+                    floatBallController?.stop()
                     return@collectLatest
                 }
+                floatBallController?.apply(settings)
                 updatePerformanceMonitor(settings.debugPerformanceMonitorEnabled)
                 overlayManager?.applySettings(settings)
                 if (previewActive) {
@@ -80,12 +84,18 @@ class EdgeOverlayHost(
         OverlayPerformanceMonitorBinding.onOverlayHidden(context)
         settingsJob?.cancel()
         settingsJob = null
+        floatBallController?.stop()
+        floatBallController = null
         foregroundTracker?.stop()
         foregroundTracker = null
         overlayManager?.destroy()
         overlayManager = null
         OverlayService.foregroundPackage = null
         previewActive = false
+    }
+
+    fun onConfigurationChanged() {
+        floatBallController?.onConfigurationChanged()
     }
 
     fun reloadApps() {

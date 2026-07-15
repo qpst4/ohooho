@@ -5,6 +5,7 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.settings.FloatingPointerEdgeSide
 import com.slideindex.app.settings.FloatingPointerTrailType
+import com.slideindex.app.settings.FloatBallPositionMode
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.ui.feedback.UserMessageBus
@@ -257,5 +258,49 @@ class ExtensionSettingsViewModel @Inject constructor(
 
     fun resetFloatingPointerEdgeDefaults() = launchSettingsWrite {
         settingsRepository.resetFloatingPointerEdgeDefaults()
+    }
+
+    fun setFloatBallEnabled(enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setFloatBallEnabled(enabled)
+    }
+
+    fun setFloatBallSizeDp(sizeDp: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallSizeDp(sizeDp)
+    }
+
+    fun setFloatBallOpacity(opacity: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallOpacity(opacity)
+    }
+
+    fun setFloatBallOcrFallbackEnabled(enabled: Boolean) = launchSettingsWrite {
+        settingsRepository.setFloatBallOcrFallbackEnabled(enabled)
+    }
+
+    fun setFloatBallPointerSpeedFraction(fraction: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPointerSpeedFraction(fraction)
+    }
+
+    fun setFloatBallPositionMode(mode: FloatBallPositionMode) = launchSettingsWrite {
+        settingsRepository.setFloatBallPositionMode(mode)
+    }
+
+    fun setFloatBallPositionYFraction(fraction: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPositionYFraction(fraction)
+    }
+
+    fun setFloatBallPositionXFraction(fraction: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPositionXFraction(fraction)
+    }
+
+    fun setFloatBallLineHeightFraction(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallLineHeightFraction(value)
+    }
+
+    fun setFloatBallLineWidthFraction(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallLineWidthFraction(value)
+    }
+
+    fun setFloatBallLineOpacity(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallLineOpacity(value)
     }
 }

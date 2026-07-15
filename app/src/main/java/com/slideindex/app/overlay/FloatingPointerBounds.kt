@@ -20,26 +20,45 @@ internal object FloatingPointerBounds {
     fun sensitivityFraction(settings: AppSettings): Float =
         settings.floatingPointerSensitivityFraction.coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
 
+    /** UI speed fraction (higher = faster) → finger travel fraction (lower = faster). */
+    fun travelFractionFromSpeed(speedFraction: Float): Float {
+        val speed = speedFraction.coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
+        return SENSITIVITY_MIN + SENSITIVITY_MAX - speed
+    }
+
     /**
      * Finger travel along each axis needed to move the pointer across the full screen.
-     * Higher sensitivity = shorter travel = faster pointer.
+     * Higher [sensitivityFraction] (UI speed %) = shorter travel = faster pointer.
      */
     fun effectivePointerTravel(
         settings: AppSettings,
         screenWidth: Float,
         screenHeight: Float,
+    ): Pair<Float, Float> = effectivePointerTravelForSpeed(
+        speedFraction = sensitivityFraction(settings),
+        screenWidth = screenWidth,
+        screenHeight = screenHeight,
+    )
+
+    /** Same mapping as edge floating pointer, but takes an explicit speed fraction. */
+    fun effectivePointerTravelForSpeed(
+        speedFraction: Float,
+        screenWidth: Float,
+        screenHeight: Float,
     ): Pair<Float, Float> {
-        val fraction = sensitivityFraction(settings)
-        return (screenWidth * fraction) to (screenHeight * fraction)
+        val travelFraction = travelFractionFromSpeed(speedFraction)
+        return (screenWidth * travelFraction) to (screenHeight * travelFraction)
     }
 
-    /** Migrates legacy width/zoom area prefs to the unified sensitivity fraction. */
+    /** Migrates legacy width/zoom area prefs to the unified speed fraction. */
     fun migrateLegacySensitivityFraction(
         legacyWidthPx: Float,
         legacyZoomFraction: Float,
     ): Float {
         val travelPx = legacyWidthPx.coerceIn(120f, 800f) * legacyZoomFraction.coerceIn(0.1f, 1f)
-        return (travelPx / MIGRATION_REFERENCE_SCREEN_WIDTH).coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
+        val travelFraction =
+            (travelPx / MIGRATION_REFERENCE_SCREEN_WIDTH).coerceIn(SENSITIVITY_MIN, SENSITIVITY_MAX)
+        return travelFractionFromSpeed(travelFraction)
     }
 
     /** Maps finger travel since touch-down to pointer movement from the pointer position at down. */

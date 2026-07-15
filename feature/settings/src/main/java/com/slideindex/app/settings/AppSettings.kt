@@ -68,8 +68,7 @@ data class AppSettings(
     val widgetPanelTopFraction: Float = 0.15f,
     val widgetPanelBlurEnabled: Boolean = true,
     /**
-     * Fraction of each screen axis that finger travel must cover to move the pointer across
-     * that axis (0.2–0.75). Higher = faster pointer.
+     * Pointer speed shown in settings (0.2–0.75 ≈ 20%–75%). Higher = faster pointer.
      */
     val floatingPointerSensitivityFraction: Float = 0.52f,
     /** Virtual joystick diameter in screen pixels (QC default 275). */
@@ -144,4 +143,27 @@ data class AppSettings(
     val messageReminderSettings: MessageSettings = MessageSettings(),
     val debugPerformanceMonitorEnabled: Boolean = false,
     val onboardingCompleted: Boolean = false,
+    /** FV-style persistent float ball; independent from edge-gesture floating pointer. */
+    val floatBallEnabled: Boolean = false,
+    val floatBallSizeDp: Float = 48f,
+    val floatBallOpacity: Float = 0.88f,
+    /** Ball center X as fraction of screen width (0–1). */
+    val floatBallPositionXFraction: Float = 0.92f,
+    /** Ball center Y as fraction of screen height (0–1). */
+    val floatBallPositionYFraction: Float = 0.55f,
+    /** When a11y text pick fails, capture screen region and run ML Kit OCR. */
+    val floatBallOcrFallbackEnabled: Boolean = true,
+    /**
+     * Float-ball pick pointer speed (0.2–0.75, higher = faster).
+     * Independent from [floatingPointerSensitivityFraction].
+     */
+    val floatBallPointerSpeedFraction: Float = 0.3f,
+    val floatBallPositionMode: FloatBallPositionMode = FloatBallPositionMode.RIGHT,
+    /** Which side shows the ball when [floatBallPositionMode] is [FloatBallPositionMode.BOTH_EDGES]. */
+    val floatBallActiveSide: FloatBallSide = FloatBallSide.RIGHT,
+    /** Edge line / capture strip height as fraction of screen height. */
+    val floatBallLineHeightFraction: Float = 0.08f,
+    /** Edge line / capture strip width as fraction of screen width. */
+    val floatBallLineWidthFraction: Float = 0.30f,
+    val floatBallLineOpacity: Float = 0.9f,
 )

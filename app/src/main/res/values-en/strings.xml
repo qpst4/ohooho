@@ -324,7 +324,7 @@
     <string name="floating_pointer_settings_section_appearance">Appearance</string>
     <string name="floating_pointer_joystick_area_section">Pointer movement</string>
     <string name="floating_pointer_sensitivity">Pointer speed</string>
-    <string name="floating_pointer_sensitivity_hint">Higher values move the pointer faster. Sliding your finger across roughly this fraction of the screen width (or height) moves the pointer across the full screen horizontally (or vertically).</string>
+    <string name="floating_pointer_sensitivity_hint">Higher values move the pointer faster; lower values require more finger travel to cross the screen.</string>
     <string name="floating_pointer_preview_drag_hint">With preview on, an overlay appears on the real display. Use your configured edge gestures (e.g. swipe from the left edge) to preview joystick and travel bounds at each trigger position. Sliders update in real time. Dashed = full travel; solid = on-screen portion. The dot shows the pointer start when continuing from an edge.</string>
     <string name="floating_pointer_area_preview_title">Travel bounds preview</string>
     <string name="floating_pointer_area_preview_desc">Show joystick travel bounds on the real screen</string>

@@ -12,6 +12,7 @@ import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
 import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.ExtensionAboutScreen
+import com.slideindex.app.ui.FloatBallSettingsScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.PrivacyPolicyScreen
 import com.slideindex.app.ui.SettingsBackupScreen
@@ -30,12 +31,14 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
         ExtensionHubScreen(
             settings = settings,
             gestureActive = ctx.gestureActive(settings, permissions),
+            accessibilityGranted = permissions.accessibilityGranted,
             bottomContentPadding = ctx.rootBottomContentPadding,
             onOpenLayoutSettings = { ctx.navigate(AppNavKey.HomeLayout) },
             onOpenQuickLauncher = { ctx.navigate(AppNavKey.QuickLauncher) },
             onOpenShellCommands = { ctx.navigate(AppNavKey.ShellCommands) },
             onOpenWidgetPanel = { ctx.navigate(AppNavKey.WidgetPanel) },
             onOpenFloatingPointer = { ctx.navigate(AppNavKey.FloatingPointer) },
+            onOpenFloatBall = { ctx.navigate(AppNavKey.FloatBall) },
             onOpenSettingsBackup = { ctx.navigate(AppNavKey.ExtensionBackup) },
             onOpenAbout = { ctx.navigate(AppNavKey.ExtensionAbout) },
         )
@@ -103,6 +106,28 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onSavePages = viewModel::setWidgetPanelPages,
             onBlurEnabledChange = viewModel::setWidgetPanelBlurEnabled,
             onWidthFractionChange = viewModel::setWidgetPanelWidthFraction,
+        )
+    }
+
+    entry<AppNavKey.FloatBall> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val permissions = ctx.collectPermissions()
+        FloatBallSettingsScreen(
+            settings = settings,
+            accessibilityGranted = permissions.accessibilityGranted,
+            onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
+            onEnabledChange = viewModel::setFloatBallEnabled,
+            onSizeChange = viewModel::setFloatBallSizeDp,
+            onOpacityChange = viewModel::setFloatBallOpacity,
+            onPositionModeChange = viewModel::setFloatBallPositionMode,
+            onPositionYChange = viewModel::setFloatBallPositionYFraction,
+            onPositionXChange = viewModel::setFloatBallPositionXFraction,
+            onLineHeightChange = viewModel::setFloatBallLineHeightFraction,
+            onLineWidthChange = viewModel::setFloatBallLineWidthFraction,
+            onLineOpacityChange = viewModel::setFloatBallLineOpacity,
+            onPointerSpeedChange = viewModel::setFloatBallPointerSpeedFraction,
+            onOcrFallbackChange = viewModel::setFloatBallOcrFallbackEnabled,
         )
     }
 

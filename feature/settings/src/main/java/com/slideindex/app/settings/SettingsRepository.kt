@@ -214,6 +214,39 @@ class SettingsRepository @Inject constructor(
     suspend fun setWidgetPanelWidthFraction(fraction: Float) = overlay.setWidgetPanelWidthFraction(fraction)
     suspend fun setDebugPerformanceMonitorEnabled(enabled: Boolean) = overlay.setDebugPerformanceMonitorEnabled(enabled)
 
+    suspend fun setFloatBallEnabled(enabled: Boolean) = overlay.setFloatBallEnabled(enabled)
+    suspend fun setFloatBallSizeDp(value: Float) = overlay.setFloatBallSizeDp(value)
+    suspend fun setFloatBallOpacity(value: Float) = overlay.setFloatBallOpacity(value)
+    suspend fun setFloatBallPosition(xFraction: Float, yFraction: Float) =
+        overlay.setFloatBallPosition(xFraction, yFraction)
+
+    suspend fun setFloatBallPositionYFraction(yFraction: Float) =
+        overlay.setFloatBallPositionYFraction(yFraction)
+
+    suspend fun setFloatBallPositionXFraction(xFraction: Float) =
+        overlay.setFloatBallPositionXFraction(xFraction)
+
+    suspend fun setFloatBallOcrFallbackEnabled(enabled: Boolean) =
+        overlay.setFloatBallOcrFallbackEnabled(enabled)
+
+    suspend fun setFloatBallPointerSpeedFraction(value: Float) =
+        overlay.setFloatBallPointerSpeedFraction(value)
+
+    suspend fun setFloatBallPositionMode(mode: FloatBallPositionMode) =
+        overlay.setFloatBallPositionMode(mode)
+
+    suspend fun setFloatBallActiveSide(side: FloatBallSide) =
+        overlay.setFloatBallActiveSide(side)
+
+    suspend fun setFloatBallLineHeightFraction(value: Float) =
+        overlay.setFloatBallLineHeightFraction(value)
+
+    suspend fun setFloatBallLineWidthFraction(value: Float) =
+        overlay.setFloatBallLineWidthFraction(value)
+
+    suspend fun setFloatBallLineOpacity(value: Float) =
+        overlay.setFloatBallLineOpacity(value)
+
     suspend fun setOtpCopyToClipboard(enabled: Boolean) = otp.setOtpCopyToClipboard(enabled)
     suspend fun setOtpKeywordsRegex(value: String) = otp.setOtpKeywordsRegex(value)
     suspend fun setOtpUserMatchRules(rules: List<com.slideindex.app.otp.OtpMatchRule>) = otp.setOtpUserMatchRules(rules)

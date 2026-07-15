@@ -358,4 +358,67 @@ class OverlaySettingsMutator @Inject constructor(
 
     suspend fun setDebugPerformanceMonitorEnabled(enabled: Boolean) =
         editor.edit { it[SettingsPreferenceKeys.DEBUG_PERFORMANCE_MONITOR] = enabled }
+
+    suspend fun setFloatBallEnabled(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_ENABLED] = enabled
+    }
+
+    suspend fun setFloatBallSizeDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_SIZE_DP] = value.coerceIn(36f, 72f)
+    }
+
+    suspend fun setFloatBallOpacity(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_OPACITY] = value.coerceIn(0.3f, 1f)
+    }
+
+    suspend fun setFloatBallPosition(xFraction: Float, yFraction: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] = xFraction.coerceIn(0.05f, 0.95f)
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] = yFraction.coerceIn(0.05f, 0.95f)
+    }
+
+    suspend fun setFloatBallPositionYFraction(yFraction: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] = yFraction.coerceIn(0.05f, 0.95f)
+    }
+
+    suspend fun setFloatBallPositionXFraction(xFraction: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] = xFraction.coerceIn(0.05f, 0.95f)
+    }
+
+    suspend fun setFloatBallOcrFallbackEnabled(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_OCR_FALLBACK_ENABLED] = enabled
+    }
+
+    suspend fun setFloatBallPointerSpeedFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SPEED_FRACTION] =
+            value.coerceIn(0.2f, 0.75f)
+    }
+
+    suspend fun setFloatBallPositionMode(mode: FloatBallPositionMode) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_MODE] = mode.storageKey
+        when (mode) {
+            FloatBallPositionMode.LEFT -> {
+                it[SettingsPreferenceKeys.FLOAT_BALL_ACTIVE_SIDE] = FloatBallSide.LEFT.storageKey
+            }
+            FloatBallPositionMode.RIGHT -> {
+                it[SettingsPreferenceKeys.FLOAT_BALL_ACTIVE_SIDE] = FloatBallSide.RIGHT.storageKey
+            }
+            else -> Unit
+        }
+    }
+
+    suspend fun setFloatBallActiveSide(side: FloatBallSide) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_ACTIVE_SIDE] = side.storageKey
+    }
+
+    suspend fun setFloatBallLineHeightFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_LINE_HEIGHT_FRACTION] = value.coerceIn(0.04f, 0.4f)
+    }
+
+    suspend fun setFloatBallLineWidthFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_LINE_WIDTH_FRACTION] = value.coerceIn(0.04f, 0.5f)
+    }
+
+    suspend fun setFloatBallLineOpacity(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] = value.coerceIn(0.1f, 1f)
+    }
 }
