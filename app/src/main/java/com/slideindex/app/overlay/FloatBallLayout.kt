@@ -71,6 +71,12 @@ internal object FloatBallLayout {
         return left to top
     }
 
+    fun ballCenterPx(settings: AppSettings, metrics: DisplayMetrics, activeSide: FloatBallSide): Pair<Float, Float> {
+        val ballSizePx = ballSizePx(settings, metrics.density)
+        val (left, top) = ballTopLeft(settings, metrics, activeSide)
+        return (left + ballSizePx / 2f) to (top + ballSizePx / 2f)
+    }
+
     fun edgeStripBounds(
         settings: AppSettings,
         metrics: DisplayMetrics,
@@ -89,6 +95,10 @@ internal object FloatBallLayout {
         return Rect(left, top, left + width, top + height)
     }
 
+    /** After dragging out from the inactive-side line, the ball docks on that side. */
+    fun activeSideAfterLineDragSwap(settings: AppSettings): FloatBallSide =
+        FloatBallSide.opposite(resolvedActiveSide(settings))
+
     fun dockXFraction(settings: AppSettings, activeSide: FloatBallSide): Float =
         when (settings.floatBallPositionMode) {
             FloatBallPositionMode.CUSTOM -> settings.floatBallPositionXFraction
@@ -99,4 +109,25 @@ internal object FloatBallLayout {
                 FloatBallSide.RIGHT -> 0.92f
             }
         }
+
+    /** Strip window origin so the docked ball visual tracks [ballCenterX]/[ballCenterY]. */
+    fun stripWindowOriginForBallCenter(
+        settings: AppSettings,
+        metrics: DisplayMetrics,
+        activeSide: FloatBallSide,
+        ballCenterX: Float,
+        ballCenterY: Float,
+    ): Pair<Int, Int> {
+        val ballSizePx = ballSizePx(settings, metrics.density)
+        val strip = edgeStripBounds(settings, metrics, activeSide)
+        val stripW = strip.width()
+        val stripH = strip.height()
+        val windowX = when (activeSide) {
+            FloatBallSide.LEFT -> (ballCenterX - ballSizePx / 2f).roundToInt()
+            FloatBallSide.RIGHT -> (ballCenterX + ballSizePx / 2f - stripW).roundToInt()
+        }
+        val windowY = (ballCenterY - stripH / 2f).roundToInt()
+        return windowX.coerceIn(0, metrics.widthPixels - stripW) to
+            windowY.coerceIn(0, metrics.heightPixels - stripH)
+    }
 }

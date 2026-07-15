@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.service.SlideIndexAccessibilityService
@@ -94,9 +95,13 @@ object FloatBallOverlay {
     private var pauseRunnable: Runnable? = null
     private var captureSuppressed = false
     private var isDragging = false
+    private var dragOriginatedFromLine = false
+    private var dragActiveSideOverride: FloatBallSide? = null
+    private var chromeHiddenForDrag = false
+    private var committedActiveSideUntilPersist: FloatBallSide? = null
+    private var activeSideAtDragStart: FloatBallSide? = null
+    private var finishDragRequested = false
     private var lastBallLayoutMs = 0L
-    private var pendingBallLeft = 0
-    private var pendingBallTop = 0
     private var ballLayoutThrottleRunnable: Runnable? = null
 
     val isShowing: Boolean get() = ballView != null
@@ -126,8 +131,30 @@ object FloatBallOverlay {
         if (!isShowing) {
             ensureWindows(hostContext, settings)
         } else {
-            settingsState?.value = settings
-            applyAllLayouts(settings)
+            val incoming = settings
+            val pendingSide = committedActiveSideUntilPersist
+            if (pendingSide != null && incoming.floatBallActiveSide != pendingSide) {
+                settingsState?.value = incoming.copy(floatBallActiveSide = pendingSide)
+                return
+            }
+            if (pendingSide != null && incoming.floatBallActiveSide == pendingSide) {
+                committedActiveSideUntilPersist = null
+            }
+            val current = settingsState?.value
+            val merged = if (
+                isDragging &&
+                current != null &&
+                incoming.floatBallActiveSide != current.floatBallActiveSide
+            ) {
+                incoming.copy(floatBallActiveSide = current.floatBallActiveSide)
+            } else {
+                incoming
+            }
+            settingsState?.value = merged
+            recoverStuckLineCaptureIfNeeded(merged)
+            if (!isDragging) {
+                restorePassiveOverlayLayout(merged)
+            }
         }
     }
 
@@ -176,8 +203,13 @@ object FloatBallOverlay {
         screenOffReceiver = null
         appContext = null
         isDragging = false
-        dragSession.reset()
+        dragOriginatedFromLine = false
+        dragActiveSideOverride = null
+        chromeHiddenForDrag = false
+        committedActiveSideUntilPersist = null
+        activeSideAtDragStart = null
         cancelBallLayoutThrottle()
+        dragSession.reset()
     }
 
     fun relayout() {
@@ -196,7 +228,7 @@ object FloatBallOverlay {
                 screenWidth = bounds.width,
                 screenHeight = bounds.height,
             )
-            updatePickAndBallFromFinger()
+            updatePickAndBallFromFinger(moveBallWindow = true)
         } else {
             applyAllLayouts(settings)
         }
@@ -238,12 +270,13 @@ object FloatBallOverlay {
         val selectionStart = mutableStateOf<Offset?>(null)
 
         val dragCallbacks = object {
-            fun onStart(localOffset: Offset, windowX: Int, windowY: Int, fromLine: Boolean) {
+            fun onStart(localOffset: Offset, windowX: Int, windowY: Int) {
                 val screenX = windowX + localOffset.x
                 val screenY = windowY + localOffset.y
-                if (fromLine) {
-                    flipActiveSide()
-                }
+                activeSideAtDragStart = null
+                dragOriginatedFromLine = false
+                dragActiveSideOverride = null
+                settingsState?.value?.let { restorePassiveOverlayLayout(it, fixZOrder = false) }
                 showCursorAtScreenTouch(screenX, screenY)
             }
 
@@ -253,10 +286,16 @@ object FloatBallOverlay {
             }
 
             fun onEnd() {
-                finishDrag(settingsHolder.value)
+                if (dragOriginatedFromLine) return
+                completeDragGesture()
             }
 
             fun onCancel() {
+                if (dragOriginatedFromLine) return
+                activeSideAtDragStart = null
+                dragOriginatedFromLine = false
+                dragActiveSideOverride = null
+                chromeHiddenForDrag = false
                 hideCursor()
                 settingsState?.value?.let { restoreDockPosition(it) }
                 updateChromeVisibility(settingsHolder.value)
@@ -270,7 +309,7 @@ object FloatBallOverlay {
                     settingsState = settingsHolder,
                     onDragStart = { touchInBall ->
                         val params = ballParams ?: return@FloatBallContent
-                        dragCallbacks.onStart(touchInBall, params.x, params.y, fromLine = false)
+                        dragCallbacks.onStart(touchInBall, params.x, params.y)
                     },
                     onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
                     onDragEnd = { dragCallbacks.onEnd() },
@@ -285,7 +324,7 @@ object FloatBallOverlay {
                 FloatBallEdgeCaptureContent(
                     onDragStart = { touchInStrip ->
                         val params = edgeCaptureParams ?: return@FloatBallEdgeCaptureContent
-                        dragCallbacks.onStart(touchInStrip, params.x, params.y, fromLine = false)
+                        dragCallbacks.onStart(touchInStrip, params.x, params.y)
                     },
                     onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
                     onDragEnd = { dragCallbacks.onEnd() },
@@ -299,13 +338,23 @@ object FloatBallOverlay {
             setContent {
                 FloatBallLineContent(
                     settingsState = settingsHolder,
-                    onDragStart = { touchInStrip ->
-                        val params = lineParams ?: return@FloatBallLineContent
-                        dragCallbacks.onStart(touchInStrip, params.x, params.y, fromLine = true)
+                    windowOrigin = {
+                        val params = lineParams ?: return@FloatBallLineContent IntOffset.Zero
+                        IntOffset(params.x, params.y)
                     },
-                    onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
-                    onDragEnd = { dragCallbacks.onEnd() },
-                    onDragCancel = { dragCallbacks.onCancel() },
+                    onLineDragDown = { screenX, screenY -> prepareLineDrag(screenX, screenY) },
+                    onLineDrag = { dx, dy ->
+                        onFingerDrag(dx, dy)
+                        onDragMoved()
+                    },
+                    onLineDragEnd = {
+                        commitLineDragSideSwap()
+                        completeDragGesture()
+                    },
+                    onLineDragCancel = {
+                        revertLineDragSideSwapIfNeeded()
+                        cancelDragWithoutPick()
+                    },
                 )
             }
         }
@@ -400,6 +449,65 @@ object FloatBallOverlay {
         applyAllLayouts(settings)
     }
 
+    /**
+     * Reset drag capture and snap ball/line back to edge strips.
+     * Shrinks any fullscreen line capture left from an in-progress or stuck gesture.
+     */
+    private fun restorePassiveOverlayLayout(settings: AppSettings, fixZOrder: Boolean = true) {
+        val wm = windowManager ?: return
+
+        ballParams?.let { params ->
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            ballView?.let { runCatching { wm.updateViewLayout(it, params) } }
+        }
+
+        lineParams?.let { params ->
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            lineView?.let { runCatching { wm.updateViewLayout(it, params) } }
+        }
+
+        edgeCaptureView?.visibility = View.GONE
+        applyAllLayouts(settings)
+        if (fixZOrder) {
+            bringBallAboveLine()
+        }
+    }
+
+    private fun bringOverlayToFront(view: View, params: WindowManager.LayoutParams) {
+        val wm = windowManager ?: return
+        if (!view.isAttachedToWindow) return
+        runCatching {
+            wm.removeView(view)
+            wm.addView(view, params)
+        }
+    }
+
+    /** Ball strip must stay above line when idle so the ball receives touches. */
+    private fun bringBallAboveLine() {
+        val wm = windowManager ?: return
+        val ball = ballView ?: return
+        val ballLp = ballParams ?: return
+        bringOverlayToFront(ball, ballLp)
+        val cursor = cursorView ?: return
+        val cursorLp = cursor.layoutParams as? WindowManager.LayoutParams ?: return
+        bringOverlayToFront(cursor, cursorLp)
+    }
+
+    private fun recoverStuckLineCaptureIfNeeded(settings: AppSettings) {
+        val metrics = lineView?.resources?.displayMetrics ?: return
+        val params = lineParams ?: return
+        val stuckFullscreen = params.width >= metrics.widthPixels || params.height >= metrics.heightPixels
+        if (!stuckFullscreen) return
+        Log.w(TAG, "recovering stuck fullscreen line overlay")
+        isDragging = false
+        dragOriginatedFromLine = false
+        dragActiveSideOverride = null
+        activeSideAtDragStart = null
+        hideCursor()
+        restorePassiveOverlayLayout(settings)
+    }
+
     private fun buildTouchableStripLayoutParams(context: Context): WindowManager.LayoutParams {
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -434,10 +542,12 @@ object FloatBallOverlay {
         }
     }
 
-    private fun applyAllLayouts(settings: AppSettings) {
+    private fun applyAllLayouts(settings: AppSettings, relayoutChrome: Boolean = true) {
         applyBallLayout(settings)
-        applyEdgeCaptureLayout(settings)
-        applyLineLayout(settings)
+        if (relayoutChrome) {
+            applyEdgeCaptureLayout(settings)
+            applyLineLayout(settings)
+        }
         updateChromeVisibility(settings)
     }
 
@@ -447,9 +557,19 @@ object FloatBallOverlay {
         val params = ballParams ?: return
         val metrics = view.resources.displayMetrics
         val activeSide = FloatBallLayout.resolvedActiveSide(settings)
-        val (left, top) = FloatBallLayout.ballTopLeft(settings, metrics, activeSide)
-        params.x = left
-        params.y = top
+        if (settings.floatBallPositionMode == FloatBallPositionMode.CUSTOM) {
+            val (left, top) = FloatBallLayout.ballTopLeft(settings, metrics, activeSide)
+            params.x = left
+            params.y = top
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        } else {
+            val bounds = FloatBallLayout.edgeStripBounds(settings, metrics, activeSide)
+            params.x = bounds.left
+            params.y = bounds.top
+            params.width = bounds.width()
+            params.height = bounds.height()
+        }
         runCatching { wm.updateViewLayout(view, params) }
     }
 
@@ -492,23 +612,97 @@ object FloatBallOverlay {
         if (isDragging) {
             ballView?.visibility = View.VISIBLE
             edgeCaptureView?.visibility = View.GONE
-            lineView?.visibility = View.GONE
+            lineView?.visibility = when {
+                dragOriginatedFromLine && FloatBallLayout.shouldShowLine(settings) -> View.VISIBLE
+                else -> View.GONE
+            }
             return
         }
         ballView?.visibility = View.VISIBLE
-        val showEdgeCapture = settings.floatBallPositionMode != FloatBallPositionMode.CUSTOM
-        edgeCaptureView?.visibility = if (showEdgeCapture) View.VISIBLE else View.GONE
+        edgeCaptureView?.visibility = View.GONE
         lineView?.visibility = if (FloatBallLayout.shouldShowLine(settings)) View.VISIBLE else View.GONE
     }
 
-    private fun flipActiveSide() {
+    private fun effectiveActiveSide(settings: AppSettings): FloatBallSide =
+        dragActiveSideOverride ?: FloatBallLayout.resolvedActiveSide(settings)
+
+    private fun prepareLineDrag(screenX: Float, screenY: Float) {
+        val settings = settingsState?.value ?: return
+        val dockedSide = FloatBallLayout.resolvedActiveSide(settings)
+        val bothEdges = settings.floatBallPositionMode == FloatBallPositionMode.BOTH_EDGES
+        activeSideAtDragStart = if (bothEdges) dockedSide else null
+        dragOriginatedFromLine = bothEdges
+        dragActiveSideOverride = if (bothEdges) {
+            FloatBallSide.opposite(dockedSide)
+        } else {
+            null
+        }
+        showCursorAtScreenTouch(screenX, screenY, deferBallWindowMutation = true)
+        mainHandler.post {
+            if (!isDragging || !dragOriginatedFromLine) return@post
+            setBallTouchable(false)
+            settingsState?.value?.let { applyDragBallLayout(it) }
+        }
+    }
+
+    private fun commitLineDragSideSwap() {
+        if (!dragOriginatedFromLine) return
+        val fromSide = activeSideAtDragStart ?: return
         val settings = settingsState?.value ?: return
         if (settings.floatBallPositionMode != FloatBallPositionMode.BOTH_EDGES) return
-        val newSide = FloatBallSide.opposite(FloatBallLayout.resolvedActiveSide(settings))
-        val updated = settings.copy(floatBallActiveSide = newSide)
+        val targetSide = FloatBallSide.opposite(fromSide)
+        if (FloatBallLayout.resolvedActiveSide(settings) != targetSide) {
+            applyActiveSide(targetSide)
+        }
+    }
+
+    private fun revertLineDragSideSwapIfNeeded() {
+        if (!dragOriginatedFromLine) return
+        val revertSide = activeSideAtDragStart ?: return
+        val settings = settingsState?.value ?: return
+        if (settings.floatBallPositionMode != FloatBallPositionMode.BOTH_EDGES) return
+        if (FloatBallLayout.resolvedActiveSide(settings) != revertSide) {
+            applyActiveSide(revertSide)
+        }
+    }
+
+    private fun cancelDragWithoutPick() {
+        if (!isDragging) return
+        cancelBallLayoutThrottle()
+        activeSideAtDragStart = null
+        val settings = settingsState?.value
+        if (settings != null) {
+            restoreDockPosition(settings)
+        }
+        clearCursorUi()
+        isDragging = false
+        settings?.let { updateChromeVisibility(it) }
+    }
+
+    private fun completeDragGesture() {
+        if (!isDragging || finishDragRequested) return
+        finishDragRequested = true
+        val settings = settingsState?.value ?: run {
+            finishDragRequested = false
+            return
+        }
+        finishDrag(settings)
+        finishDragRequested = false
+    }
+
+    private fun applyActiveSide(targetSide: FloatBallSide) {
+        val settings = settingsState?.value ?: return
+        if (settings.floatBallPositionMode != FloatBallPositionMode.BOTH_EDGES) return
+        val updated = settings.copy(floatBallActiveSide = targetSide)
         settingsState?.value = updated
-        onActiveSidePersisted?.invoke(newSide)
-        applyAllLayouts(updated)
+        committedActiveSideUntilPersist = targetSide
+        onActiveSidePersisted?.invoke(targetSide)
+        applyBallLayout(updated)
+        if (!isDragging) {
+            applyEdgeCaptureLayout(updated)
+            applyLineLayout(updated)
+            updateChromeVisibility(updated)
+        }
     }
 
     private fun restoreDockPosition(settings: AppSettings) {
@@ -517,19 +711,29 @@ object FloatBallOverlay {
 
     private fun onFingerDrag(dx: Float, dy: Float) {
         if (!isDragging) return
+        if (!chromeHiddenForDrag) {
+            chromeHiddenForDrag = true
+            settingsState?.value?.let { updateChromeVisibility(it) }
+        }
         dragSession.onFingerMove(dx, dy)
-        updatePickAndBallFromFinger()
+        updatePickAndBallFromFinger(moveBallWindow = true)
     }
 
     private fun finishDrag(settings: AppSettings) {
-        isDragging = false
+        if (!isDragging) return
         cancelBallLayoutThrottle()
         handlePickOnRelease(settings)
-        hideCursor()
+        commitLineDragSideSwap()
+        dragActiveSideOverride = null
+        activeSideAtDragStart = null
+        restoreDockPosition(settingsState?.value ?: settings)
+
         if (settings.floatBallPositionMode == FloatBallPositionMode.CUSTOM) {
             persistBallCenterFraction()
         }
-        restoreDockPosition(settingsState?.value ?: settings)
+
+        clearCursorUi()
+        isDragging = false
         updateChromeVisibility(settingsState?.value ?: settings)
     }
 
@@ -569,14 +773,18 @@ object FloatBallOverlay {
         val metrics = view.resources.displayMetrics
         val density = metrics.density
         val ballSizePx = (settings.floatBallSizeDp.coerceIn(36f, 72f) * density).roundToInt()
-        val centerX = params.x + ballSizePx / 2f
-        val centerY = params.y + ballSizePx / 2f
+        val activeSide = FloatBallLayout.resolvedActiveSide(settings)
+        val (centerX, centerY) = FloatBallLayout.ballCenterPx(settings, metrics, activeSide)
         val xFraction = (centerX / metrics.widthPixels).coerceIn(0.05f, 0.95f)
         val yFraction = (centerY / metrics.heightPixels).coerceIn(0.05f, 0.95f)
         onPositionPersisted?.invoke(xFraction, yFraction)
     }
 
-    private fun showCursorAtScreenTouch(screenX: Float, screenY: Float) {
+    private fun showCursorAtScreenTouch(
+        screenX: Float,
+        screenY: Float,
+        deferBallWindowMutation: Boolean = false,
+    ) {
         val params = ballParams ?: return
         val view = ballView ?: return
         val settings = settingsState?.value ?: return
@@ -587,11 +795,8 @@ object FloatBallOverlay {
         val screenWidth = bounds.width
         val screenHeight = bounds.height
 
-        edgeCaptureView?.visibility = View.GONE
-        lineView?.visibility = View.GONE
-
-        val ballCenterX = params.x + ballSizePx / 2f
-        val ballCenterY = params.y + ballSizePx / 2f
+        val activeSide = effectiveActiveSide(settings)
+        val (ballCenterX, ballCenterY) = FloatBallLayout.ballCenterPx(settings, metrics, activeSide)
         dragSession.armAtTouch(
             settings = settings,
             screenX = screenX,
@@ -605,22 +810,49 @@ object FloatBallOverlay {
         )
 
         isDragging = true
+        chromeHiddenForDrag = false
+        if (dragOriginatedFromLine && !deferBallWindowMutation) {
+            setBallTouchable(false)
+        }
         lastBallLayoutMs = 0L
         selectionStartState?.value = null
         cursorVisibleState?.value = true
         cursorPausedState?.value = false
-        updatePickAndBallFromFinger()
+        // Do not move or resize the ball window here — that cancels the Compose drag gesture.
+        updatePickAndBallFromFinger(moveBallWindow = false)
         schedulePauseTimer()
     }
 
-    private fun hideCursor() {
-        isDragging = false
+    private fun setBallTouchable(touchable: Boolean) {
+        val wm = windowManager ?: return
+        val view = ballView ?: return
+        val params = ballParams ?: return
+        params.flags = if (touchable) {
+            params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
+        runCatching { wm.updateViewLayout(view, params) }
+    }
+
+    private fun clearCursorUi() {
+        dragOriginatedFromLine = false
+        dragActiveSideOverride = null
+        chromeHiddenForDrag = false
+        setBallTouchable(true)
+        settingsState?.value?.let { restorePassiveOverlayLayout(it) }
         cancelPauseTimer()
         cancelBallLayoutThrottle()
         dragSession.reset()
         cursorVisibleState?.value = false
         cursorPausedState?.value = false
         selectionStartState?.value = null
+    }
+
+    private fun hideCursor() {
+        isDragging = false
+        activeSideAtDragStart = null
+        clearCursorUi()
         settingsState?.value?.let { updateChromeVisibility(it) }
     }
 
@@ -663,31 +895,60 @@ object FloatBallOverlay {
         ballLayoutThrottleRunnable = null
     }
 
-    private fun applyBallPosition(left: Int, top: Int) {
+    private fun applyDragBallLayout(settings: AppSettings) {
         val wm = windowManager ?: return
         val view = ballView ?: return
         val params = ballParams ?: return
-        params.x = left
-        params.y = top
+        val metrics = view.resources.displayMetrics
+        val density = metrics.density
+        val ballSizePx = FloatBallLayout.ballSizePx(settings, density)
+        val marginPx = FloatBallLayout.marginPx(density)
+        val bounds = overlayScreenBounds(metrics)
+        val activeSide = effectiveActiveSide(settings)
+        val center = dragSession.clampedBallCenter(
+            ballSizePx = ballSizePx.toFloat(),
+            marginPx = marginPx,
+            screenWidth = bounds.width.roundToInt(),
+            screenHeight = bounds.height.roundToInt(),
+        )
+
+        if (settings.floatBallPositionMode == FloatBallPositionMode.CUSTOM) {
+            params.x = (center.x - ballSizePx / 2f).roundToInt()
+            params.y = (center.y - ballSizePx / 2f).roundToInt()
+            params.width = WindowManager.LayoutParams.WRAP_CONTENT
+            params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        } else {
+            val strip = FloatBallLayout.edgeStripBounds(settings, metrics, activeSide)
+            val (windowX, windowY) = FloatBallLayout.stripWindowOriginForBallCenter(
+                settings = settings,
+                metrics = metrics,
+                activeSide = activeSide,
+                ballCenterX = center.x,
+                ballCenterY = center.y,
+            )
+            params.x = windowX
+            params.y = windowY
+            params.width = strip.width()
+            params.height = strip.height()
+        }
         runCatching { wm.updateViewLayout(view, params) }
     }
 
-    private fun scheduleThrottledBallLayout(left: Int, top: Int) {
-        pendingBallLeft = left
-        pendingBallTop = top
+    private fun scheduleThrottledBallLayout() {
         if (ballLayoutThrottleRunnable != null) return
         val delayMs = BALL_LAYOUT_MIN_INTERVAL_MS - (SystemClock.uptimeMillis() - lastBallLayoutMs)
         val runnable = Runnable {
             ballLayoutThrottleRunnable = null
             if (!isDragging) return@Runnable
+            val settings = settingsState?.value ?: return@Runnable
             lastBallLayoutMs = SystemClock.uptimeMillis()
-            applyBallPosition(pendingBallLeft, pendingBallTop)
+            applyDragBallLayout(settings)
         }
         ballLayoutThrottleRunnable = runnable
         mainHandler.postDelayed(runnable, delayMs.coerceAtLeast(1L))
     }
 
-    private fun updatePickAndBallFromFinger() {
+    private fun updatePickAndBallFromFinger(moveBallWindow: Boolean) {
         val view = ballView ?: return
         val settings = settingsState?.value ?: return
         val metrics = view.resources.displayMetrics
@@ -697,8 +958,6 @@ object FloatBallOverlay {
         val marginPx = (EDGE_MARGIN_DP * density).roundToInt()
         val screenWidth = bounds.width
         val screenHeight = bounds.height
-        val screenWidthPx = screenWidth.roundToInt()
-        val screenHeightPx = screenHeight.roundToInt()
 
         val pick = dragSession.computePick(
             settings = settings,
@@ -710,19 +969,15 @@ object FloatBallOverlay {
         )
         cursorAnchorState?.value = pick
 
-        val (ballLeft, ballTop) = dragSession.ballTopLeft(
-            ballSizePx = ballSizePx,
-            marginPx = marginPx,
-            screenWidth = screenWidthPx,
-            screenHeight = screenHeightPx,
-        )
+        if (!moveBallWindow) return
+
         val now = SystemClock.uptimeMillis()
         if (now - lastBallLayoutMs >= BALL_LAYOUT_MIN_INTERVAL_MS) {
             lastBallLayoutMs = now
             cancelBallLayoutThrottle()
-            applyBallPosition(ballLeft, ballTop)
+            applyDragBallLayout(settings)
         } else {
-            scheduleThrottledBallLayout(ballLeft, ballTop)
+            scheduleThrottledBallLayout()
         }
     }
 
@@ -782,10 +1037,11 @@ private fun FloatBallEdgeCaptureContent(
 @Composable
 private fun FloatBallLineContent(
     settingsState: MutableState<AppSettings>,
-    onDragStart: (Offset) -> Unit,
-    onDrag: (dx: Float, dy: Float) -> Unit,
-    onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit,
+    windowOrigin: () -> IntOffset,
+    onLineDragDown: (screenX: Float, screenY: Float) -> Unit,
+    onLineDrag: (dx: Float, dy: Float) -> Unit,
+    onLineDragEnd: () -> Unit,
+    onLineDragCancel: () -> Unit,
 ) {
     val settings = settingsState.value
     val lineColor = Color(settings.themeColorArgb)
@@ -807,13 +1063,16 @@ private fun FloatBallLineContent(
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { offset -> onDragStart(offset) },
+                    onDragStart = { offset ->
+                        val origin = windowOrigin()
+                        onLineDragDown(origin.x + offset.x, origin.y + offset.y)
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        onDrag(dragAmount.x, dragAmount.y)
+                        onLineDrag(dragAmount.x, dragAmount.y)
                     },
-                    onDragEnd = { onDragEnd() },
-                    onDragCancel = { onDragCancel() },
+                    onDragEnd = { onLineDragEnd() },
+                    onDragCancel = { onLineDragCancel() },
                 )
             },
         contentAlignment = outerAlignment,
@@ -839,34 +1098,60 @@ private fun FloatBallContent(
     val settings = settingsState.value
     val sizeDp = settings.floatBallSizeDp.coerceIn(36f, 72f).dp
     val ballColor = Color(settings.themeColorArgb).copy(alpha = settings.floatBallOpacity.coerceIn(0.3f, 1f))
+    val isCustom = settings.floatBallPositionMode == FloatBallPositionMode.CUSTOM
+    val activeSide = FloatBallLayout.resolvedActiveSide(settings)
+    val dockAlignment = when {
+        isCustom -> Alignment.Center
+        activeSide == FloatBallSide.LEFT -> Alignment.CenterStart
+        else -> Alignment.CenterEnd
+    }
+
+    val dragModifier = Modifier.pointerInput(Unit) {
+        detectDragGestures(
+            onDragStart = { offset -> onDragStart(offset) },
+            onDrag = { change, dragAmount ->
+                change.consume()
+                onDrag(dragAmount.x, dragAmount.y)
+            },
+            onDragEnd = { onDragEnd() },
+            onDragCancel = { onDragCancel() },
+        )
+    }
 
     SlideIndexTheme {
-        Box(
-            modifier = Modifier
-                .size(sizeDp)
-                .shadow(8.dp, CircleShape)
-                .clip(CircleShape)
-                .background(ballColor)
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset -> onDragStart(offset) },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onDrag(dragAmount.x, dragAmount.y)
-                        },
-                        onDragEnd = { onDragEnd() },
-                        onDragCancel = { onDragCancel() },
-                    )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
+        if (isCustom) {
+            Box(modifier = dragModifier) {
+                FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
+            }
+        } else {
             Box(
                 modifier = Modifier
-                    .size((sizeDp.value * 0.35f).dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.9f)),
-            )
+                    .fillMaxSize()
+                    .then(dragModifier),
+                contentAlignment = dockAlignment,
+            ) {
+                FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
+            }
         }
+    }
+}
+
+@Composable
+private fun FloatBallVisual(sizeDp: androidx.compose.ui.unit.Dp, ballColor: Color) {
+    Box(
+        modifier = Modifier
+            .size(sizeDp)
+            .shadow(8.dp, CircleShape)
+            .clip(CircleShape)
+            .background(ballColor),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size((sizeDp.value * 0.35f).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.9f)),
+        )
     }
 }
 

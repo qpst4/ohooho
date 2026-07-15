@@ -5,7 +5,9 @@ import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.util.PermissionHelper
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 /** Syncs FV-style float ball visibility with accessibility service lifecycle and settings. */
 class FloatBallController(
@@ -28,7 +30,7 @@ class FloatBallController(
                     }
                 },
                 onActiveSidePersisted = { side ->
-                    scope.launch {
+                    runBlocking(Dispatchers.IO) {
                         settingsRepository.setFloatBallActiveSide(side)
                     }
                 },
