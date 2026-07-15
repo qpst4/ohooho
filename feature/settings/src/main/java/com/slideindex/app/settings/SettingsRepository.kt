@@ -229,6 +229,12 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatBallOcrFallbackEnabled(enabled: Boolean) =
         overlay.setFloatBallOcrFallbackEnabled(enabled)
 
+    suspend fun setFloatBallOcrModelId(modelId: String) =
+        overlay.setFloatBallOcrModelId(modelId)
+
+    suspend fun setOcrDownloadWifiOnly(enabled: Boolean) =
+        overlay.setOcrDownloadWifiOnly(enabled)
+
     suspend fun setFloatBallPointerSpeedFraction(value: Float) =
         overlay.setFloatBallPointerSpeedFraction(value)
 

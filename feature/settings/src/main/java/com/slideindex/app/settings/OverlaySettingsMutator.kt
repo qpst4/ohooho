@@ -388,6 +388,14 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOAT_BALL_OCR_FALLBACK_ENABLED] = enabled
     }
 
+    suspend fun setFloatBallOcrModelId(modelId: String) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_OCR_MODEL_ID] = modelId
+    }
+
+    suspend fun setOcrDownloadWifiOnly(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.OCR_DOWNLOAD_WIFI_ONLY] = enabled
+    }
+
     suspend fun setFloatBallPointerSpeedFraction(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SPEED_FRACTION] =
             value.coerceIn(0.2f, 0.75f)

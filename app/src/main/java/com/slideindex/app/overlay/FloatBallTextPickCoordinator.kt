@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Build
 import android.util.Log
+import com.slideindex.app.ocr.OcrDependencyAccess
 import com.slideindex.app.service.AccessibilityTextExtractor
 import com.slideindex.app.service.RegionalScreenshotOcr
 import java.util.concurrent.atomic.AtomicBoolean
@@ -36,12 +37,13 @@ object FloatBallTextPickCoordinator {
         rawX: Float,
         rawY: Float,
         ocrFallbackEnabled: Boolean,
+        ocrModelId: String,
         onResult: (String?) -> Unit,
     ) {
         if (!pickInFlight.compareAndSet(false, true)) return
         scope.launch {
             try {
-                onResult(resolvePointText(service, context, rawX, rawY, ocrFallbackEnabled))
+                onResult(resolvePointText(service, context, rawX, rawY, ocrFallbackEnabled, ocrModelId))
             } finally {
                 pickInFlight.set(false)
             }
@@ -53,12 +55,22 @@ object FloatBallTextPickCoordinator {
         context: Context,
         rect: Rect,
         ocrFallbackEnabled: Boolean,
+        ocrModelId: String,
         onResult: (String?) -> Unit,
     ) {
         if (!pickInFlight.compareAndSet(false, true)) return
         scope.launch {
             try {
-                onResult(resolveRectText(service, context, rect, ocrFallbackEnabled, screenshot = null))
+                onResult(
+                    resolveRectText(
+                        service,
+                        context,
+                        rect,
+                        ocrFallbackEnabled,
+                        ocrModelId,
+                        screenshot = null,
+                    ),
+                )
             } finally {
                 pickInFlight.set(false)
             }
@@ -74,6 +86,7 @@ object FloatBallTextPickCoordinator {
         endY: Float,
         regionalRect: Boolean,
         ocrFallbackEnabled: Boolean,
+        ocrModelId: String,
         onResult: (FloatBallPickResult) -> Unit,
     ) {
         if (!pickInFlight.compareAndSet(false, true)) return
@@ -88,10 +101,24 @@ object FloatBallTextPickCoordinator {
                         metrics.heightPixels,
                     )
                     val screenshot = captureRect(service, safeRect)
-                    val text = resolveRectText(service, context, safeRect, ocrFallbackEnabled, screenshot)
+                    val text = resolveRectText(
+                        service,
+                        context,
+                        safeRect,
+                        ocrFallbackEnabled,
+                        ocrModelId,
+                        screenshot,
+                    )
                     FloatBallPickResult(text = text, screenshot = screenshot, screenRect = safeRect)
                 } else {
-                    val text = resolvePointText(service, context, startX, startY, ocrFallbackEnabled)
+                    val text = resolvePointText(
+                        service,
+                        context,
+                        startX,
+                        startY,
+                        ocrFallbackEnabled,
+                        ocrModelId,
+                    )
                     FloatBallPickResult(text = text, screenshot = null, screenRect = null)
                 }
                 onResult(result)
@@ -110,12 +137,13 @@ object FloatBallTextPickCoordinator {
         rawX: Float,
         rawY: Float,
         ocrFallbackEnabled: Boolean,
+        ocrModelId: String,
     ): String? {
         val a11yText = AccessibilityTextExtractor.collectTextAt(service, rawX, rawY)
         if (!a11yText.isNullOrBlank()) return a11yText
-        if (!ocrFallbackEnabled) return null
+        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) return null
         val rect = FloatBallOcrRegions.expandPoint(context.resources.displayMetrics, rawX, rawY)
-        return recognizeWithCapture(service, rect)
+        return recognizeWithCapture(service, context, rect, ocrModelId)
     }
 
     private suspend fun resolveRectText(
@@ -123,17 +151,27 @@ object FloatBallTextPickCoordinator {
         context: Context,
         rect: Rect,
         ocrFallbackEnabled: Boolean,
+        ocrModelId: String,
         screenshot: Bitmap?,
     ): String? {
         val a11yText = AccessibilityTextExtractor.collectTextInRect(service, rect)
         if (a11yText.isNotBlank()) return a11yText
-        if (!ocrFallbackEnabled) return null
+        val centerX = rect.centerX().toFloat()
+        val centerY = rect.centerY().toFloat()
+        val pointText = AccessibilityTextExtractor.collectTextAt(service, centerX, centerY)
+        if (!pointText.isNullOrBlank()) return pointText
+        if (!ocrReady(context, ocrFallbackEnabled, ocrModelId)) return null
         if (screenshot != null) {
             return withContext(Dispatchers.Default) {
-                RegionalScreenshotOcr.recognizeBitmapPublic(screenshot)
+                RegionalScreenshotOcr.recognizeBitmapPublic(context, ocrModelId, screenshot)
             }
         }
-        return recognizeWithCapture(service, rect)
+        return recognizeWithCapture(service, context, rect, ocrModelId)
+    }
+
+    private fun ocrReady(context: Context, ocrFallbackEnabled: Boolean, ocrModelId: String): Boolean {
+        if (!ocrFallbackEnabled || ocrModelId.isBlank()) return false
+        return OcrDependencyAccess.modelRepository(context)?.isInstalled(ocrModelId) == true
     }
 
     private suspend fun captureRect(
@@ -157,13 +195,15 @@ object FloatBallTextPickCoordinator {
 
     private suspend fun recognizeWithCapture(
         service: AccessibilityService,
+        context: Context,
         rect: Rect,
+        ocrModelId: String,
     ): String? {
         return try {
             FloatBallOverlay.suppressForScreenshotCapture()
             delay(CAPTURE_HIDE_DELAY_MS)
             withContext(Dispatchers.Default) {
-                RegionalScreenshotOcr.recognizeInRect(service, rect)
+                RegionalScreenshotOcr.recognizeInRect(service, context, rect, ocrModelId)
             }
         } catch (error: Throwable) {
             Log.w(TAG, "ocr fallback failed", error)

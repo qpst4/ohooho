@@ -13,6 +13,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -54,6 +55,7 @@ import kotlin.math.roundToInt
 
 private const val CROSS_ARM_DP = 14f
 private const val CROSS_STROKE_DP = 2.5f
+private const val RECT_MIN_SIDE_DP = 48f
 
 /**
  * Persistent float ball: ball acts as joystick, crosshair/plus acts as screen pointer.
@@ -63,14 +65,15 @@ object FloatBallOverlay {
     private const val TAG = "FloatBallOverlay"
     private const val EDGE_MARGIN_DP = 8f
     private const val PAUSE_MS = 400L
-    private const val RECT_MIN_SIDE_DP = 48f
     private const val BALL_LAYOUT_MIN_INTERVAL_MS = 16L
+    private const val BOUNDS_LOOKUP_MIN_INTERVAL_MS = 32L
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val dragSession = FloatBallDragSession()
 
     private var windowManager: WindowManager? = null
-    private var ballView: ComposeView? = null
+    private var ballView: View? = null
+    private var ballComposeView: ComposeView? = null
     private var edgeCaptureView: ComposeView? = null
     private var lineView: ComposeView? = null
     private var cursorView: ComposeView? = null
@@ -81,6 +84,7 @@ object FloatBallOverlay {
     private var ballParams: WindowManager.LayoutParams? = null
     private var edgeCaptureParams: WindowManager.LayoutParams? = null
     private var lineParams: WindowManager.LayoutParams? = null
+    private var cursorParams: WindowManager.LayoutParams? = null
     private var appContext: Context? = null
     private var screenOffReceiver: BroadcastReceiver? = null
 
@@ -89,6 +93,7 @@ object FloatBallOverlay {
     private var cursorPausedState: MutableState<Boolean>? = null
     private var cursorAnchorState: MutableState<Offset>? = null
     private var selectionStartState: MutableState<Offset?>? = null
+    private var selectionPreviewBoundsState: MutableState<Rect?>? = null
 
     private var onPositionPersisted: ((xFraction: Float, yFraction: Float) -> Unit)? = null
     private var onActiveSidePersisted: ((FloatBallSide) -> Unit)? = null
@@ -103,6 +108,8 @@ object FloatBallOverlay {
     private var finishDragRequested = false
     private var lastBallLayoutMs = 0L
     private var ballLayoutThrottleRunnable: Runnable? = null
+    private var lastBoundsLookupMs = 0L
+    private var boundsLookupThrottleRunnable: Runnable? = null
 
     val isShowing: Boolean get() = ballView != null
 
@@ -173,7 +180,7 @@ object FloatBallOverlay {
         screenOffReceiver?.let { receiver ->
             appContext?.let { ctx -> runCatching { ctx.unregisterReceiver(receiver) } }
         }
-        OverlayCompose.disposeComposeView(ballView)
+        OverlayCompose.disposeComposeView(ballComposeView)
         OverlayCompose.disposeComposeView(edgeCaptureView)
         OverlayCompose.disposeComposeView(lineView)
         OverlayCompose.disposeComposeView(cursorView)
@@ -185,6 +192,7 @@ object FloatBallOverlay {
         edgeCaptureOwner = null
         lineOwner = null
         cursorOwner = null
+        ballComposeView = null
         ballView = null
         edgeCaptureView = null
         lineView = null
@@ -192,12 +200,14 @@ object FloatBallOverlay {
         ballParams = null
         edgeCaptureParams = null
         lineParams = null
+        cursorParams = null
         windowManager = null
         settingsState = null
         cursorVisibleState = null
         cursorPausedState = null
         cursorAnchorState = null
         selectionStartState = null
+        selectionPreviewBoundsState = null
         onPositionPersisted = null
         onActiveSidePersisted = null
         screenOffReceiver = null
@@ -268,16 +278,15 @@ object FloatBallOverlay {
         val cursorPaused = mutableStateOf(false)
         val cursorAnchor = mutableStateOf(Offset.Zero)
         val selectionStart = mutableStateOf<Offset?>(null)
+        val selectionPreviewBounds = mutableStateOf<Rect?>(null)
 
         val dragCallbacks = object {
-            fun onStart(localOffset: Offset, windowX: Int, windowY: Int) {
-                val screenX = windowX + localOffset.x
-                val screenY = windowY + localOffset.y
+            fun onStart(screenX: Float, screenY: Float) {
                 activeSideAtDragStart = null
                 dragOriginatedFromLine = false
                 dragActiveSideOverride = null
-                settingsState?.value?.let { restorePassiveOverlayLayout(it, fixZOrder = false) }
-                showCursorAtScreenTouch(screenX, screenY)
+                edgeCaptureView?.visibility = View.GONE
+                showCursorAtScreenTouch(screenX, screenY, deferBallWindowMutation = true)
             }
 
             fun onDrag(dx: Float, dy: Float) {
@@ -303,29 +312,40 @@ object FloatBallOverlay {
         }
 
         val ballDialogOwner = OverlayComposeOwner()
+        val ballHost = FloatBallStripHost(overlayContext).apply {
+            OverlayCompose.bindOwners(this, ballDialogOwner)
+            bindDragCallbacks(
+                onDragStart = { screenX, screenY -> dragCallbacks.onStart(screenX, screenY) },
+                onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
+                onDragEnd = { dragCallbacks.onEnd() },
+                onDragCancel = { dragCallbacks.onCancel() },
+            )
+        }
         val ballCompose = OverlayCompose.createComposeView(overlayContext, ballDialogOwner).apply {
+            isClickable = false
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             setContent {
-                FloatBallContent(
-                    settingsState = settingsHolder,
-                    onDragStart = { touchInBall ->
-                        val params = ballParams ?: return@FloatBallContent
-                        dragCallbacks.onStart(touchInBall, params.x, params.y)
-                    },
-                    onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
-                    onDragEnd = { dragCallbacks.onEnd() },
-                    onDragCancel = { dragCallbacks.onCancel() },
-                )
+                FloatBallContent(settingsState = settingsHolder)
             }
         }
+        ballHost.addView(
+            ballCompose,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
 
         val edgeCaptureDialogOwner = OverlayComposeOwner()
         val edgeCaptureCompose = OverlayCompose.createComposeView(overlayContext, edgeCaptureDialogOwner).apply {
             setContent {
                 FloatBallEdgeCaptureContent(
-                    onDragStart = { touchInStrip ->
-                        val params = edgeCaptureParams ?: return@FloatBallEdgeCaptureContent
-                        dragCallbacks.onStart(touchInStrip, params.x, params.y)
+                    windowOrigin = {
+                        val params = edgeCaptureParams ?: return@FloatBallEdgeCaptureContent IntOffset.Zero
+                        IntOffset(params.x, params.y)
                     },
+                    onDragStart = { screenX, screenY -> dragCallbacks.onStart(screenX, screenY) },
                     onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
                     onDragEnd = { dragCallbacks.onEnd() },
                     onDragCancel = { dragCallbacks.onCancel() },
@@ -368,11 +388,13 @@ object FloatBallOverlay {
                 val visible by cursorVisible
                 val paused by cursorPaused
                 val selectionStart by selectionStart
+                val selectionPreviewBounds by selectionPreviewBounds
                 val pickAnchor by cursorAnchor
                 FloatBallCursorContent(
                     visible = visible,
                     paused = paused,
                     selectionStart = selectionStart,
+                    selectionPreviewBounds = selectionPreviewBounds,
                     pickAnchor = pickAnchor,
                 )
             }
@@ -402,7 +424,7 @@ object FloatBallOverlay {
             Log.e(TAG, "failed to add line overlay")
             return
         }
-        val ballAdded = runCatching { wm.addView(ballCompose, ballLp) }.isSuccess
+        val ballAdded = runCatching { wm.addView(ballHost, ballLp) }.isSuccess
         if (!ballAdded) {
             runCatching { wm.removeView(edgeCaptureCompose) }
             runCatching { wm.removeView(lineCompose) }
@@ -415,7 +437,7 @@ object FloatBallOverlay {
         }
         val cursorAdded = runCatching { wm.addView(cursorCompose, cursorLp) }.isSuccess
         if (!cursorAdded) {
-            runCatching { wm.removeView(ballCompose) }
+            runCatching { wm.removeView(ballHost) }
             runCatching { wm.removeView(edgeCaptureCompose) }
             runCatching { wm.removeView(lineCompose) }
             ballDialogOwner.destroy()
@@ -427,7 +449,8 @@ object FloatBallOverlay {
         }
 
         windowManager = wm
-        ballView = ballCompose
+        ballView = ballHost
+        ballComposeView = ballCompose
         edgeCaptureView = edgeCaptureCompose
         lineView = lineCompose
         cursorView = cursorCompose
@@ -438,11 +461,13 @@ object FloatBallOverlay {
         ballParams = ballLp
         edgeCaptureParams = edgeCaptureLp
         lineParams = lineLp
+        cursorParams = cursorLp
         settingsState = settingsHolder
         cursorVisibleState = cursorVisible
         cursorPausedState = cursorPaused
         cursorAnchorState = cursorAnchor
         selectionStartState = selectionStart
+        selectionPreviewBoundsState = selectionPreviewBounds
         appContext = hostContext
         registerScreenOffReceiver(hostContext)
 
@@ -489,9 +514,6 @@ object FloatBallOverlay {
         val ball = ballView ?: return
         val ballLp = ballParams ?: return
         bringOverlayToFront(ball, ballLp)
-        val cursor = cursorView ?: return
-        val cursorLp = cursor.layoutParams as? WindowManager.LayoutParams ?: return
-        bringOverlayToFront(cursor, cursorLp)
     }
 
     private fun recoverStuckLineCaptureIfNeeded(settings: AppSettings) {
@@ -722,7 +744,9 @@ object FloatBallOverlay {
     private fun finishDrag(settings: AppSettings) {
         if (!isDragging) return
         cancelBallLayoutThrottle()
-        handlePickOnRelease(settings)
+        if (cursorPausedState?.value == true) {
+            handlePickOnRelease(settings)
+        }
         commitLineDragSideSwap()
         dragActiveSideOverride = null
         activeSideAtDragStart = null
@@ -743,22 +767,63 @@ object FloatBallOverlay {
         val host = appContext ?: return
         val view = ballView ?: return
         val minSidePx = (RECT_MIN_SIDE_DP * view.resources.displayMetrics.density).roundToInt()
-        val rect = rectBetween(start, end)
-        val regionalRect = rect.width() >= minSidePx && rect.height() >= minSidePx
-        val panelAnchorX = if (regionalRect) rect.centerX().toFloat() else start.x
-        val panelAnchorY = if (regionalRect) rect.bottom.toFloat() else start.y
+        val dragRect = rectBetween(start, end)
+        val isRegionalDrag = dragRect.width() >= minSidePx && dragRect.height() >= minSidePx
+        val previewBounds = selectionPreviewBoundsState?.value
 
-        FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
-        SlideIndexAccessibilityService.pickFloatBallOnRelease(
-            context = host,
-            startX = start.x,
-            startY = start.y,
-            endX = end.x,
-            endY = end.y,
-            regionalRect = regionalRect,
-            ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
-        ) { result ->
-            FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
+        when {
+            isRegionalDrag -> {
+                val panelAnchorX = dragRect.centerX().toFloat()
+                val panelAnchorY = dragRect.bottom.toFloat()
+                FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
+                SlideIndexAccessibilityService.pickFloatBallOnRelease(
+                    context = host,
+                    startX = start.x,
+                    startY = start.y,
+                    endX = end.x,
+                    endY = end.y,
+                    regionalRect = true,
+                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
+                    ocrModelId = settings.floatBallOcrModelId,
+                ) { result ->
+                    FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
+                }
+            }
+            previewBounds != null -> {
+                val panelAnchorX = previewBounds.centerX().toFloat()
+                val panelAnchorY = previewBounds.bottom.toFloat()
+                FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
+                SlideIndexAccessibilityService.pickFloatBallTextInRect(
+                    context = host,
+                    rect = previewBounds,
+                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
+                    ocrModelId = settings.floatBallOcrModelId,
+                ) { text ->
+                    FloatBallPickResultPanel.showResult(
+                        host,
+                        panelAnchorX,
+                        panelAnchorY,
+                        FloatBallPickResult(text = text, screenshot = null, screenRect = previewBounds),
+                    )
+                }
+            }
+            else -> {
+                val panelAnchorX = start.x
+                val panelAnchorY = start.y
+                FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
+                SlideIndexAccessibilityService.pickFloatBallOnRelease(
+                    context = host,
+                    startX = start.x,
+                    startY = start.y,
+                    endX = end.x,
+                    endY = end.y,
+                    regionalRect = false,
+                    ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled,
+                    ocrModelId = settings.floatBallOcrModelId,
+                ) { result ->
+                    FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
+                }
+            }
         }
     }
 
@@ -815,11 +880,13 @@ object FloatBallOverlay {
             setBallTouchable(false)
         }
         lastBallLayoutMs = 0L
+        lastBoundsLookupMs = 0L
         selectionStartState?.value = null
+        selectionPreviewBoundsState?.value = null
         cursorVisibleState?.value = true
         cursorPausedState?.value = false
         // Do not move or resize the ball window here — that cancels the Compose drag gesture.
-        updatePickAndBallFromFinger(moveBallWindow = false)
+        updatePickAndBallFromFinger(moveBallWindow = true)
         schedulePauseTimer()
     }
 
@@ -839,10 +906,12 @@ object FloatBallOverlay {
         dragOriginatedFromLine = false
         dragActiveSideOverride = null
         chromeHiddenForDrag = false
+        selectionPreviewBoundsState?.value = null
         setBallTouchable(true)
         settingsState?.value?.let { restorePassiveOverlayLayout(it) }
         cancelPauseTimer()
         cancelBallLayoutThrottle()
+        cancelBoundsLookupThrottle()
         dragSession.reset()
         cursorVisibleState?.value = false
         cursorPausedState?.value = false
@@ -857,7 +926,22 @@ object FloatBallOverlay {
     }
 
     private fun onDragMoved() {
-        if (selectionStartState?.value != null) {
+        val start = selectionStartState?.value
+        if (start != null) {
+            val anchor = cursorAnchorState?.value
+            if (anchor != null) {
+                val view = ballView
+                val minSidePx = if (view != null) {
+                    RECT_MIN_SIDE_DP * view.resources.displayMetrics.density
+                } else {
+                    RECT_MIN_SIDE_DP
+                }
+                if (kotlin.math.abs(anchor.x - start.x) >= minSidePx ||
+                    kotlin.math.abs(anchor.y - start.y) >= minSidePx
+                ) {
+                    selectionPreviewBoundsState?.value = null
+                }
+            }
             return
         }
         cursorPausedState?.value = false
@@ -873,7 +957,10 @@ object FloatBallOverlay {
 
     private fun onCursorPaused() {
         if (cursorVisibleState?.value != true) return
-        selectionStartState?.value = cursorAnchorState?.value
+        val anchor = cursorAnchorState?.value ?: return
+        selectionStartState?.value = anchor
+        selectionPreviewBoundsState?.value =
+            SlideIndexAccessibilityService.findControlBoundsAt(anchor.x, anchor.y)
         cursorPausedState?.value = true
     }
 
@@ -893,6 +980,49 @@ object FloatBallOverlay {
     private fun cancelBallLayoutThrottle() {
         ballLayoutThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
         ballLayoutThrottleRunnable = null
+    }
+
+    private fun cancelBoundsLookupThrottle() {
+        boundsLookupThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
+        boundsLookupThrottleRunnable = null
+    }
+
+    private fun scheduleThrottledBoundsLookup() {
+        val now = SystemClock.uptimeMillis()
+        val delayMs = BOUNDS_LOOKUP_MIN_INTERVAL_MS - (now - lastBoundsLookupMs)
+        if (delayMs <= 0L) {
+            applyBoundsLookup()
+            return
+        }
+        if (boundsLookupThrottleRunnable != null) return
+        val runnable = Runnable {
+            boundsLookupThrottleRunnable = null
+            applyBoundsLookup()
+        }
+        boundsLookupThrottleRunnable = runnable
+        mainHandler.postDelayed(runnable, delayMs.coerceAtLeast(1L))
+    }
+
+    private fun applyBoundsLookup() {
+        if (cursorVisibleState?.value != true) return
+        val anchor = cursorAnchorState?.value ?: return
+        val start = selectionStartState?.value
+        if (start != null) {
+            val view = ballView
+            val minSidePx = if (view != null) {
+                RECT_MIN_SIDE_DP * view.resources.displayMetrics.density
+            } else {
+                RECT_MIN_SIDE_DP
+            }
+            if (kotlin.math.abs(anchor.x - start.x) >= minSidePx ||
+                kotlin.math.abs(anchor.y - start.y) >= minSidePx
+            ) {
+                return
+            }
+        }
+        lastBoundsLookupMs = SystemClock.uptimeMillis()
+        selectionPreviewBoundsState?.value =
+            SlideIndexAccessibilityService.findControlBoundsAt(anchor.x, anchor.y)
     }
 
     private fun applyDragBallLayout(settings: AppSettings) {
@@ -968,17 +1098,12 @@ object FloatBallOverlay {
             marginPx = marginPx,
         )
         cursorAnchorState?.value = pick
+        if (cursorVisibleState?.value == true) {
+            scheduleThrottledBoundsLookup()
+        }
 
         if (!moveBallWindow) return
-
-        val now = SystemClock.uptimeMillis()
-        if (now - lastBallLayoutMs >= BALL_LAYOUT_MIN_INTERVAL_MS) {
-            lastBallLayoutMs = now
-            cancelBallLayoutThrottle()
-            applyDragBallLayout(settings)
-        } else {
-            scheduleThrottledBallLayout()
-        }
+        scheduleThrottledBallLayout()
     }
 
     private fun overlayScreenBounds(fallback: android.util.DisplayMetrics): OverlayScreenBounds {
@@ -1011,7 +1136,8 @@ object FloatBallOverlay {
 
 @Composable
 private fun FloatBallEdgeCaptureContent(
-    onDragStart: (Offset) -> Unit,
+    windowOrigin: () -> IntOffset,
+    onDragStart: (screenX: Float, screenY: Float) -> Unit,
     onDrag: (dx: Float, dy: Float) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -1022,7 +1148,10 @@ private fun FloatBallEdgeCaptureContent(
             .fillMaxHeight()
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { offset -> onDragStart(offset) },
+                    onDragStart = { offset ->
+                        val origin = windowOrigin()
+                        onDragStart(origin.x + offset.x, origin.y + offset.y)
+                    },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         onDrag(dragAmount.x, dragAmount.y)
@@ -1090,10 +1219,6 @@ private fun FloatBallLineContent(
 @Composable
 private fun FloatBallContent(
     settingsState: MutableState<AppSettings>,
-    onDragStart: (touchInBall: Offset) -> Unit,
-    onDrag: (dx: Float, dy: Float) -> Unit,
-    onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit,
 ) {
     val settings = settingsState.value
     val sizeDp = settings.floatBallSizeDp.coerceIn(36f, 72f).dp
@@ -1106,28 +1231,12 @@ private fun FloatBallContent(
         else -> Alignment.CenterEnd
     }
 
-    val dragModifier = Modifier.pointerInput(Unit) {
-        detectDragGestures(
-            onDragStart = { offset -> onDragStart(offset) },
-            onDrag = { change, dragAmount ->
-                change.consume()
-                onDrag(dragAmount.x, dragAmount.y)
-            },
-            onDragEnd = { onDragEnd() },
-            onDragCancel = { onDragCancel() },
-        )
-    }
-
     SlideIndexTheme {
         if (isCustom) {
-            Box(modifier = dragModifier) {
-                FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
-            }
+            FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
         } else {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(dragModifier),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = dockAlignment,
             ) {
                 FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
@@ -1160,33 +1269,74 @@ private fun FloatBallCursorContent(
     visible: Boolean,
     paused: Boolean,
     selectionStart: Offset?,
+    selectionPreviewBounds: Rect?,
     pickAnchor: Offset,
 ) {
     if (!visible) return
     val crossColor = if (paused) Color(0xFFFFC107) else Color(0xFFE53935)
-    val markerCenter = selectionStart ?: pickAnchor
+    val markerCenter = pickAnchor
     val density = LocalDensity.current
     val armPx = with(density) { CROSS_ARM_DP.dp.toPx() }
     val strokePx = with(density) { CROSS_STROKE_DP.dp.toPx() }
     val plusRadiusPx = with(density) { 11.dp.toPx() }
+    val minRegionalPx = with(density) { RECT_MIN_SIDE_DP.dp.toPx() }
 
     Canvas(modifier = Modifier.fillMaxSize()) {
-        if (selectionStart != null && paused) {
-            val left = min(selectionStart.x, pickAnchor.x)
-            val top = min(selectionStart.y, pickAnchor.y)
-            val right = max(selectionStart.x, pickAnchor.x)
-            val bottom = max(selectionStart.y, pickAnchor.y)
-            drawRect(
-                color = Color(0x33FFC107),
-                topLeft = Offset(left, top),
-                size = androidx.compose.ui.geometry.Size(right - left, bottom - top),
-            )
-            drawRect(
-                color = Color(0xFFFFC107),
-                topLeft = Offset(left, top),
-                size = androidx.compose.ui.geometry.Size(right - left, bottom - top),
-                style = Stroke(width = strokePx),
-            )
+        val useControlBounds = selectionPreviewBounds != null &&
+            (selectionStart == null ||
+                (kotlin.math.abs(pickAnchor.x - selectionStart.x) < minRegionalPx &&
+                    kotlin.math.abs(pickAnchor.y - selectionStart.y) < minRegionalPx))
+        if (useControlBounds) {
+            val bounds = selectionPreviewBounds
+            val previewLeft = bounds.left.toFloat()
+            val previewTop = bounds.top.toFloat()
+            val previewRight = bounds.right.toFloat()
+            val previewBottom = bounds.bottom.toFloat()
+            if (previewRight > previewLeft && previewBottom > previewTop) {
+                val fillColor = if (paused) Color(0x33FFC107) else Color(0x22E53935)
+                val strokeColor = if (paused) Color(0xFFFFC107) else Color(0xFFE53935)
+                drawRect(
+                    color = fillColor,
+                    topLeft = Offset(previewLeft, previewTop),
+                    size = androidx.compose.ui.geometry.Size(
+                        previewRight - previewLeft,
+                        previewBottom - previewTop,
+                    ),
+                )
+                drawRect(
+                    color = strokeColor,
+                    topLeft = Offset(previewLeft, previewTop),
+                    size = androidx.compose.ui.geometry.Size(
+                        previewRight - previewLeft,
+                        previewBottom - previewTop,
+                    ),
+                    style = Stroke(width = strokePx),
+                )
+            }
+        } else if (paused && selectionStart != null) {
+            val previewLeft = min(selectionStart.x, pickAnchor.x)
+            val previewTop = min(selectionStart.y, pickAnchor.y)
+            val previewRight = max(selectionStart.x, pickAnchor.x)
+            val previewBottom = max(selectionStart.y, pickAnchor.y)
+            if (previewRight > previewLeft && previewBottom > previewTop) {
+                drawRect(
+                    color = Color(0x33FFC107),
+                    topLeft = Offset(previewLeft, previewTop),
+                    size = androidx.compose.ui.geometry.Size(
+                        previewRight - previewLeft,
+                        previewBottom - previewTop,
+                    ),
+                )
+                drawRect(
+                    color = Color(0xFFFFC107),
+                    topLeft = Offset(previewLeft, previewTop),
+                    size = androidx.compose.ui.geometry.Size(
+                        previewRight - previewLeft,
+                        previewBottom - previewTop,
+                    ),
+                    style = Stroke(width = strokePx),
+                )
+            }
         }
         if (paused) {
             drawCircle(

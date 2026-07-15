@@ -1,0 +1,125 @@
+{
+  "version": 3,
+  "models": [
+    {
+      "id": "mlkit-chinese",
+      "engine": "mlkit_chinese",
+      "sizeBytes": 26214400,
+      "files": []
+    },
+    {
+      "id": "tesseract-chi-sim-eng",
+      "engine": "tesseract",
+      "sizeBytes": 6815744,
+      "files": [
+        {
+          "relativePath": "tessdata/chi_sim.traineddata",
+          "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/chi_sim.traineddata",
+          "mirrorUrls": [
+            "https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@main/chi_sim.traineddata"
+          ]
+        },
+        {
+          "relativePath": "tessdata/eng.traineddata",
+          "url": "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata",
+          "mirrorUrls": [
+            "https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@main/eng.traineddata"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocrv6-tiny",
+      "engine": "ppocr",
+      "sizeBytes": 8388608,
+      "files": [
+        {
+          "relativePath": "det/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_tiny_det_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_tiny_det_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.yml",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/master/inference.yml",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_tiny_rec_onnx/resolve/main/inference.yml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocrv6-small",
+      "engine": "ppocr",
+      "sizeBytes": 25165824,
+      "files": [
+        {
+          "relativePath": "det/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/master/inference.yml",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/main/inference.yml"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppocrv6-medium",
+      "engine": "ppocr",
+      "sizeBytes": 99614720,
+      "files": [
+        {
+          "relativePath": "det/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_medium_det_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.onnx",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.onnx",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/master/inference.onnx",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.onnx"
+          ]
+        },
+        {
+          "relativePath": "rec/inference.yml",
+          "url": "https://huggingface.co/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.yml",
+          "mirrorUrls": [
+            "https://www.modelscope.cn/models/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/master/inference.yml",
+            "https://hf-mirror.com/PaddlePaddle/PP-OCRv6_medium_rec_onnx/resolve/main/inference.yml"
+          ]
+        }
+      ]
+    }
+  ]
+}

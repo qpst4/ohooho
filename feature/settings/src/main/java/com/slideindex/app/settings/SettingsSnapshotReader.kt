@@ -172,6 +172,8 @@ internal object SettingsSnapshotReader {
             floatBallPositionXFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] ?: 0.92f,
             floatBallPositionYFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] ?: 0.55f,
             floatBallOcrFallbackEnabled = prefs[SettingsPreferenceKeys.FLOAT_BALL_OCR_FALLBACK_ENABLED] ?: true,
+            floatBallOcrModelId = prefs[SettingsPreferenceKeys.FLOAT_BALL_OCR_MODEL_ID].orEmpty(),
+            ocrDownloadWifiOnly = prefs[SettingsPreferenceKeys.OCR_DOWNLOAD_WIFI_ONLY] ?: true,
             floatBallPointerSpeedFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SPEED_FRACTION]
                 ?: 0.35f,
             floatBallPositionMode = FloatBallPositionMode.fromStorageKey(

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -314,10 +315,10 @@ private fun FloatBallPickResultContent(
                             bitmap = screenshot.asImageBitmap(),
                             contentDescription = null,
                             modifier = Modifier
-                                .fillMaxSize()
-                                .heightIn(max = 96.dp)
+                                .fillMaxWidth()
+                                .heightIn(max = 120.dp)
                                 .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ActionChip(

@@ -151,8 +151,12 @@ data class AppSettings(
     val floatBallPositionXFraction: Float = 0.92f,
     /** Ball center Y as fraction of screen height (0–1). */
     val floatBallPositionYFraction: Float = 0.55f,
-    /** When a11y text pick fails, capture screen region and run ML Kit OCR. */
+    /** When a11y text pick fails, capture screen region and run on-device OCR. */
     val floatBallOcrFallbackEnabled: Boolean = true,
+    /** Selected downloadable OCR model id; empty means OCR fallback is unavailable until a model is installed. */
+    val floatBallOcrModelId: String = "",
+    /** Download OCR models on Wi-Fi only. */
+    val ocrDownloadWifiOnly: Boolean = true,
     /**
      * Float-ball pick pointer speed (0.2–0.75, higher = faster).
      * Independent from [floatingPointerSensitivityFraction].

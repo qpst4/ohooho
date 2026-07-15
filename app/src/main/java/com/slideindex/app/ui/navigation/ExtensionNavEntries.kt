@@ -20,6 +20,8 @@ import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
+import com.slideindex.app.ui.OcrModelSettingsScreen
+import com.slideindex.app.ui.viewmodel.OcrModelSettingsViewModel
 import com.slideindex.app.ui.viewmodel.SettingsBackupViewModel
 import com.slideindex.app.ui.viewmodel.ShellCommandViewModel
 
@@ -131,6 +133,26 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onPickBottomTransitionChange = viewModel::setFloatBallPickBottomTransitionFraction,
             onPointerSlopChange = viewModel::setFloatBallPointerSlopDp,
             onOcrFallbackChange = viewModel::setFloatBallOcrFallbackEnabled,
+            onOpenOcrModels = { ctx.navigate(AppNavKey.OcrModels) },
+        )
+    }
+
+    entry<AppNavKey.OcrModels> {
+        val viewModel: OcrModelSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val installedModelIds by viewModel.installedModelIds.collectAsStateWithLifecycle()
+        val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+        OcrModelSettingsScreen(
+            settings = settings,
+            catalogModels = viewModel.catalogModels,
+            installedModelIds = installedModelIds,
+            downloadState = downloadState,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
+            onSelectModel = viewModel::selectModel,
+            onClearSelectedModel = viewModel::clearSelectedModel,
+            onDownloadModel = viewModel::downloadModel,
+            onDeleteModel = viewModel::deleteModel,
+            onWifiOnlyChange = viewModel::setDownloadWifiOnly,
         )
     }
 

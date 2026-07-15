@@ -79,6 +79,13 @@
 -keep class net.sourceforge.pinyin4j.** { *; }
 -dontwarn net.sourceforge.pinyin4j.**
 
+# Paddle OCR / ONNX Runtime
+-keep class com.paddle.ocr.** { *; }
+-keep class ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
+-keep class org.opencv.** { *; }
+-dontwarn org.opencv.**
+
 # ---------------------------------------------------------------------------
 # Hilt / Dagger
 -keep class dagger.hilt.** { *; }

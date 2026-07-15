@@ -4,6 +4,7 @@ package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
 
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.RadioButtonChecked
 
@@ -100,6 +101,8 @@ fun FloatBallSettingsScreen(
     onPointerSlopChange: (Float) -> Unit,
 
     onOcrFallbackChange: (Boolean) -> Unit,
+
+    onOpenOcrModels: () -> Unit,
 
 ) {
 
@@ -424,6 +427,14 @@ fun FloatBallSettingsScreen(
 
             )
 
+            SettingNavigationRow(
+                icon = { label -> Icon(Icons.Default.Download, contentDescription = label) },
+                title = stringResource(R.string.float_ball_ocr_models),
+                subtitle = ocrModelSelectionSubtitle(settings.floatBallOcrModelId),
+                enabled = controlsEnabled,
+                onClick = onOpenOcrModels,
+            )
+
         }
 
 
@@ -463,7 +474,21 @@ fun FloatBallSettingsScreen(
 
 
 @Composable
+private fun ocrModelSelectionSubtitle(modelId: String): String {
+    if (modelId.isBlank()) {
+        return stringResource(R.string.ocr_model_status_not_installed)
+    }
+    return when (modelId) {
+        "mlkit-chinese" -> stringResource(R.string.ocr_model_mlkit_chinese)
+        "tesseract-chi-sim-eng" -> stringResource(R.string.ocr_model_tesseract_chi_sim_eng)
+        "ppocrv6-tiny" -> stringResource(R.string.ocr_model_ppocrv6_tiny)
+        "ppocrv6-small" -> stringResource(R.string.ocr_model_ppocrv6_small)
+        "ppocrv6-medium" -> stringResource(R.string.ocr_model_ppocrv6_medium)
+        else -> modelId
+    }
+}
 
+@Composable
 private fun floatBallPositionModeLabel(mode: FloatBallPositionMode): String =
 
     when (mode) {

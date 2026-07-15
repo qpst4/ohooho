@@ -25,6 +25,9 @@ test-regex.kts
 lint-baseline-out.txt
 .uploads/
 
+# --- 临时克隆 ---
+.paddle-ocr-tmp/
+
 # --- JVM 崩溃与回放日志 ---
 hs_err_pid*.log
 replay_pid*.log
