@@ -199,4 +199,8 @@ internal object SettingsPreferenceKeys {
     val FLOAT_BALL_LINE_HEIGHT_FRACTION = floatPreferencesKey("float_ball_line_height_fraction")
     val FLOAT_BALL_LINE_WIDTH_FRACTION = floatPreferencesKey("float_ball_line_width_fraction")
     val FLOAT_BALL_LINE_OPACITY = floatPreferencesKey("float_ball_line_opacity")
+    val FLOAT_BALL_PICK_OFFSET_DP = floatPreferencesKey("float_ball_pick_offset_dp")
+    val FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION =
+        floatPreferencesKey("float_ball_pick_bottom_transition_fraction")
+    val FLOAT_BALL_POINTER_SLOP_DP = floatPreferencesKey("float_ball_pointer_slop_dp")
 }

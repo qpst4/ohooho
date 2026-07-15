@@ -421,4 +421,17 @@ class OverlaySettingsMutator @Inject constructor(
     suspend fun setFloatBallLineOpacity(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] = value.coerceIn(0.1f, 1f)
     }
+
+    suspend fun setFloatBallPickOffsetDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] = value.coerceIn(4f, 48f)
+    }
+
+    suspend fun setFloatBallPickBottomTransitionFraction(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION] =
+            value.coerceIn(0.05f, 0.22f)
+    }
+
+    suspend fun setFloatBallPointerSlopDp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] = value.coerceIn(4f, 32f)
+    }
 }

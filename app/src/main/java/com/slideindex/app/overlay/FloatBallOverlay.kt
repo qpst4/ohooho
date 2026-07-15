@@ -8,6 +8,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -62,8 +63,10 @@ object FloatBallOverlay {
     private const val EDGE_MARGIN_DP = 8f
     private const val PAUSE_MS = 400L
     private const val RECT_MIN_SIDE_DP = 48f
+    private const val BALL_LAYOUT_MIN_INTERVAL_MS = 16L
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val dragSession = FloatBallDragSession()
 
     private var windowManager: WindowManager? = null
     private var ballView: ComposeView? = null
@@ -90,19 +93,11 @@ object FloatBallOverlay {
     private var onActiveSidePersisted: ((FloatBallSide) -> Unit)? = null
     private var pauseRunnable: Runnable? = null
     private var captureSuppressed = false
-
-    /** Current finger screen position during drag. */
-    private var dragFingerX = 0f
-    private var dragFingerY = 0f
-    private var dragFingerAnchorX = 0f
-    private var dragFingerAnchorY = 0f
-    private var dragPointerAnchorX = 0f
-    private var dragPointerAnchorY = 0f
-    private var dragJoystickOffsetX = 0f
-    private var dragJoystickOffsetY = 0f
-    private var pointerTravelWidth = 0f
-    private var pointerTravelHeight = 0f
     private var isDragging = false
+    private var lastBallLayoutMs = 0L
+    private var pendingBallLeft = 0
+    private var pendingBallTop = 0
+    private var ballLayoutThrottleRunnable: Runnable? = null
 
     val isShowing: Boolean get() = ballView != null
 
@@ -181,6 +176,8 @@ object FloatBallOverlay {
         screenOffReceiver = null
         appContext = null
         isDragging = false
+        dragSession.reset()
+        cancelBallLayoutThrottle()
     }
 
     fun relayout() {
@@ -191,6 +188,14 @@ object FloatBallOverlay {
         if (captureSuppressed) return
         val settings = settingsState?.value ?: return
         if (isDragging) {
+            val view = ballView ?: return
+            val metrics = view.resources.displayMetrics
+            val bounds = overlayScreenBounds(metrics)
+            dragSession.refreshPointerTravel(
+                settings = settings,
+                screenWidth = bounds.width,
+                screenHeight = bounds.height,
+            )
             updatePickAndBallFromFinger()
         } else {
             applyAllLayouts(settings)
@@ -512,13 +517,13 @@ object FloatBallOverlay {
 
     private fun onFingerDrag(dx: Float, dy: Float) {
         if (!isDragging) return
-        dragFingerX += dx
-        dragFingerY += dy
+        dragSession.onFingerMove(dx, dy)
         updatePickAndBallFromFinger()
     }
 
     private fun finishDrag(settings: AppSettings) {
         isDragging = false
+        cancelBallLayoutThrottle()
         handlePickOnRelease(settings)
         hideCursor()
         if (settings.floatBallPositionMode == FloatBallPositionMode.CUSTOM) {
@@ -529,8 +534,8 @@ object FloatBallOverlay {
     }
 
     private fun handlePickOnRelease(settings: AppSettings) {
-        val start = selectionStartState?.value ?: return
         val end = cursorAnchorState?.value ?: return
+        val start = selectionStartState?.value ?: end
         val host = appContext ?: return
         val view = ballView ?: return
         val minSidePx = (RECT_MIN_SIDE_DP * view.resources.displayMetrics.density).roundToInt()
@@ -554,7 +559,6 @@ object FloatBallOverlay {
     }
 
     private fun snapBallToEdge(settings: AppSettings) {
-        // Kept for compatibility; dock restore handles edge placement.
         restoreDockPosition(settings)
     }
 
@@ -578,28 +582,30 @@ object FloatBallOverlay {
         val settings = settingsState?.value ?: return
         val metrics = view.resources.displayMetrics
         val density = metrics.density
+        val bounds = overlayScreenBounds(metrics)
         val ballSizePx = (settings.floatBallSizeDp.coerceIn(36f, 72f) * density).roundToInt()
-        val screenWidth = metrics.widthPixels.toFloat()
-        val screenHeight = metrics.heightPixels.toFloat()
+        val screenWidth = bounds.width
+        val screenHeight = bounds.height
 
         edgeCaptureView?.visibility = View.GONE
         lineView?.visibility = View.GONE
 
-        dragFingerX = screenX
-        dragFingerY = screenY
-        dragFingerAnchorX = screenX
-        dragFingerAnchorY = screenY
-
         val ballCenterX = params.x + ballSizePx / 2f
         val ballCenterY = params.y + ballSizePx / 2f
-        dragPointerAnchorX = ballCenterX
-        dragPointerAnchorY = ballCenterY
-        dragJoystickOffsetX = ballCenterX - screenX
-        dragJoystickOffsetY = ballCenterY - screenY
-
-        establishPointerTravel(settings, screenWidth, screenHeight)
+        dragSession.armAtTouch(
+            settings = settings,
+            screenX = screenX,
+            screenY = screenY,
+            ballCenterX = ballCenterX,
+            ballCenterY = ballCenterY,
+            ballSizePx = ballSizePx.toFloat(),
+            screenWidth = screenWidth,
+            screenHeight = screenHeight,
+            density = density,
+        )
 
         isDragging = true
+        lastBallLayoutMs = 0L
         selectionStartState?.value = null
         cursorVisibleState?.value = true
         cursorPausedState?.value = false
@@ -610,6 +616,8 @@ object FloatBallOverlay {
     private fun hideCursor() {
         isDragging = false
         cancelPauseTimer()
+        cancelBallLayoutThrottle()
+        dragSession.reset()
         cursorVisibleState?.value = false
         cursorPausedState?.value = false
         selectionStartState?.value = null
@@ -650,58 +658,89 @@ object FloatBallOverlay {
         pauseRunnable = null
     }
 
-    private fun establishPointerTravel(settings: AppSettings, screenWidth: Float, screenHeight: Float) {
-        val speed = settings.floatBallPointerSpeedFraction.coerceIn(
-            FloatingPointerBounds.SENSITIVITY_MIN,
-            FloatingPointerBounds.SENSITIVITY_MAX,
-        )
-        val (travelWidth, travelHeight) = FloatingPointerBounds.effectivePointerTravelForSpeed(
-            speedFraction = speed,
-            screenWidth = screenWidth,
-            screenHeight = screenHeight,
-        )
-        pointerTravelWidth = travelWidth
-        pointerTravelHeight = travelHeight
+    private fun cancelBallLayoutThrottle() {
+        ballLayoutThrottleRunnable?.let { mainHandler.removeCallbacks(it) }
+        ballLayoutThrottleRunnable = null
     }
 
-    private fun updatePickAndBallFromFinger() {
+    private fun applyBallPosition(left: Int, top: Int) {
         val wm = windowManager ?: return
         val view = ballView ?: return
         val params = ballParams ?: return
+        params.x = left
+        params.y = top
+        runCatching { wm.updateViewLayout(view, params) }
+    }
+
+    private fun scheduleThrottledBallLayout(left: Int, top: Int) {
+        pendingBallLeft = left
+        pendingBallTop = top
+        if (ballLayoutThrottleRunnable != null) return
+        val delayMs = BALL_LAYOUT_MIN_INTERVAL_MS - (SystemClock.uptimeMillis() - lastBallLayoutMs)
+        val runnable = Runnable {
+            ballLayoutThrottleRunnable = null
+            if (!isDragging) return@Runnable
+            lastBallLayoutMs = SystemClock.uptimeMillis()
+            applyBallPosition(pendingBallLeft, pendingBallTop)
+        }
+        ballLayoutThrottleRunnable = runnable
+        mainHandler.postDelayed(runnable, delayMs.coerceAtLeast(1L))
+    }
+
+    private fun updatePickAndBallFromFinger() {
+        val view = ballView ?: return
         val settings = settingsState?.value ?: return
         val metrics = view.resources.displayMetrics
         val density = metrics.density
+        val bounds = overlayScreenBounds(metrics)
         val ballSizePx = (settings.floatBallSizeDp.coerceIn(36f, 72f) * density).roundToInt()
         val marginPx = (EDGE_MARGIN_DP * density).roundToInt()
-        val screenWidth = metrics.widthPixels.toFloat()
-        val screenHeight = metrics.heightPixels.toFloat()
+        val screenWidth = bounds.width
+        val screenHeight = bounds.height
+        val screenWidthPx = screenWidth.roundToInt()
+        val screenHeightPx = screenHeight.roundToInt()
 
-        if (pointerTravelWidth <= 0f || pointerTravelHeight <= 0f) {
-            establishPointerTravel(settings, screenWidth, screenHeight)
-        }
-
-        val ballCenterX = dragFingerX + dragJoystickOffsetX
-        val ballCenterY = dragFingerY + dragJoystickOffsetY
-        val ballLeft = (ballCenterX - ballSizePx / 2f).roundToInt()
-            .coerceIn(marginPx, metrics.widthPixels - ballSizePx - marginPx)
-        val ballTop = (ballCenterY - ballSizePx / 2f).roundToInt()
-            .coerceIn(marginPx, metrics.heightPixels - ballSizePx - marginPx)
-
-        val pick = FloatingPointerBounds.pointerForFingerDeltaInArea(
-            deltaX = dragFingerX - dragFingerAnchorX,
-            deltaY = dragFingerY - dragFingerAnchorY,
-            travelWidth = pointerTravelWidth,
-            travelHeight = pointerTravelHeight,
+        val pick = dragSession.computePick(
+            settings = settings,
+            ballSizePx = ballSizePx.toFloat(),
             screenWidth = screenWidth,
             screenHeight = screenHeight,
-            pointerAnchorX = dragPointerAnchorX,
-            pointerAnchorY = dragPointerAnchorY,
+            density = density,
+            marginPx = marginPx,
         )
         cursorAnchorState?.value = pick
 
-        params.x = ballLeft
-        params.y = ballTop
-        runCatching { wm.updateViewLayout(view, params) }
+        val (ballLeft, ballTop) = dragSession.ballTopLeft(
+            ballSizePx = ballSizePx,
+            marginPx = marginPx,
+            screenWidth = screenWidthPx,
+            screenHeight = screenHeightPx,
+        )
+        val now = SystemClock.uptimeMillis()
+        if (now - lastBallLayoutMs >= BALL_LAYOUT_MIN_INTERVAL_MS) {
+            lastBallLayoutMs = now
+            cancelBallLayoutThrottle()
+            applyBallPosition(ballLeft, ballTop)
+        } else {
+            scheduleThrottledBallLayout(ballLeft, ballTop)
+        }
+    }
+
+    private fun overlayScreenBounds(fallback: android.util.DisplayMetrics): OverlayScreenBounds {
+        val wm = windowManager
+        if (wm != null) {
+            val bounds = runCatching { wm.currentWindowMetrics.bounds }.getOrNull()
+            if (bounds != null) {
+                return OverlayScreenBounds(
+                    width = bounds.width().toFloat(),
+                    height = bounds.height().toFloat(),
+                )
+            }
+        }
+        return OverlayScreenBounds(
+            width = fallback.widthPixels.toFloat(),
+            height = fallback.heightPixels.toFloat(),
+        )
     }
 
     private fun registerScreenOffReceiver(context: Context) {

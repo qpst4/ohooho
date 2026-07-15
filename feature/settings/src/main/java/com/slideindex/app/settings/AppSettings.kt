@@ -157,7 +157,7 @@ data class AppSettings(
      * Float-ball pick pointer speed (0.2–0.75, higher = faster).
      * Independent from [floatingPointerSensitivityFraction].
      */
-    val floatBallPointerSpeedFraction: Float = 0.3f,
+    val floatBallPointerSpeedFraction: Float = 0.35f,
     val floatBallPositionMode: FloatBallPositionMode = FloatBallPositionMode.RIGHT,
     /** Which side shows the ball when [floatBallPositionMode] is [FloatBallPositionMode.BOTH_EDGES]. */
     val floatBallActiveSide: FloatBallSide = FloatBallSide.RIGHT,
@@ -166,4 +166,10 @@ data class AppSettings(
     /** Edge line / capture strip width as fraction of screen width. */
     val floatBallLineWidthFraction: Float = 0.30f,
     val floatBallLineOpacity: Float = 0.9f,
+    /** Gap between ball edge and pick crosshair in dp (above / below). */
+    val floatBallPickOffsetDp: Float = 48f,
+    /** Screen-height fraction for smooth above→below pick transition near bottom. */
+    val floatBallPickBottomTransitionFraction: Float = 0.22f,
+    /** Finger travel before full-screen pointer mode activates. */
+    val floatBallPointerSlopDp: Float = 8f,
 )

@@ -173,7 +173,7 @@ internal object SettingsSnapshotReader {
             floatBallPositionYFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] ?: 0.55f,
             floatBallOcrFallbackEnabled = prefs[SettingsPreferenceKeys.FLOAT_BALL_OCR_FALLBACK_ENABLED] ?: true,
             floatBallPointerSpeedFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SPEED_FRACTION]
-                ?: 0.3f,
+                ?: 0.35f,
             floatBallPositionMode = FloatBallPositionMode.fromStorageKey(
                 prefs[SettingsPreferenceKeys.FLOAT_BALL_POSITION_MODE],
             ),
@@ -183,6 +183,11 @@ internal object SettingsSnapshotReader {
             floatBallLineHeightFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_HEIGHT_FRACTION] ?: 0.08f,
             floatBallLineWidthFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_WIDTH_FRACTION] ?: 0.30f,
             floatBallLineOpacity = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] ?: 0.9f,
+            floatBallPickOffsetDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] ?: 48f,
+            floatBallPickBottomTransitionFraction =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION]?.coerceIn(0.04f, 0.25f)
+                    ?: 0.22f,
+            floatBallPointerSlopDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] ?: 8f,
         ).withResolvedHandleEdgeWidths()
     }
 

@@ -247,6 +247,15 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatBallLineOpacity(value: Float) =
         overlay.setFloatBallLineOpacity(value)
 
+    suspend fun setFloatBallPickOffsetDp(value: Float) =
+        overlay.setFloatBallPickOffsetDp(value)
+
+    suspend fun setFloatBallPickBottomTransitionFraction(value: Float) =
+        overlay.setFloatBallPickBottomTransitionFraction(value)
+
+    suspend fun setFloatBallPointerSlopDp(value: Float) =
+        overlay.setFloatBallPointerSlopDp(value)
+
     suspend fun setOtpCopyToClipboard(enabled: Boolean) = otp.setOtpCopyToClipboard(enabled)
     suspend fun setOtpKeywordsRegex(value: String) = otp.setOtpKeywordsRegex(value)
     suspend fun setOtpUserMatchRules(rules: List<com.slideindex.app.otp.OtpMatchRule>) = otp.setOtpUserMatchRules(rules)

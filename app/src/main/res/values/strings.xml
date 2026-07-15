@@ -631,7 +631,11 @@
     <string name="float_ball_opacity">不透明度</string>
     <string name="float_ball_pointer_speed">加号移动速度</string>
     <string name="float_ball_pointer_speed_hint">与边缘「悬浮指针」的速度设置相互独立。数值越大，加号移动越快。</string>
-    <string name="float_ball_usage_hint">拖动悬浮球或从边缘触发区向内滑动即可取词：球体跟手充当摇杆，加号/红十字在全屏上独立移动。停顿约半秒变黄后松手识别文字；继续拖动可拉出选框做区域截图。「左右两边同时显示」时，点/滑对侧边缘线可把球换到该侧。结果在操作窗里处理，不会立刻复制。</string>
+    <string name="float_ball_usage_hint">拖动悬浮球或从边缘触发区向内滑动即可取词：球体跟手充当摇杆；加号默认在球上方，靠近屏幕底部会平滑移到球下方。小幅滑动时加号跟球移动，滑动超过阈值后加号在全屏独立移动。停顿约半秒变黄后松手识别文字；未变黄直接松手也会在当前加号位置取词。继续拖动可拉出选框做区域截图。</string>
+    <string name="float_ball_pick_offset">加号间距</string>
+    <string name="float_ball_pick_bottom_transition">贴底过渡区</string>
+    <string name="float_ball_pointer_slop">全屏指针触发距离</string>
+    <string name="float_ball_pick_anchor_hint">加号间距控制加号与球体边缘的距离。贴底过渡区仅指屏幕最底缘的一小段高度：球底进入该带后，加号才从上方平滑过渡到下方；球在屏幕中部时加号始终在上方。</string>
     <string name="float_ball_text_copied">已复制文字到剪贴板</string>
     <string name="float_ball_text_not_found">未识别到文字</string>
     <string name="float_ball_ocr_fallback">OCR 降级识别</string>

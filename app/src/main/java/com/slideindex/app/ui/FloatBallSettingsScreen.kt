@@ -93,6 +93,12 @@ fun FloatBallSettingsScreen(
 
     onPointerSpeedChange: (Float) -> Unit,
 
+    onPickOffsetChange: (Float) -> Unit,
+
+    onPickBottomTransitionChange: (Float) -> Unit,
+
+    onPointerSlopChange: (Float) -> Unit,
+
     onOcrFallbackChange: (Boolean) -> Unit,
 
 ) {
@@ -322,6 +328,66 @@ fun FloatBallSettingsScreen(
 
             SettingsSliderRow(
 
+                title = stringResource(R.string.float_ball_pick_offset),
+
+                value = settings.floatBallPickOffsetDp,
+
+                valueRange = 4f..48f,
+
+                steps = 10,
+
+                enabled = controlsEnabled,
+
+                label = stringResource(R.string.float_ball_size_value, settings.floatBallPickOffsetDp),
+
+                onValueChange = onPickOffsetChange,
+
+            )
+
+            SettingsSliderRow(
+
+                title = stringResource(R.string.float_ball_pick_bottom_transition),
+
+                value = settings.floatBallPickBottomTransitionFraction,
+
+                valueRange = 0.05f..0.22f,
+
+                steps = 8,
+
+                enabled = controlsEnabled,
+
+                label = stringResource(
+
+                    R.string.floating_pointer_percent_value,
+
+                    (settings.floatBallPickBottomTransitionFraction * 100).roundToInt(),
+
+                ),
+
+                onValueChange = onPickBottomTransitionChange,
+
+            )
+
+            SettingsSliderRow(
+
+                title = stringResource(R.string.float_ball_pointer_slop),
+
+                value = settings.floatBallPointerSlopDp,
+
+                valueRange = 4f..32f,
+
+                steps = 6,
+
+                enabled = controlsEnabled,
+
+                label = stringResource(R.string.float_ball_size_value, settings.floatBallPointerSlopDp),
+
+                onValueChange = onPointerSlopChange,
+
+            )
+
+            SettingsSliderRow(
+
                 title = stringResource(R.string.float_ball_pointer_speed),
 
                 value = settings.floatBallPointerSpeedFraction,
@@ -361,6 +427,8 @@ fun FloatBallSettingsScreen(
         }
 
 
+
+        SettingsHintText(stringResource(R.string.float_ball_pick_anchor_hint))
 
         SettingsHintText(stringResource(R.string.float_ball_pointer_speed_hint))
 

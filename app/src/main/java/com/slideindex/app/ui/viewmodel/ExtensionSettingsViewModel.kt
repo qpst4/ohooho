@@ -303,4 +303,16 @@ class ExtensionSettingsViewModel @Inject constructor(
     fun setFloatBallLineOpacity(value: Float) = launchSettingsWrite {
         settingsRepository.setFloatBallLineOpacity(value)
     }
+
+    fun setFloatBallPointerSlopDp(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPointerSlopDp(value)
+    }
+
+    fun setFloatBallPickOffsetDp(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPickOffsetDp(value)
+    }
+
+    fun setFloatBallPickBottomTransitionFraction(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPickBottomTransitionFraction(value)
+    }
 }

@@ -127,6 +127,9 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onLineWidthChange = viewModel::setFloatBallLineWidthFraction,
             onLineOpacityChange = viewModel::setFloatBallLineOpacity,
             onPointerSpeedChange = viewModel::setFloatBallPointerSpeedFraction,
+            onPickOffsetChange = viewModel::setFloatBallPickOffsetDp,
+            onPickBottomTransitionChange = viewModel::setFloatBallPickBottomTransitionFraction,
+            onPointerSlopChange = viewModel::setFloatBallPointerSlopDp,
             onOcrFallbackChange = viewModel::setFloatBallOcrFallbackEnabled,
         )
     }
