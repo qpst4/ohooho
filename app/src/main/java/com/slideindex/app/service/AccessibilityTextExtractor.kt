@@ -7,34 +7,42 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 
 /**
- * Quick Cursor [defpackage.vo] style accessibility text collection.
+ * Accessibility text collection for float-ball point/rect pick.
  *
- * Point pick mirrors QC copy: iterate windows by window bounds, then recurse children
- * before reading text on the current node (deepest-with-text, not smallest-area leaf).
+ * Point pick uses smallest visible text-bearing bounds at the coordinate (FV-style),
+ * not QC [defpackage.vo] deepest-first-return, so large transparent overlays like
+ * Douyin's full-screen "pause video" button do not mask comment TextViews beneath.
  */
 object AccessibilityTextExtractor {
 
     fun collectTextAt(service: AccessibilityService, rawX: Float, rawY: Float): String? {
         val px = rawX.toInt()
         val py = rawY.toInt()
+        var best: TextCandidate? = null
         val windowBounds = Rect()
         for (window in service.windows) {
             window.getBoundsInScreen(windowBounds)
             if (!windowBounds.contains(px, py)) continue
             val root = window.root ?: continue
+            if (root.packageName?.toString() == service.packageName) {
+                releaseNode(root)
+                continue
+            }
             try {
-                val text = findTextAtNode(root, px, py)
-                if (text != null) return text
+                best = pickBetterCandidate(best, findTextCandidateAtNode(root, px, py))
             } finally {
                 releaseNode(root)
             }
         }
-        val active = service.rootInActiveWindow ?: return null
-        return try {
-            findTextAtNode(active, px, py)
-        } finally {
-            releaseNode(active)
+        val active = service.rootInActiveWindow
+        if (active != null && active.packageName?.toString() != service.packageName) {
+            try {
+                best = pickBetterCandidate(best, findTextCandidateAtNode(active, px, py))
+            } finally {
+                releaseNode(active)
+            }
         }
+        return best?.text
     }
 
     fun collectTextInRect(service: AccessibilityService, rect: Rect): String {
@@ -71,33 +79,56 @@ object AccessibilityTextExtractor {
         return joinSortedTexts(entries, seen)
     }
 
-    /**
-     * QC [vo.m]: bounds contains point → search children first → then node text / description.
-     */
-    internal fun findTextAtNode(node: AccessibilityNodeInfo, px: Int, py: Int): String? {
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-        if (!bounds.contains(px, py)) return null
+    internal data class TextCandidate(
+        val text: String,
+        val area: Int,
+        val isPrimaryText: Boolean,
+    )
 
-        val childCount = node.childCount
-        if (childCount > 0) {
-            for (i in 0 until childCount) {
-                val child = node.getChild(i) ?: continue
-                try {
-                    val fromChild = findTextAtNode(child, px, py)
-                    if (fromChild != null) return fromChild
-                } finally {
-                    releaseNode(child)
+    internal fun pickBetterCandidate(current: TextCandidate?, next: TextCandidate?): TextCandidate? {
+        if (next == null) return current
+        if (current == null) return next
+        return TEXT_CANDIDATE_ORDER.compare(current, next).let { order ->
+            if (order <= 0) current else next
+        }
+    }
+
+    /**
+     * Smallest visible text-bearing bounds at [px],[py]; scans the full subtree.
+     */
+    internal fun findTextAtNode(node: AccessibilityNodeInfo, px: Int, py: Int): String? =
+        findTextCandidateAtNode(node, px, py)?.text
+
+    internal fun findTextCandidateAtNode(
+        node: AccessibilityNodeInfo,
+        px: Int,
+        py: Int,
+    ): TextCandidate? {
+        var best: TextCandidate? = null
+        val bounds = Rect()
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(node)
+        while (stack.isNotEmpty()) {
+            val current = stack.removeFirst()
+            val owned = current !== node
+            try {
+                current.getBoundsInScreen(bounds)
+                if (current.isVisibleToUser && bounds.contains(px, py)) {
+                    best = pickBetterCandidate(best, textCandidateAt(bounds, current))
                 }
+                for (i in 0 until current.childCount) {
+                    current.getChild(i)?.let { stack.add(it) }
+                }
+            } finally {
+                if (owned) releaseNode(current)
             }
         }
-
-        val text = node.text?.toString()
-        if (!text.isNullOrEmpty()) return text
-        val description = node.contentDescription?.toString()
-        if (!description.isNullOrEmpty()) return description
-        return null
+        return best
     }
+
+    private val TEXT_CANDIDATE_ORDER = compareBy<TextCandidate> { it.area }
+        .thenByDescending { it.isPrimaryText }
+        .thenByDescending { it.text.length }
 
     internal fun joinSortedTexts(entries: List<TextEntry>, seen: LinkedHashSet<String> = LinkedHashSet()): String {
         return entries
@@ -140,6 +171,26 @@ object AccessibilityTextExtractor {
                 if (owned) releaseNode(node)
             }
         }
+    }
+
+    private fun textCandidateAt(bounds: Rect, node: AccessibilityNodeInfo): TextCandidate? {
+        val text = node.text?.toString()?.trim().orEmpty()
+        if (text.isNotEmpty()) {
+            return TextCandidate(
+                text = text,
+                area = bounds.width().coerceAtLeast(1) * bounds.height().coerceAtLeast(1),
+                isPrimaryText = true,
+            )
+        }
+        val description = node.contentDescription?.toString()?.trim().orEmpty()
+        if (description.isNotEmpty()) {
+            return TextCandidate(
+                text = description,
+                area = bounds.width().coerceAtLeast(1) * bounds.height().coerceAtLeast(1),
+                isPrimaryText = false,
+            )
+        }
+        return null
     }
 
     private fun nodeText(node: AccessibilityNodeInfo): String? {
