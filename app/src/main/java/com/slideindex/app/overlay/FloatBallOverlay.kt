@@ -1,4 +1,4 @@
-package com.slideindex.app.overlay
+﻿package com.slideindex.app.overlay
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.di.OverlayDependencyAccess
+import com.slideindex.app.perf.PickPerf
 import com.slideindex.app.service.AccessibilityTextExtractor
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
@@ -74,7 +75,7 @@ object FloatBallOverlay {
     private const val PAUSE_MS = 280L
     /** Shorter pause when preview bounds are already resolved under the pointer. */
     private const val PAUSE_MS_WITH_BOUNDS = 160L
-    /** Brief confirm after bounds first appear mid-wait (red box → yellow). */
+    /** Brief confirm after bounds first appear mid-wait (red box 鈫?yellow). */
     private const val PAUSE_MS_AFTER_BOUNDS_READY = 120L
     /** Backup bounds retry while waiting for pause (primary lookup is immediate). */
     private const val PAUSE_PREFETCH_MS = 120L
@@ -804,14 +805,20 @@ object FloatBallOverlay {
         val dragRect = rectBetween(start, end)
         val isRegionalDrag = dragRect.width() >= minSidePx && dragRect.height() >= minSidePx
         val previewBounds = selectionPreviewBoundsState?.value
-        // Only called after pointer pause; preview box is a11y bounds — no OCR fallback.
+        if (!isRegionalDrag && previewBounds == null) {
+            return
+        }
         val ocrFallbackEnabled = settings.floatBallOcrFallbackEnabled
         val ocrModelId = settings.floatBallOcrModelId
 
         when {
             isRegionalDrag -> {
+                PickPerf.beginSession("regional_rect")
+                PickPerf.mark("ACTION_UP", "regionalRect=true ocr=$ocrFallbackEnabled")
                 val panelAnchorX = dragRect.centerX().toFloat()
                 val panelAnchorY = dragRect.bottom.toFloat()
+                FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
+                PickPerf.mark("showLoading")
                 SlideIndexAccessibilityService.pickFloatBallOnRelease(
                     context = host,
                     startX = start.x,
@@ -822,34 +829,22 @@ object FloatBallOverlay {
                     ocrFallbackEnabled = ocrFallbackEnabled,
                     ocrModelId = ocrModelId,
                 ) { result ->
+                    PickPerf.mark("showResultPanel_callback")
                     FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
-                }
-            }
-            previewBounds != null -> {
-                val panelAnchorX = previewBounds.centerX().toFloat()
-                val panelAnchorY = previewBounds.bottom.toFloat()
-                SlideIndexAccessibilityService.pickFloatBallTextInRect(
-                    context = host,
-                    rect = previewBounds,
-                    ocrFallbackEnabled = ocrFallbackEnabled,
-                    ocrModelId = ocrModelId,
-                    previewBoundsPick = true,
-                ) { result ->
-                    FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
+                    PickPerf.endSession("END", "regional_rect")
                 }
             }
             else -> {
-                val panelAnchorX = start.x
-                val panelAnchorY = start.y
-                SlideIndexAccessibilityService.pickFloatBallOnRelease(
+                val bounds = previewBounds ?: return
+                val panelAnchorX = bounds.centerX().toFloat()
+                val panelAnchorY = bounds.bottom.toFloat()
+                FloatBallPickResultPanel.showLoading(host, panelAnchorX, panelAnchorY)
+                SlideIndexAccessibilityService.pickFloatBallTextInRect(
                     context = host,
-                    startX = start.x,
-                    startY = start.y,
-                    endX = end.x,
-                    endY = end.y,
-                    regionalRect = false,
+                    rect = bounds,
                     ocrFallbackEnabled = ocrFallbackEnabled,
                     ocrModelId = ocrModelId,
+                    previewBoundsPick = true,
                 ) { result ->
                     FloatBallPickResultPanel.showResult(host, panelAnchorX, panelAnchorY, result)
                 }
@@ -921,7 +916,7 @@ object FloatBallOverlay {
         selectionPreviewBoundsState?.value = null
         cursorVisibleState?.value = true
         cursorPausedState?.value = false
-        // Do not move or resize the ball window here — that cancels the Compose drag gesture.
+        // Do not move or resize the ball window here 鈥?that cancels the Compose drag gesture.
         updatePickAndBallFromFinger(moveBallWindow = true)
         schedulePauseTimer()
     }

@@ -66,6 +66,8 @@ class ScreenRecordService : Service() {
 
     private fun startRecording(resultCode: Int, data: Intent) {
         if (isRecording) return
+        com.slideindex.app.util.MediaProjectionStore.save(this, resultCode, data)
+        ScreenCaptureService.stop(this)
         val projectionManager = getSystemService(MediaProjectionManager::class.java) ?: return
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return
         mediaProjection = projection

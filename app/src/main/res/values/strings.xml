@@ -498,6 +498,9 @@
     <string name="screen_record_channel_name">屏幕录制</string>
     <string name="screen_record_notification_recording">正在录制屏幕…</string>
     <string name="screen_record_notification_saved">录屏已保存到相册</string>
+    <string name="screen_capture_channel_name">屏幕捕获</string>
+    <string name="screen_capture_notification_active">屏幕捕获已就绪</string>
+    <string name="screen_capture_permission_required">需要屏幕捕获权限，请允许后开始使用区域截图</string>
     <string name="media_notification_listener_name">通知监听（媒体会话与历史记录）</string>
     <string name="side_gestures_behavior_section">布局与行为</string>
     <string name="default_trigger_mode">默认触发模式</string>

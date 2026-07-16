@@ -561,15 +561,23 @@ internal fun PickResultTextBody(
             )
         }
         PickResultTextMode.WORD_TAP -> {
-            PickResultWordTapBody(
-                wordTokens = wordTokens,
-                selectedWordIndices = selectedWordIndices,
-                onSelectionChange = onWordSelectionChange,
-                onWordLongPress = onWordLongPress,
-                maxHeight = maxTextHeight,
-                textSizeSp = textSizeSp,
-                modifier = paddedModifier,
-            )
+            if (wordTokens.isEmpty() && textFieldValue.text.isNotBlank()) {
+                Text(
+                    text = textFieldValue.text,
+                    modifier = paddedModifier.padding(vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = bodyTextSize),
+                )
+            } else {
+                PickResultWordTapBody(
+                    wordTokens = wordTokens,
+                    selectedWordIndices = selectedWordIndices,
+                    onSelectionChange = onWordSelectionChange,
+                    onWordLongPress = onWordLongPress,
+                    maxHeight = maxTextHeight,
+                    textSizeSp = textSizeSp,
+                    modifier = paddedModifier,
+                )
+            }
         }
         PickResultTextMode.SELECT -> {
             PickResultSelectableText(

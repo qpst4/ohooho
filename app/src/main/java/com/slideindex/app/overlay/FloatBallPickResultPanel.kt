@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
+import com.slideindex.app.perf.PickPerf
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.overlay.pickresult.PickResultInteractiveTextSection
 import com.slideindex.app.settings.AppSettings
@@ -143,6 +144,7 @@ object FloatBallPickResultPanel {
         textSourceState?.value = PickResultTextSource.A11Y
         ocrAvailableState?.value = false
         updateWindowFocusable(focusable = false)
+        PickPerf.mark("panel_showLoading_done")
     }
 
     private fun updateWindowFocusableForMode(mode: PickResultTextMode) {
@@ -179,6 +181,20 @@ object FloatBallPickResultPanel {
             Toast.makeText(hostContext, R.string.float_ball_text_not_found, Toast.LENGTH_SHORT).show()
             dismiss()
         }
+        PickPerf.mark("panel_showResult_done", "source=${result.activeSource}")
+    }
+
+    fun updateOcrText(ocrText: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { updateOcrText(ocrText) }
+            return
+        }
+        loadingState?.value = false
+        ocrTextState?.value = ocrText
+        textSourceState?.value = PickResultTextSource.OCR
+        ocrAvailableState?.value = true
+        textState?.value = ocrText
+        PickPerf.mark("panel_ocr_updated", "len=${ocrText.length}")
     }
 
     fun dismiss() {
@@ -236,7 +252,7 @@ object FloatBallPickResultPanel {
     private fun ensureWindow(context: Context) {
         if (composeView != null) return
 
-        val loadingHolder = mutableStateOf(true)
+        val loadingHolder = mutableStateOf(false)
         val textHolder = mutableStateOf<String?>(null)
         val screenshotHolder = mutableStateOf<Bitmap?>(null)
         val textExpandedHolder = mutableStateOf(true)

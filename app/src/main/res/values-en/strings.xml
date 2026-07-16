@@ -1153,6 +1153,9 @@
     <string name="search_no_actions">No actions found</string>
     <string name="cancel">Cancel</string>
     <string name="screen_record_notification_saved">Screen recording saved to gallery</string>
+    <string name="screen_capture_channel_name">Screen capture</string>
+    <string name="screen_capture_notification_active">Screen capture ready</string>
+    <string name="screen_capture_permission_required">Screen capture permission is required for regional screenshots</string>
     <string name="quick_launcher_scan_system_xml">Reading system shortcut data…</string>
     <string name="quick_launcher_scan_dumpsys">Fetching shortcuts via Shizuku…</string>
     <string name="quick_launcher_scan_packages">Scanning package shortcuts (%1$d/%2$d)…</string>

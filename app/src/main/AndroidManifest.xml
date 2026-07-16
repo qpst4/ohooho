@@ -204,6 +204,11 @@
             android:foregroundServiceType="mediaProjection" />
 
         <service
+            android:name=".service.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
             android:name=".service.MediaNotificationListener"
             android:exported="true"
             android:label="@string/media_notification_listener_name"

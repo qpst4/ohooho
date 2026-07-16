@@ -94,8 +94,16 @@ object AccessibilityTextExtractor {
     }
 
     private fun shouldSkipWindowRoot(root: AccessibilityNodeInfo, service: AccessibilityService): Boolean {
-        if (root.packageName?.toString() == service.packageName) return true
         return containsSkipMarker(root, SKIP_MARKER_SCAN_DEPTH)
+    }
+
+    private fun shouldSkipPickWindow(window: AccessibilityWindowInfo): Boolean {
+        return when (window.type) {
+            AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY,
+            AccessibilityWindowInfo.TYPE_INPUT_METHOD,
+            -> true
+            else -> false
+        }
     }
 
     private fun containsSkipMarker(node: AccessibilityNodeInfo, depthRemaining: Int): Boolean {
@@ -118,6 +126,7 @@ object AccessibilityTextExtractor {
         var best: TextCandidate? = null
         val windowBounds = Rect()
         for (window in service.windows) {
+            if (shouldSkipPickWindow(window)) continue
             window.getBoundsInScreen(windowBounds)
             if (!windowBounds.contains(px, py)) continue
             val root = window.root ?: continue
@@ -174,6 +183,7 @@ object AccessibilityTextExtractor {
         var best: BoundsCandidate? = null
         val windowBounds = Rect()
         for (window in service.windows) {
+            if (shouldSkipPickWindow(window)) continue
             window.getBoundsInScreen(windowBounds)
             if (!windowBounds.contains(px, py)) continue
             val root = window.root ?: continue
@@ -434,9 +444,7 @@ object AccessibilityTextExtractor {
         }
 
         for (window in service.windows) {
-            when (window.type) {
-                AccessibilityWindowInfo.TYPE_INPUT_METHOD -> continue
-            }
+            if (shouldSkipPickWindow(window)) continue
             window.getBoundsInScreen(windowBounds)
             if (!Rect.intersects(windowBounds, preview) && !windowBounds.contains(px, py)) continue
             val root = window.root ?: continue
@@ -642,9 +650,7 @@ object AccessibilityTextExtractor {
             collectIntersectingTexts(root, rect, entries, seen, includeNode, readNodeText)
         }
         for (window in service.windows) {
-            when (window.type) {
-                AccessibilityWindowInfo.TYPE_INPUT_METHOD -> continue
-            }
+            if (shouldSkipPickWindow(window)) continue
             window.getBoundsInScreen(windowBounds)
             if (!Rect.intersects(windowBounds, rect)) continue
             val root = window.root ?: continue
@@ -690,9 +696,7 @@ object AccessibilityTextExtractor {
             )
         }
         for (window in service.windows) {
-            when (window.type) {
-                AccessibilityWindowInfo.TYPE_INPUT_METHOD -> continue
-            }
+            if (shouldSkipPickWindow(window)) continue
             window.getBoundsInScreen(windowBounds)
             if (!Rect.intersects(windowBounds, target)) continue
             val root = window.root ?: continue

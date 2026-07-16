@@ -19,7 +19,12 @@ object ScreenRecordHelper {
             ScreenRecordService.stop(appContext)
             true
         } else {
-            appContext.startActivity(ScreenCapturePermissionActivity.createIntent(appContext))
+            appContext.startActivity(
+                ScreenCapturePermissionActivity.createIntent(
+                    appContext,
+                    ScreenCapturePermissionActivity.Purpose.SCREEN_RECORD,
+                ),
+            )
             true
         }
     }
