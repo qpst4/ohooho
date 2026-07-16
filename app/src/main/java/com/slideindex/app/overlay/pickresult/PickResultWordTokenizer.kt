@@ -122,6 +122,34 @@ object PickResultWordTokenizer {
         return if (changed) SplitSelectedResult(result, newSelected) else null
     }
 
+    /** Long-press split: explode one multi-char token at [index] into single-character chips. */
+    fun splitTokenAtIndex(tokens: List<String>, index: Int): SplitSelectedResult? {
+        if (index !in tokens.indices) return null
+        return splitSelectedTokensToChars(tokens, setOf(index))
+    }
+
+    /**
+     * Keep selections on other tokens after splitting [splitIndex]; [splitCharSelected]
+     * are indices of the newly split character chips.
+     */
+    fun mergeSelectionAfterSplitAt(
+        splitIndex: Int,
+        expandedTokenCount: Int,
+        oldSelected: Set<Int>,
+        splitCharSelected: Set<Int>,
+    ): Set<Int> {
+        if (expandedTokenCount <= 0) return splitCharSelected
+        val merged = linkedSetOf<Int>()
+        merged += splitCharSelected
+        val indexShift = expandedTokenCount - 1
+        oldSelected.forEach { oldIdx ->
+            if (oldIdx == splitIndex) return@forEach
+            val newIdx = if (oldIdx < splitIndex) oldIdx else oldIdx + indexShift
+            merged += newIdx
+        }
+        return merged
+    }
+
     data class SplitSelectedResult(
         val tokens: List<String>,
         val selectedIndices: Set<Int>,

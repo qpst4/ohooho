@@ -172,7 +172,13 @@ object AccessibilityNodeManager {
         )
         if (safe.width() <= 0 || safe.height() <= 0) return null
         return try {
-            Bitmap.createBitmap(bitmap, safe.left, safe.top, safe.width(), safe.height())
+            val cropped = Bitmap.createBitmap(bitmap, safe.left, safe.top, safe.width(), safe.height())
+            // Full-screen crop may return the same instance; holder keeps a ref while managed closes.
+            if (cropped === bitmap) {
+                cropped.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+            } else {
+                cropped
+            }
         } catch (_: Exception) {
             null
         }

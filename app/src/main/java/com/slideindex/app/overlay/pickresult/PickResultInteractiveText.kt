@@ -98,6 +98,8 @@ internal fun PickResultInteractiveTextSection(
     var wordTokenOverride by remember(text) { mutableStateOf<List<String>?>(null) }
     val effectiveWordTokens = wordTokenOverride ?: wordTokens
 
+    fun currentWordTokens(): List<String> = wordTokenOverride ?: wordTokens
+
     LaunchedEffect(text) {
         wordTokenOverride = null
         wordTokens = if (text.isBlank()) {
@@ -173,14 +175,20 @@ internal fun PickResultInteractiveTextSection(
     }
 
     fun splitWordAt(index: Int) {
-        HapticHelper.appTick(view, appSettings)
-        val split = PickResultWordTokenizer.splitSelectedTokensToChars(
-            tokens = effectiveWordTokens,
-            selectedIndices = setOf(index),
+        val tokens = currentWordTokens()
+        val split = PickResultWordTokenizer.splitTokenAtIndex(
+            tokens = tokens,
+            index = index,
         )
         if (split != null) {
+            HapticHelper.appTick(view, appSettings)
             wordTokenOverride = split.tokens
-            selectedWordIndices = split.selectedIndices
+            selectedWordIndices = PickResultWordTokenizer.mergeSelectionAfterSplitAt(
+                splitIndex = index,
+                expandedTokenCount = split.tokens.size - tokens.size + 1,
+                oldSelected = selectedWordIndices,
+                splitCharSelected = split.selectedIndices,
+            )
         }
     }
 
@@ -203,7 +211,7 @@ internal fun PickResultInteractiveTextSection(
                 onRemoveSpaces = { runOnActiveText { onRemoveSpaces(it, true) } },
                 onSplitSelectedWords = {
                     val split = PickResultWordTokenizer.splitSelectedTokensToChars(
-                        tokens = effectiveWordTokens,
+                        tokens = currentWordTokens(),
                         selectedIndices = selectedWordIndices,
                     )
                     if (split != null) {

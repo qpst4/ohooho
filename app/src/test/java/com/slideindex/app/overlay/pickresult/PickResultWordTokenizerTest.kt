@@ -48,8 +48,48 @@ class PickResultWordTokenizerTest {
     }
 
     @Test
-    fun `breakCjkWords keeps punctuation as separate tokens in selectable flow`() {
-        val tokens = PickResultWordTokenizer.tokenizeSelectableWords("你好，世界")
-        assertTrue(tokens.contains("，"))
+    fun `splitTokenAtIndex splits one token for long press`() {
+        val result = PickResultWordTokenizer.splitTokenAtIndex(
+            tokens = listOf("北", "京", "大学"),
+            index = 2,
+        )
+        requireNotNull(result)
+        assertEquals(listOf("北", "京", "大", "学"), result.tokens)
+        assertEquals(setOf(2, 3), result.selectedIndices)
+    }
+
+    @Test
+    fun `splitTokenAtIndex returns null for single char token`() {
+        val result = PickResultWordTokenizer.splitTokenAtIndex(
+            tokens = listOf("北", "京"),
+            index = 0,
+        )
+        assertEquals(null, result)
+    }
+
+    @Test
+    fun `mergeSelectionAfterSplitAt preserves other selected tokens`() {
+        val merged = PickResultWordTokenizer.mergeSelectionAfterSplitAt(
+            splitIndex = 1,
+            expandedTokenCount = 2,
+            oldSelected = setOf(0, 1, 3),
+            splitCharSelected = setOf(1, 2),
+        )
+        assertEquals(setOf(0, 1, 2, 4), merged)
+    }
+
+    @Test
+    fun `sequential splitTokenAtIndex preserves prior splits`() {
+        val first = PickResultWordTokenizer.splitTokenAtIndex(
+            tokens = listOf("北大", "清华"),
+            index = 0,
+        )
+        requireNotNull(first)
+        val second = PickResultWordTokenizer.splitTokenAtIndex(
+            tokens = first.tokens,
+            index = 2,
+        )
+        requireNotNull(second)
+        assertEquals(listOf("北", "大", "清", "华"), second.tokens)
     }
 }

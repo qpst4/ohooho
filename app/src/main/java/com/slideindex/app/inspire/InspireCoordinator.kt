@@ -337,18 +337,14 @@ object InspireCoordinator {
 
         val ocrReady = isOcrReady(context, ocrFallbackEnabled, ocrModelId)
 
+        val screenshotHandle = InspireDataHolder.acquireScreenshotBitmap()
         val ocrText = if (ocrReady && !deferOcr) {
             val ocrStart = SystemClock.elapsedRealtime()
             PickPerf.mark("ocr_start", "model=$ocrModelId")
-            val screenshot = InspireDataHolder.acquireScreenshotBitmap()
-            val recognized = try {
-                screenshot?.requireBitmap()?.let { bitmap ->
-                    withContext(ocrDispatcher) {
-                        RegionalScreenshotOcr.recognizeBitmapPublic(context, ocrModelId, bitmap)
-                    }?.trim()?.takeIf { it.isNotEmpty() }
-                }
-            } finally {
-                screenshot?.close()
+            val recognized = screenshotHandle?.requireBitmap()?.let { bitmap ->
+                withContext(ocrDispatcher) {
+                    RegionalScreenshotOcr.recognizeBitmapPublic(context, ocrModelId, bitmap)
+                }?.trim()?.takeIf { it.isNotEmpty() }
             }
             PickPerf.markStepDuration("ocr_end", ocrStart, "len=${recognized?.length ?: 0}")
             recognized
@@ -360,9 +356,10 @@ object InspireCoordinator {
             null
         }
 
-        val screenshotCopy = InspireDataHolder.acquireScreenshotBitmap()?.let { handle ->
+        val screenshotCopy = screenshotHandle?.let { handle ->
             try {
-                handle.requireBitmap().copy(handle.requireBitmap().config ?: Bitmap.Config.ARGB_8888, false)
+                val bitmap = handle.requireBitmap()
+                bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
             } finally {
                 handle.close()
             }

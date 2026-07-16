@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,9 +38,14 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+
+/** Shorter than system long-press for quicker word-split feedback. */
+private const val WORD_SPLIT_LONG_PRESS_MS = 280L
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -55,12 +61,12 @@ fun PickResultWordTapBody(
     val bodyTextSize = textSizeSp.sp
     val delimiterTextSize = (textSizeSp * 13f / 15f).sp
     val bodyLineHeight = (textSizeSp * 20f / 15f).sp
-    val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
+    val chipBounds = remember(wordTokens) { mutableStateMapOf<Int, Rect>() }
     var containerCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var gestureCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val scrollState = rememberScrollState()
     val touchSlop = LocalViewConfiguration.current.touchSlop
-    val longPressTimeout = LocalViewConfiguration.current.longPressTimeoutMillis
+    val gestureScope = rememberCoroutineScope()
     val currentSelectedIndices by rememberUpdatedState(selectedWordIndices)
     val currentOnWordLongPress by rememberUpdatedState(onWordLongPress)
 
@@ -69,9 +75,10 @@ fun PickResultWordTapBody(
         val gesture = gestureCoordinates ?: return null
         if (!box.isAttached || !gesture.isAttached) return null
         val pointerInBox = box.localPositionOf(gesture, pointerInGesture)
-        return chipBounds.entries.firstOrNull { (_, rect) ->
-            rect.contains(pointerInBox)
-        }?.key
+        return chipBounds.entries
+            .filter { (index, rect) -> index in wordTokens.indices && rect.contains(pointerInBox) }
+            .minByOrNull { (_, rect) -> rect.width * rect.height }
+            ?.key
     }
 
     fun rangeIndices(anchor: Int, current: Int): Set<Int> {
@@ -94,7 +101,7 @@ fun PickResultWordTapBody(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onGloballyPositioned { gestureCoordinates = it }
-                    .pointerInput(wordTokens, touchSlop, longPressTimeout) {
+                    .pointerInput(wordTokens, touchSlop) {
                         awaitEachGesture {
                             val down = awaitFirstDown(
                                 requireUnconsumed = false,
@@ -108,42 +115,58 @@ fun PickResultWordTapBody(
                             var wordDragArmed = false
                             var longPressTriggered = false
                             var lastRangeIndex = startIndex
-                            val downTime = System.currentTimeMillis()
 
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                if (!change.pressed) break
+                            val longPressJob = gestureScope.launch {
+                                delay(WORD_SPLIT_LONG_PRESS_MS)
+                                if (!wordDragArmed && accumulated.getDistance() < touchSlop / 2f) {
+                                    longPressTriggered = true
+                                    currentOnWordLongPress(startIndex)
+                                }
+                            }
 
-                                val delta = change.positionChange()
-                                accumulated += delta
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    if (!change.pressed) break
 
-                                if (!wordDragArmed && !longPressTriggered) {
-                                    if (accumulated.getDistance() > touchSlop) {
-                                        if (abs(accumulated.x) > abs(accumulated.y)) {
-                                            wordDragArmed = true
-                                        } else {
-                                            // 先上下滑：交给外层滚动，不进入划选分词。
-                                            return@awaitEachGesture
+                                    val delta = change.positionChange()
+                                    accumulated += delta
+
+                                    if (!wordDragArmed && !longPressTriggered) {
+                                        val horizontalIntent =
+                                            abs(accumulated.x) > abs(accumulated.y) &&
+                                                abs(accumulated.x) > touchSlop
+                                        val verticalIntent =
+                                            abs(accumulated.y) > abs(accumulated.x) &&
+                                                abs(accumulated.y) > touchSlop
+                                        when {
+                                            horizontalIntent -> {
+                                                wordDragArmed = true
+                                                longPressJob.cancel()
+                                            }
+                                            verticalIntent -> {
+                                                longPressJob.cancel()
+                                                return@awaitEachGesture
+                                            }
+                                            accumulated.getDistance() >= touchSlop / 2f -> {
+                                                longPressJob.cancel()
+                                            }
                                         }
-                                    } else if (
-                                        System.currentTimeMillis() - downTime >= longPressTimeout
-                                    ) {
-                                        longPressTriggered = true
-                                        currentOnWordLongPress(startIndex)
+                                    }
+
+                                    if (wordDragArmed) {
+                                        val currentIndex = indexAt(change.position) ?: lastRangeIndex
+                                        lastRangeIndex = currentIndex
+                                        val range = rangeIndices(startIndex, currentIndex)
+                                        onSelectionChange(
+                                            if (selecting) baseline + range else baseline - range,
+                                        )
                                         change.consume()
                                     }
                                 }
-
-                                if (wordDragArmed) {
-                                    val currentIndex = indexAt(change.position) ?: lastRangeIndex
-                                    lastRangeIndex = currentIndex
-                                    val range = rangeIndices(startIndex, currentIndex)
-                                    onSelectionChange(
-                                        if (selecting) baseline + range else baseline - range,
-                                    )
-                                    change.consume()
-                                }
+                            } finally {
+                                longPressJob.cancel()
                             }
 
                             if (!wordDragArmed && !longPressTriggered) {
