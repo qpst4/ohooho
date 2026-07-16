@@ -12,6 +12,8 @@ import com.slideindex.app.ui.FloatingPointerPointerSettingsScreen
 import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.ExtensionAboutScreen
+import com.slideindex.app.ui.FloatBallAppearanceSettingsScreen
+import com.slideindex.app.ui.FloatBallPickSettingsScreen
 import com.slideindex.app.ui.FloatBallSettingsScreen
 import com.slideindex.app.ui.QuickLauncherEditorScreen
 import com.slideindex.app.ui.PrivacyPolicyScreen
@@ -20,8 +22,11 @@ import com.slideindex.app.ui.ShellCommandPanelScreen
 import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
+import com.slideindex.app.ui.FloatBallTranslationSettingsScreen
+import com.slideindex.app.ui.TranslateModelSettingsScreen
 import com.slideindex.app.ui.OcrModelSettingsScreen
 import com.slideindex.app.ui.viewmodel.OcrModelSettingsViewModel
+import com.slideindex.app.ui.viewmodel.TranslateSettingsViewModel
 import com.slideindex.app.ui.viewmodel.SettingsBackupViewModel
 import com.slideindex.app.ui.viewmodel.ShellCommandViewModel
 
@@ -120,6 +125,20 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             accessibilityGranted = permissions.accessibilityGranted,
             onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onEnabledChange = viewModel::setFloatBallEnabled,
+            onOpenAppearanceSettings = { ctx.navigate(AppNavKey.FloatBallAppearance) },
+            onOpenPickSettings = { ctx.navigate(AppNavKey.FloatBallPick) },
+            onOpenTranslationSettings = { ctx.navigate(AppNavKey.FloatBallTranslation) },
+        )
+    }
+
+    entry<AppNavKey.FloatBallAppearance> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val permissions = ctx.collectPermissions()
+        FloatBallAppearanceSettingsScreen(
+            settings = settings,
+            accessibilityGranted = permissions.accessibilityGranted,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
             onSizeChange = viewModel::setFloatBallSizeDp,
             onOpacityChange = viewModel::setFloatBallOpacity,
             onPositionModeChange = viewModel::setFloatBallPositionMode,
@@ -128,12 +147,54 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onLineHeightChange = viewModel::setFloatBallLineHeightFraction,
             onLineWidthChange = viewModel::setFloatBallLineWidthFraction,
             onLineOpacityChange = viewModel::setFloatBallLineOpacity,
+        )
+    }
+
+    entry<AppNavKey.FloatBallPick> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val permissions = ctx.collectPermissions()
+        FloatBallPickSettingsScreen(
+            settings = settings,
+            accessibilityGranted = permissions.accessibilityGranted,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
             onPointerSpeedChange = viewModel::setFloatBallPointerSpeedFraction,
             onPickOffsetChange = viewModel::setFloatBallPickOffsetDp,
+            onPickTextSizeChange = viewModel::setFloatBallPickTextSizeSp,
             onPickBottomTransitionChange = viewModel::setFloatBallPickBottomTransitionFraction,
             onPointerSlopChange = viewModel::setFloatBallPointerSlopDp,
             onOcrFallbackChange = viewModel::setFloatBallOcrFallbackEnabled,
             onOpenOcrModels = { ctx.navigate(AppNavKey.OcrModels) },
+        )
+    }
+
+    entry<AppNavKey.FloatBallTranslation> {
+        val viewModel: TranslateSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        FloatBallTranslationSettingsScreen(
+            settings = settings,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
+            onInstantTranslateChange = viewModel::setInstantTranslate,
+            onEngineChange = viewModel::setTranslateEngine,
+            onTargetLangChange = viewModel::setTranslateTargetLang,
+            onPickPanelTransparencyChange = viewModel::setTranslatePickPanelTransparency,
+            onOpenMlKitModels = { ctx.navigate(AppNavKey.TranslateModels) },
+        )
+    }
+
+    entry<AppNavKey.TranslateModels> {
+        val viewModel: TranslateSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val installedLanguageCodes by viewModel.installedLanguageCodes.collectAsStateWithLifecycle()
+        val downloadState by viewModel.downloadState.collectAsStateWithLifecycle()
+        TranslateModelSettingsScreen(
+            settings = settings,
+            installedLanguageCodes = installedLanguageCodes,
+            downloadState = downloadState,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBallTranslation) },
+            onDownloadLanguage = viewModel::downloadLanguage,
+            onDeleteLanguage = viewModel::deleteLanguage,
+            onWifiOnlyChange = viewModel::setDownloadWifiOnly,
         )
     }
 
@@ -147,7 +208,7 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             catalogModels = viewModel.catalogModels,
             installedModelIds = installedModelIds,
             downloadState = downloadState,
-            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBallPick) },
             onSelectModel = viewModel::selectModel,
             onClearSelectedModel = viewModel::clearSelectedModel,
             onDownloadModel = viewModel::downloadModel,

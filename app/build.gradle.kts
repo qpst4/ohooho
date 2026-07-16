@@ -113,6 +113,7 @@ dependencies {
     implementation(project(":feature:shake"))
     implementation(project(":feature:message"))
     implementation(project(":core:ocr"))
+    implementation(project(":core:translate"))
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

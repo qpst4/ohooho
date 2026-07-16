@@ -1,6 +1,7 @@
 package com.slideindex.app.overlay
 
 import android.content.Context
+import android.graphics.Color
 import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.compose.ui.platform.ComposeView
@@ -40,7 +41,7 @@ class OverlayComposeOwner : LifecycleOwner, ViewModelStoreOwner, SavedStateRegis
 
 object OverlayCompose {
     fun themedContext(context: Context): Context =
-        ContextThemeWrapper(context.applicationContext, R.style.Theme_SlideIndex)
+        ContextThemeWrapper(context.applicationContext, R.style.Theme_SlideIndex_Transparent)
 
     fun bindOwners(view: View, owner: OverlayComposeOwner) {
         view.setViewTreeLifecycleOwner(owner)
@@ -50,6 +51,7 @@ object OverlayCompose {
 
     fun createComposeView(context: Context, owner: OverlayComposeOwner): ComposeView {
         return ComposeView(themedContext(context)).apply {
+            setBackgroundColor(Color.TRANSPARENT)
             bindOwners(this, owner)
             // Overlays manage their own owner lifecycle; dispose on window detach instead of
             // ON_DESTROY to avoid races when removeView and destroy() happen close together.

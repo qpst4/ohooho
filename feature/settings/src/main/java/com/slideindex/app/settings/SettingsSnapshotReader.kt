@@ -186,10 +186,23 @@ internal object SettingsSnapshotReader {
             floatBallLineWidthFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_WIDTH_FRACTION] ?: 0.30f,
             floatBallLineOpacity = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] ?: 0.9f,
             floatBallPickOffsetDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] ?: 48f,
+            floatBallPickTextSizeSp =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_TEXT_SIZE_SP]?.coerceIn(12f, 22f) ?: 15f,
             floatBallPickBottomTransitionFraction =
                 prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION]?.coerceIn(0.04f, 0.25f)
                     ?: 0.22f,
             floatBallPointerSlopDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] ?: 8f,
+            floatBallInstantTranslate = prefs[SettingsPreferenceKeys.FLOAT_BALL_INSTANT_TRANSLATE] ?: false,
+            floatBallTranslateEngine = FloatBallTranslateEngine.fromStorageKey(
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_ENGINE],
+            ),
+            floatBallTranslateTargetLang = prefs[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_TARGET_LANG]
+                ?: "zh-CN",
+            floatBallTranslatePickPanelTransparency =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_PICK_PANEL_TRANSPARENCY]?.coerceIn(0f, 1f)
+                    ?: prefs[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_PICK_PANEL_ALPHA]
+                        ?.let { alpha -> (1f - alpha).coerceIn(0f, 1f) }
+                    ?: 0.65f,
         ).withResolvedHandleEdgeWidths()
     }
 

@@ -56,6 +56,10 @@ sealed interface AppNavKey : NavKey {
     @Serializable data object FloatingPointer : AppNavKey
     @Serializable data object FloatBall : AppNavKey
     @Serializable data object OcrModels : AppNavKey
+    @Serializable data object FloatBallAppearance : AppNavKey
+    @Serializable data object FloatBallPick : AppNavKey
+    @Serializable data object FloatBallTranslation : AppNavKey
+    @Serializable data object TranslateModels : AppNavKey
     @Serializable data object FloatingPointerPointer : AppNavKey
     @Serializable data object FloatingPointerJoystick : AppNavKey
     @Serializable data object FloatingPointerRadialMenu : AppNavKey

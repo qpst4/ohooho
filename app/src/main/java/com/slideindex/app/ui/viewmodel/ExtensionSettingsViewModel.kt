@@ -312,6 +312,10 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setFloatBallPickOffsetDp(value)
     }
 
+    fun setFloatBallPickTextSizeSp(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallPickTextSizeSp(value)
+    }
+
     fun setFloatBallPickBottomTransitionFraction(value: Float) = launchSettingsWrite {
         settingsRepository.setFloatBallPickBottomTransitionFraction(value)
     }

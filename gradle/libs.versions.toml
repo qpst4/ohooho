@@ -25,6 +25,8 @@ kotlin-metadata-jvm = "2.4.0"
 baselineprofile = "1.3.3"
 benchmark = "1.3.3"
 mlkit-text-recognition = "16.0.1"
+mlkit-translate = "17.0.3"
+mlkit-language-id = "17.0.6"
 tesseract4android = "4.9.0"
 onnxruntime = "1.23.2"
 opencv = "4.12.0"
@@ -81,6 +83,8 @@ kotlin-metadata-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-metadata-
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version = "2.3.0" }
 mlkit-text-recognition-chinese-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "mlkit-text-recognition" }
+mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkit-translate" }
+mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.ref = "mlkit-language-id" }
 tesseract4android = { group = "cz.adaptech.tesseract4android", name = "tesseract4android", version.ref = "tesseract4android" }
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 opencv-android = { group = "org.opencv", name = "opencv", version.ref = "opencv" }

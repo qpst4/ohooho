@@ -16,7 +16,7 @@ import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,29 +31,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Deselect
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.UnfoldLess
-import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,39 +45,32 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.slideindex.app.R
 import com.slideindex.app.di.OverlayDependencyAccess
-import com.slideindex.app.overlay.pickresult.PickResultSelectableText
+import com.slideindex.app.overlay.pickresult.PickResultInteractiveTextSection
+import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.overlay.pickresult.PickResultPanelMaxWidth
+import com.slideindex.app.overlay.pickresult.pickResultPanelCard
+import com.slideindex.app.overlay.pickresult.PickResultSectionHeader
+import com.slideindex.app.overlay.pickresult.PickResultToolbarIcon
 import com.slideindex.app.overlay.pickresult.PickResultTextMode
-import com.slideindex.app.overlay.pickresult.PickResultWordTapBody
-import com.slideindex.app.overlay.pickresult.PickResultWordTokenizer
 import com.slideindex.app.ui.theme.SlideIndexTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collect
 
 private val PANEL_HORIZONTAL_PADDING = 12.dp
-private val PANEL_MAX_WIDTH = 340.dp
+private val PANEL_MAX_WIDTH = PickResultPanelMaxWidth
 private val PANEL_MAX_HEIGHT_FRACTION = 0.85f
-private val PANEL_MAX_TEXT_HEIGHT = 180.dp
 private val PANEL_MAX_IMAGE_HEIGHT = 140.dp
 
 /**
@@ -210,13 +186,21 @@ object FloatBallPickResultPanel {
         }
         screenshotState?.value?.recycle()
         screenshotState?.value = null
+        val view = composeView
         val wm = windowManager
-        composeView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
+        if (view != null && wm != null) {
+            runCatching { wm.removeView(view) }
+        }
         screenOffReceiver?.let { receiver ->
             appContext?.let { ctx -> runCatching { ctx.unregisterReceiver(receiver) } }
         }
-        OverlayCompose.disposeComposeView(composeView)
-        owner?.destroy()
+        val currentOwner = owner
+        if (currentOwner != null) {
+            view?.post { currentOwner.destroy() } ?: currentOwner.destroy()
+        }
+        if (FloatBallTranslatePanel.isShowing) {
+            FloatBallTranslatePanel.dismiss()
+        }
         owner = null
         composeView = null
         layoutParams = null
@@ -285,6 +269,15 @@ object FloatBallPickResultPanel {
                 val ocrText by ocrTextHolder
                 val textSource by textSourceHolder
                 val ocrAvailable by ocrAvailableHolder
+                val settingsHolder = remember { mutableStateOf(AppSettings()) }
+                LaunchedEffect(overlayContext) {
+                    val flow = OverlayDependencyAccess.overlayDependencies(overlayContext)
+                        ?.settingsRepository
+                        ?.settings
+                        ?: return@LaunchedEffect
+                    flow.collect { settingsHolder.value = it }
+                }
+                val settings by settingsHolder
                 FloatBallPickResultContent(
                     loading = loading,
                     text = text,
@@ -294,13 +287,13 @@ object FloatBallPickResultPanel {
                     textMode = textMode,
                     textSource = textSource,
                     ocrAvailable = ocrAvailable,
+                    translatePickPanelTransparency = settings.floatBallTranslatePickPanelTransparency,
+                    textSizeSp = settings.floatBallPickTextSizeSp,
                     onTextSourceChange = { source ->
                         textSourceHolder.value = source
                         textHolder.value = when (source) {
-                            PickResultTextSource.A11Y -> a11yTextHolder.value
-                                ?.takeIf { it.isNotBlank() } ?: ocrTextHolder.value
-                            PickResultTextSource.OCR -> ocrTextHolder.value
-                                ?.takeIf { it.isNotBlank() } ?: a11yTextHolder.value
+                            PickResultTextSource.A11Y -> a11yTextHolder.value.orEmpty()
+                            PickResultTextSource.OCR -> ocrTextHolder.value.orEmpty()
                         }
                     },
                     onTextExpandedChange = { textExpandedHolder.value = it },
@@ -309,7 +302,13 @@ object FloatBallPickResultPanel {
                         textModeHolder.value = mode
                         updateWindowFocusableForMode(mode)
                     },
-                    onDismiss = { dismiss() },
+                    onDismiss = {
+                        if (FloatBallTranslatePanel.isShowing) {
+                            FloatBallTranslatePanel.dismiss()
+                        } else {
+                            dismiss()
+                        }
+                    },
                     onTextChange = { textHolder.value = it },
                     onCopy = { value ->
                         FloatBallTextPick.copyText(context, value)
@@ -325,7 +324,7 @@ object FloatBallPickResultPanel {
                             textHolder.value = pasted
                         }
                     },
-                    onTranslate = { FloatBallTextPick.translateText(context, it) },
+                    onTranslate = { FloatBallTranslateCoordinator.translate(context, it) },
                     onRemoveSpaces = { value, removeAll ->
                         textHolder.value = if (removeAll) {
                             value.replace(Regex("\\s+"), "")
@@ -409,6 +408,8 @@ private fun FloatBallPickResultContent(
     textMode: PickResultTextMode,
     textSource: PickResultTextSource,
     ocrAvailable: Boolean,
+    translatePickPanelTransparency: Float,
+    textSizeSp: Float,
     onTextSourceChange: (PickResultTextSource) -> Unit,
     onTextExpandedChange: (Boolean) -> Unit,
     onImageExpandedChange: (Boolean) -> Unit,
@@ -424,104 +425,30 @@ private fun FloatBallPickResultContent(
     onSaveScreenshot: () -> Unit,
     onShareScreenshot: () -> Unit,
 ) {
-    val hasTextSection = loading || !text.isNullOrBlank() || screenshot != null
+    val hasTextSection = loading || !text.isNullOrBlank() || screenshot != null || ocrAvailable
     val hasImageSection = screenshot != null
-    var textFieldValue by remember { mutableStateOf(TextFieldValue(text.orEmpty())) }
-    var selectedWordIndices by remember(text) { mutableStateOf(setOf<Int>()) }
-    var selectionStart by remember(text) { mutableStateOf(0) }
-    var selectionEnd by remember(text) { mutableStateOf(0) }
-    var selectAllRequest by remember { mutableStateOf(0) }
-    var deselectAllRequest by remember { mutableStateOf(0) }
-    val appContext = LocalContext.current.applicationContext
-    var wordTokens by remember(text) { mutableStateOf<List<String>>(emptyList()) }
-    var wordTokenOverride by remember(text) { mutableStateOf<List<String>?>(null) }
-    val effectiveWordTokens = wordTokenOverride ?: wordTokens
-
-    LaunchedEffect(text) {
-        wordTokenOverride = null
-        val source = text.orEmpty()
-        wordTokens = if (source.isBlank()) {
-            emptyList()
-        } else {
-            withContext(Dispatchers.Default) {
-                PickResultWordTokenizer.tokenizeSelectableWords(source, appContext)
-            }
-        }
-    }
-
-    LaunchedEffect(text, textMode) {
-        if (textMode != PickResultTextMode.EDIT) {
-            textFieldValue = TextFieldValue(text.orEmpty())
-            selectedWordIndices = emptySet()
-            selectionStart = 0
-            selectionEnd = 0
-        } else if (text.orEmpty() != textFieldValue.text) {
-            textFieldValue = TextFieldValue(text.orEmpty())
-        }
-    }
-
-    val allSelected = when (textMode) {
-        PickResultTextMode.WORD_TAP -> {
-            effectiveWordTokens.isNotEmpty() && selectedWordIndices.size == effectiveWordTokens.size
-        }
-        PickResultTextMode.SELECT -> {
-            val length = text.orEmpty().length
-            length > 0 && selectionStart == 0 && selectionEnd == length
-        }
-        PickResultTextMode.EDIT -> {
-            val length = textFieldValue.text.length
-            length > 0 &&
-                textFieldValue.selection.min == 0 &&
-                textFieldValue.selection.max == length
-        }
-    }
-
-    fun activeText(): String? {
-        if (text.isNullOrBlank()) return null
-        return when (textMode) {
-            PickResultTextMode.WORD_TAP -> {
-                if (selectedWordIndices.isEmpty()) text
-                else selectedWordIndices.sorted().joinToString(separator = "") { index ->
-                    effectiveWordTokens.getOrElse(index) { "" }.trim()
-                }.ifBlank { text }
-            }
-            PickResultTextMode.SELECT -> {
-                if (selectionEnd > selectionStart) {
-                    text.orEmpty().substring(
-                        selectionStart.coerceAtLeast(0),
-                        selectionEnd.coerceAtMost(text.length),
-                    )
-                } else {
-                    text
-                }
-            }
-            PickResultTextMode.EDIT -> {
-                val selection = textFieldValue.selection
-                if (!selection.collapsed) {
-                    textFieldValue.text.substring(
-                        selection.min.coerceAtLeast(0),
-                        selection.max.coerceAtMost(textFieldValue.text.length),
-                    )
-                } else {
-                    textFieldValue.text.ifBlank { text }
-                }
-            }
-        }
-    }
-
-    fun runOnActiveText(action: (String) -> Unit) {
-        activeText()?.takeIf { it.isNotBlank() }?.let(action)
+    val translateVisible by FloatBallTranslatePanel.panelVisible
+    val pickPanelAlpha = if (translateVisible) {
+        1f - translatePickPanelTransparency.coerceIn(0f, 1f)
+    } else {
+        1f
     }
 
     val maxPanelHeight = (LocalConfiguration.current.screenHeightDp * PANEL_MAX_HEIGHT_FRACTION).dp
     val bodyScrollState = rememberScrollState()
 
+    val dismissInteraction = remember { MutableInteractionSource() }
+    val cardInteraction = remember { MutableInteractionSource() }
+
     SlideIndexTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.28f))
-                .clickable(onClick = onDismiss),
+                .clickable(
+                    interactionSource = dismissInteraction,
+                    indication = null,
+                    onClick = onDismiss,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Column(
@@ -529,9 +456,23 @@ private fun FloatBallPickResultContent(
                     .padding(PANEL_HORIZONTAL_PADDING)
                     .widthIn(max = PANEL_MAX_WIDTH)
                     .heightIn(max = maxPanelHeight)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
-                    .clickable(enabled = false) {}
+                    .graphicsLayer { alpha = pickPanelAlpha }
+                    .pickResultPanelCard()
+                    .then(
+                        if (translateVisible) {
+                            Modifier.clickable(
+                                interactionSource = cardInteraction,
+                                indication = null,
+                                onClick = onDismiss,
+                            )
+                        } else {
+                            Modifier.clickable(
+                                interactionSource = cardInteraction,
+                                indication = null,
+                                onClick = {},
+                            )
+                        },
+                    )
                     .padding(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
@@ -571,118 +512,22 @@ private fun FloatBallPickResultContent(
                                         style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
-                            } else if (!text.isNullOrBlank()) {
-                                PickResultTextToolbar(
-                                    textMode = textMode,
-                                    allSelected = allSelected,
-                                    activeSource = textSource,
-                                    ocrAvailable = ocrAvailable,
-                                    onSourceChange = onTextSourceChange,
-                                    onEditToggle = {
-                                        val next = if (textMode == PickResultTextMode.EDIT) {
-                                            PickResultTextMode.SELECT
-                                        } else {
-                                            PickResultTextMode.EDIT
-                                        }
-                                        selectedWordIndices = emptySet()
-                                        onTextModeChange(next)
-                                    },
-                                    onWordSelectToggle = {
-                                        val next = if (textMode == PickResultTextMode.WORD_TAP) {
-                                            PickResultTextMode.SELECT
-                                        } else {
-                                            PickResultTextMode.WORD_TAP
-                                        }
-                                        selectedWordIndices = emptySet()
-                                        onTextModeChange(next)
-                                    },
-                                    onTrimSpaces = {
-                                        if (!text.isNullOrBlank()) onRemoveSpaces(text, false)
-                                    },
-                                    onRemoveAllSpaces = {
-                                        if (!text.isNullOrBlank()) onRemoveSpaces(text, true)
-                                    },
-                                    onSelectAll = {
-                                        when (textMode) {
-                                            PickResultTextMode.WORD_TAP -> {
-                                                selectedWordIndices = if (allSelected) {
-                                                    emptySet()
-                                                } else {
-                                                    effectiveWordTokens.indices.toSet()
-                                                }
-                                            }
-                                            PickResultTextMode.SELECT -> {
-                                                val length = text.orEmpty().length
-                                                if (allSelected) {
-                                                    deselectAllRequest++
-                                                    selectionStart = 0
-                                                    selectionEnd = 0
-                                                } else {
-                                                    selectAllRequest++
-                                                    selectionStart = 0
-                                                    selectionEnd = length
-                                                }
-                                            }
-                                            PickResultTextMode.EDIT -> {
-                                                textFieldValue = if (allSelected) {
-                                                    textFieldValue.copy(
-                                                        selection = TextRange(textFieldValue.text.length),
-                                                    )
-                                                } else {
-                                                    textFieldValue.copy(
-                                                        selection = TextRange(0, textFieldValue.text.length),
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    },
-                                )
-                                PickResultTextBody(
-                                    textMode = textMode,
-                                    textFieldValue = textFieldValue,
-                                    wordTokens = effectiveWordTokens,
-                                    selectedWordIndices = selectedWordIndices,
-                                    selectAllRequest = selectAllRequest,
-                                    onTextFieldValueChange = { updated ->
-                                        textFieldValue = updated
-                                        onTextChange(updated.text)
-                                    },
-                                    onSelectionChanged = { start, end ->
-                                        selectionStart = start
-                                        selectionEnd = end
-                                    },
-                                    onWordSelectionChange = { selectedWordIndices = it },
-                                    deselectAllRequest = deselectAllRequest,
-                                )
-                                PickResultTextActionBar(
-                                    enabled = true,
-                                    splitSelectedEnabled = textMode == PickResultTextMode.WORD_TAP &&
-                                        selectedWordIndices.isNotEmpty(),
-                                    onSearch = { runOnActiveText(onSearch) },
-                                    onShare = { runOnActiveText(onShareText) },
-                                    onCopy = { runOnActiveText(onCopy) },
-                                    onPaste = onPaste,
-                                    onTranslate = { runOnActiveText(onTranslate) },
-                                    onRemoveSpaces = { runOnActiveText { onRemoveSpaces(it, true) } },
-                                    onSplitSelectedWords = {
-                                        val split = PickResultWordTokenizer.splitSelectedTokensToChars(
-                                            tokens = effectiveWordTokens,
-                                            selectedIndices = selectedWordIndices,
-                                        )
-                                        if (split != null) {
-                                            wordTokenOverride = split.tokens
-                                            selectedWordIndices = split.selectedIndices
-                                        }
-                                    },
-                                )
                             } else {
-                                Text(
-                                    text = stringResource(R.string.float_ball_text_not_found),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                PickResultInteractiveTextSection(
+                                    text = text.orEmpty(),
+                                    textMode = textMode,
+                                    onTextModeChange = onTextModeChange,
+                                    onTextChange = onTextChange,
+                                    textSizeSp = textSizeSp,
+                                    textSource = textSource,
+                                    ocrAvailable = ocrAvailable,
+                                    onTextSourceChange = onTextSourceChange,
+                                    onSearch = onSearch,
+                                    onShare = onShareText,
+                                    onCopy = onCopy,
+                                    onPaste = onPaste,
+                                    onTranslate = onTranslate,
+                                    onRemoveSpaces = onRemoveSpaces,
                                 )
                             }
                         }
@@ -733,308 +578,6 @@ private fun FloatBallPickResultContent(
 }
 
 @Composable
-private fun PickResultTextToolbar(
-    textMode: PickResultTextMode,
-    allSelected: Boolean,
-    activeSource: PickResultTextSource,
-    ocrAvailable: Boolean,
-    onSourceChange: (PickResultTextSource) -> Unit,
-    onEditToggle: () -> Unit,
-    onWordSelectToggle: () -> Unit,
-    onTrimSpaces: () -> Unit,
-    onRemoveAllSpaces: () -> Unit,
-    onSelectAll: () -> Unit,
-) {
-    val selectAllDescription = if (allSelected) {
-        stringResource(R.string.float_ball_action_deselect_all)
-    } else {
-        stringResource(R.string.float_ball_action_select_all)
-    }
-    val selectAllIcon = if (allSelected) Icons.Default.Deselect else Icons.Default.SelectAll
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (ocrAvailable) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                PickResultSourceChip(
-                    label = stringResource(R.string.float_ball_pick_source_a11y),
-                    selected = activeSource == PickResultTextSource.A11Y,
-                    compact = true,
-                    onClick = { onSourceChange(PickResultTextSource.A11Y) },
-                )
-                PickResultSourceChip(
-                    label = stringResource(R.string.float_ball_pick_source_ocr),
-                    selected = activeSource == PickResultTextSource.OCR,
-                    compact = true,
-                    onClick = { onSourceChange(PickResultTextSource.OCR) },
-                )
-            }
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            PickResultTitleIcon(
-                icon = Icons.Default.Edit,
-                selected = textMode == PickResultTextMode.EDIT,
-                contentDescription = stringResource(R.string.float_ball_action_edit),
-                onClick = onEditToggle,
-            )
-            PickResultTitleIcon(
-                icon = Icons.Default.ViewModule,
-                selected = textMode == PickResultTextMode.WORD_TAP,
-                contentDescription = stringResource(R.string.float_ball_action_word_select),
-                onClick = onWordSelectToggle,
-            )
-            PickResultTitleIcon(
-                icon = Icons.Default.UnfoldLess,
-                selected = false,
-                contentDescription = stringResource(R.string.float_ball_action_trim_spaces),
-                iconModifier = Modifier.rotate(90f),
-                onClick = onTrimSpaces,
-                onLongClick = onRemoveAllSpaces,
-            )
-            PickResultTitleIcon(
-                icon = selectAllIcon,
-                selected = allSelected,
-                contentDescription = selectAllDescription,
-                onClick = onSelectAll,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PickResultSourceChip(
-    label: String,
-    selected: Boolean,
-    compact: Boolean = false,
-    onClick: () -> Unit,
-) {
-    val background = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-    }
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val chipStyle = if (compact) {
-        MaterialTheme.typography.labelMedium.copy(
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-        )
-    } else {
-        MaterialTheme.typography.labelLarge
-    }
-    val shape = RoundedCornerShape(if (compact) 6.dp else 8.dp)
-    val chipModifier = Modifier
-        .clip(shape)
-        .background(background)
-        .clickable(onClick = onClick)
-    if (compact) {
-        Box(
-            modifier = chipModifier
-                .height(28.dp)
-                .padding(horizontal = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = label,
-                style = chipStyle,
-                color = contentColor,
-            )
-        }
-    } else {
-        Text(
-            text = label,
-            modifier = chipModifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            style = chipStyle,
-            color = contentColor,
-        )
-    }
-}
-
-@Composable
-private fun PickResultTitleIcon(
-    icon: ImageVector,
-    selected: Boolean,
-    contentDescription: String,
-    iconModifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-) {
-    val tint = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val iconContent: @Composable () -> Unit = {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = iconModifier.size(18.dp),
-        )
-    }
-    if (onLongClick != null) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            iconContent()
-        }
-    } else {
-        IconButton(onClick = onClick, modifier = Modifier.size(32.dp)) {
-            iconContent()
-        }
-    }
-}
-
-@Composable
-private fun PickResultTextBody(
-    textMode: PickResultTextMode,
-    textFieldValue: TextFieldValue,
-    wordTokens: List<String>,
-    selectedWordIndices: Set<Int>,
-    selectAllRequest: Int,
-    deselectAllRequest: Int,
-    onTextFieldValueChange: (TextFieldValue) -> Unit,
-    onSelectionChanged: (start: Int, end: Int) -> Unit,
-    onWordSelectionChange: (Set<Int>) -> Unit,
-) {
-    val scrollState = rememberScrollState()
-    val paddedModifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 4.dp)
-        .clip(RoundedCornerShape(4.dp))
-
-    when (textMode) {
-        PickResultTextMode.EDIT -> {
-            BasicTextField(
-                value = textFieldValue,
-                onValueChange = onTextFieldValueChange,
-                modifier = paddedModifier
-                    .heightIn(max = PANEL_MAX_TEXT_HEIGHT)
-                    .verticalScroll(scrollState),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            )
-        }
-        PickResultTextMode.WORD_TAP -> {
-            PickResultWordTapBody(
-                wordTokens = wordTokens,
-                selectedWordIndices = selectedWordIndices,
-                onSelectionChange = onWordSelectionChange,
-                maxHeight = PANEL_MAX_TEXT_HEIGHT,
-                modifier = paddedModifier,
-            )
-        }
-        PickResultTextMode.SELECT -> {
-            PickResultSelectableText(
-                text = textFieldValue.text,
-                maxHeight = PANEL_MAX_TEXT_HEIGHT,
-                modifier = paddedModifier,
-                selectAllRequest = selectAllRequest,
-                deselectAllRequest = deselectAllRequest,
-                onSelectionChanged = onSelectionChanged,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PickResultSectionHeader(
-    title: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Icon(
-            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
-
-@Composable
-private fun PickResultTextActionBar(
-    enabled: Boolean,
-    splitSelectedEnabled: Boolean,
-    onSearch: () -> Unit,
-    onShare: () -> Unit,
-    onCopy: () -> Unit,
-    onPaste: () -> Unit,
-    onTranslate: () -> Unit,
-    onRemoveSpaces: () -> Unit,
-    onSplitSelectedWords: () -> Unit,
-) {
-    var menuExpanded by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PickResultToolbarIcon(Icons.Default.Search, enabled, onSearch)
-        PickResultToolbarIcon(Icons.Default.Share, enabled, onShare)
-        PickResultToolbarIcon(Icons.Default.ContentCopy, enabled, onCopy)
-        PickResultToolbarIcon(Icons.Default.ContentPaste, enabled, onPaste)
-        PickResultToolbarIcon(Icons.Default.Translate, enabled, onTranslate)
-        Box {
-            PickResultToolbarIcon(Icons.Default.MoreVert, enabled) { menuExpanded = true }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.float_ball_menu_remove_spaces)) },
-                    onClick = {
-                        menuExpanded = false
-                        onRemoveSpaces()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.float_ball_menu_split_selected)) },
-                    onClick = {
-                        menuExpanded = false
-                        onSplitSelectedWords()
-                    },
-                    enabled = enabled && splitSelectedEnabled,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun PickResultImageActionBar(
     onSave: () -> Unit,
     onShare: () -> Unit,
@@ -1049,29 +592,5 @@ private fun PickResultImageActionBar(
         PickResultToolbarIcon(Icons.Default.Save, enabled = true, onClick = onSave)
         Spacer(modifier = Modifier.size(32.dp))
         PickResultToolbarIcon(Icons.Default.Share, enabled = true, onClick = onShare)
-    }
-}
-
-@Composable
-private fun PickResultToolbarIcon(
-    icon: ImageVector,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(40.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-            },
-        )
     }
 }

@@ -37,6 +37,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -46,15 +47,22 @@ fun PickResultWordTapBody(
     wordTokens: List<String>,
     selectedWordIndices: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
+    onWordLongPress: (Int) -> Unit,
     maxHeight: androidx.compose.ui.unit.Dp,
+    textSizeSp: Float = 15f,
     modifier: Modifier = Modifier,
 ) {
+    val bodyTextSize = textSizeSp.sp
+    val delimiterTextSize = (textSizeSp * 13f / 15f).sp
+    val bodyLineHeight = (textSizeSp * 20f / 15f).sp
     val chipBounds = remember { mutableStateMapOf<Int, Rect>() }
     var containerCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var gestureCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val scrollState = rememberScrollState()
     val touchSlop = LocalViewConfiguration.current.touchSlop
+    val longPressTimeout = LocalViewConfiguration.current.longPressTimeoutMillis
     val currentSelectedIndices by rememberUpdatedState(selectedWordIndices)
+    val currentOnWordLongPress by rememberUpdatedState(onWordLongPress)
 
     fun indexAt(pointerInGesture: Offset): Int? {
         val box = containerCoordinates ?: return null
@@ -80,57 +88,71 @@ fun PickResultWordTapBody(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
-                .onGloballyPositioned { gestureCoordinates = it }
-                .pointerInput(wordTokens, touchSlop) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(
-                            requireUnconsumed = false,
-                            pass = PointerEventPass.Initial,
-                        )
-                        val startIndex = indexAt(down.position) ?: return@awaitEachGesture
-
-                        val baseline = currentSelectedIndices
-                        val selecting = startIndex !in baseline
-                        var accumulated = Offset.Zero
-                        var wordDragActive = false
-                        var lastRangeIndex = startIndex
-
-                        down.consume()
-
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-
-                            val delta = change.positionChange()
-                            accumulated += delta
-
-                            if (!wordDragActive && accumulated.getDistance() > touchSlop) {
-                                wordDragActive = true
-                            }
-
-                            if (wordDragActive) {
-                                val currentIndex = indexAt(change.position) ?: lastRangeIndex
-                                lastRangeIndex = currentIndex
-                                val range = rangeIndices(startIndex, currentIndex)
-                                onSelectionChange(
-                                    if (selecting) baseline + range else baseline - range,
-                                )
-                                change.consume()
-                            }
-                        }
-
-                        if (!wordDragActive) {
-                            onSelectionChange(
-                                if (startIndex in baseline) baseline - startIndex else baseline + startIndex,
-                            )
-                        }
-                    }
-                }
                 .verticalScroll(scrollState),
         ) {
             FlowRow(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { gestureCoordinates = it }
+                    .pointerInput(wordTokens, touchSlop, longPressTimeout) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial,
+                            )
+                            val startIndex = indexAt(down.position) ?: return@awaitEachGesture
+
+                            val baseline = currentSelectedIndices
+                            val selecting = startIndex !in baseline
+                            var accumulated = Offset.Zero
+                            var wordDragArmed = false
+                            var longPressTriggered = false
+                            var lastRangeIndex = startIndex
+                            val downTime = System.currentTimeMillis()
+
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+
+                                val delta = change.positionChange()
+                                accumulated += delta
+
+                                if (!wordDragArmed && !longPressTriggered) {
+                                    if (accumulated.getDistance() > touchSlop) {
+                                        if (abs(accumulated.x) > abs(accumulated.y)) {
+                                            wordDragArmed = true
+                                        } else {
+                                            // 先上下滑：交给外层滚动，不进入划选分词。
+                                            return@awaitEachGesture
+                                        }
+                                    } else if (
+                                        System.currentTimeMillis() - downTime >= longPressTimeout
+                                    ) {
+                                        longPressTriggered = true
+                                        currentOnWordLongPress(startIndex)
+                                        change.consume()
+                                    }
+                                }
+
+                                if (wordDragArmed) {
+                                    val currentIndex = indexAt(change.position) ?: lastRangeIndex
+                                    lastRangeIndex = currentIndex
+                                    val range = rangeIndices(startIndex, currentIndex)
+                                    onSelectionChange(
+                                        if (selecting) baseline + range else baseline - range,
+                                    )
+                                    change.consume()
+                                }
+                            }
+
+                            if (!wordDragArmed && !longPressTriggered) {
+                                onSelectionChange(
+                                    if (startIndex in baseline) baseline - startIndex else baseline + startIndex,
+                                )
+                            }
+                        }
+                    },
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -175,8 +197,8 @@ fun PickResultWordTapBody(
                                 horizontal = if (isSingleChar) 5.dp else 8.dp,
                                 vertical = if (isSingleChar) 3.dp else 4.dp,
                             ),
-                        fontSize = if (isDelimiter) 13.sp else 15.sp,
-                        lineHeight = 20.sp,
+                        fontSize = if (isDelimiter) delimiterTextSize else bodyTextSize,
+                        lineHeight = bodyLineHeight,
                         color = if (isDelimiter) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {

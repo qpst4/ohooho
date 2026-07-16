@@ -434,6 +434,10 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] = value.coerceIn(4f, 48f)
     }
 
+    suspend fun setFloatBallPickTextSizeSp(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_PICK_TEXT_SIZE_SP] = value.coerceIn(12f, 22f)
+    }
+
     suspend fun setFloatBallPickBottomTransitionFraction(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION] =
             value.coerceIn(0.05f, 0.22f)
@@ -441,5 +445,22 @@ class OverlaySettingsMutator @Inject constructor(
 
     suspend fun setFloatBallPointerSlopDp(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] = value.coerceIn(4f, 32f)
+    }
+
+    suspend fun setFloatBallInstantTranslate(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_INSTANT_TRANSLATE] = enabled
+    }
+
+    suspend fun setFloatBallTranslateEngine(engine: FloatBallTranslateEngine) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_ENGINE] = engine.storageKey
+    }
+
+    suspend fun setFloatBallTranslateTargetLang(languageCode: String) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_TARGET_LANG] = languageCode
+    }
+
+    suspend fun setFloatBallTranslatePickPanelTransparency(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_PICK_PANEL_TRANSPARENCY] =
+            value.coerceIn(0f, 1f)
     }
 }

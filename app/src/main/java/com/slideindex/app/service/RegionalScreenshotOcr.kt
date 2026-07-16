@@ -26,9 +26,15 @@ object RegionalScreenshotOcr {
         screenRect: Rect,
     ): Bitmap? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val (screenWidth, screenHeight) = logicalScreenSizePx(service)
         val fullBitmap = captureDisplayBitmap(service) ?: return null
         return try {
-            cropBitmap(fullBitmap, screenRect)
+            cropBitmap(
+                fullBitmap = fullBitmap,
+                screenRect = screenRect,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
+            )
         } finally {
             fullBitmap.recycle()
         }
@@ -65,9 +71,27 @@ object RegionalScreenshotOcr {
         }
     }
 
-    private fun cropBitmap(fullBitmap: Bitmap, screenRect: Rect): Bitmap? {
+    /** Matches [AccessibilityNodeInfo.getBoundsInScreen] coordinate space. */
+    private fun logicalScreenSizePx(service: AccessibilityService): Pair<Int, Int> {
+        return FloatBallOcrRegions.accessibilityScreenSizePx(service)
+    }
+
+    private fun cropBitmap(
+        fullBitmap: Bitmap,
+        screenRect: Rect,
+        screenWidth: Int,
+        screenHeight: Int,
+    ): Bitmap? {
+        val paddedRect = FloatBallOcrRegions.padScreenRect(screenRect)
+        val mapped = FloatBallOcrRegions.mapScreenRectToBitmap(
+            screenRect = paddedRect,
+            screenWidth = screenWidth,
+            screenHeight = screenHeight,
+            bitmapWidth = fullBitmap.width,
+            bitmapHeight = fullBitmap.height,
+        )
         val cropRect = FloatBallOcrRegions.clampToScreen(
-            Rect(screenRect),
+            mapped,
             fullBitmap.width,
             fullBitmap.height,
         )
@@ -80,6 +104,9 @@ object RegionalScreenshotOcr {
             cropRect.height(),
         )
     }
+
+    suspend fun captureDisplayBitmapPublic(service: AccessibilityService): Bitmap? =
+        captureDisplayBitmap(service)
 
     private suspend fun captureDisplayBitmap(service: AccessibilityService): Bitmap? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null

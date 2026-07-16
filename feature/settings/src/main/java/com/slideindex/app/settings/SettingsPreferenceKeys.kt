@@ -202,7 +202,15 @@ internal object SettingsPreferenceKeys {
     val FLOAT_BALL_LINE_WIDTH_FRACTION = floatPreferencesKey("float_ball_line_width_fraction")
     val FLOAT_BALL_LINE_OPACITY = floatPreferencesKey("float_ball_line_opacity")
     val FLOAT_BALL_PICK_OFFSET_DP = floatPreferencesKey("float_ball_pick_offset_dp")
+    val FLOAT_BALL_PICK_TEXT_SIZE_SP = floatPreferencesKey("float_ball_pick_text_size_sp")
     val FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION =
         floatPreferencesKey("float_ball_pick_bottom_transition_fraction")
     val FLOAT_BALL_POINTER_SLOP_DP = floatPreferencesKey("float_ball_pointer_slop_dp")
+    val FLOAT_BALL_INSTANT_TRANSLATE = booleanPreferencesKey("float_ball_instant_translate")
+    val FLOAT_BALL_TRANSLATE_ENGINE = stringPreferencesKey("float_ball_translate_engine")
+    val FLOAT_BALL_TRANSLATE_TARGET_LANG = stringPreferencesKey("float_ball_translate_target_lang")
+    val FLOAT_BALL_TRANSLATE_PICK_PANEL_TRANSPARENCY =
+        floatPreferencesKey("float_ball_translate_pick_panel_transparency")
+    val FLOAT_BALL_TRANSLATE_PICK_PANEL_ALPHA =
+        floatPreferencesKey("float_ball_translate_pick_panel_alpha")
 }

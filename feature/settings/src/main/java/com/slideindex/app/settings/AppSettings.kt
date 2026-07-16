@@ -172,8 +172,17 @@ data class AppSettings(
     val floatBallLineOpacity: Float = 0.9f,
     /** Gap between ball edge and pick crosshair in dp (above / below). */
     val floatBallPickOffsetDp: Float = 48f,
+    /** Body text size for pick-result panel in sp. */
+    val floatBallPickTextSizeSp: Float = 15f,
     /** Screen-height fraction for smooth above→below pick transition near bottom. */
     val floatBallPickBottomTransitionFraction: Float = 0.22f,
     /** Finger travel before full-screen pointer mode activates. */
     val floatBallPointerSlopDp: Float = 8f,
+    /** When false, translate opens Google Translate in browser; when true, shows in-app overlay. */
+    val floatBallInstantTranslate: Boolean = false,
+    val floatBallTranslateEngine: FloatBallTranslateEngine = FloatBallTranslateEngine.GOOGLE,
+    /** BCP-47 style target language code for translation, e.g. zh-CN. */
+    val floatBallTranslateTargetLang: String = "zh-CN",
+    /** Pick-result card transparency while the in-app translate overlay is open (0=opaque, 1=transparent). */
+    val floatBallTranslatePickPanelTransparency: Float = 0.65f,
 )

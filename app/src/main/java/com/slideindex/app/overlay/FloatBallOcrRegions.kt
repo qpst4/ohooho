@@ -1,23 +1,86 @@
 package com.slideindex.app.overlay
 
+import android.content.Context
 import android.graphics.Rect
+import android.os.Build
 import android.util.DisplayMetrics
+import android.view.WindowManager
 import kotlin.math.roundToInt
 
 /** Screen-region helpers for float-ball OCR fallback. */
 object FloatBallOcrRegions {
     private const val POINT_PICK_HALF_DP = 80f
     private const val MIN_CROP_SIDE_PX = 24
+    const val CROP_EDGE_PADDING_PX = 3
 
-    fun expandPoint(metrics: DisplayMetrics, x: Float, y: Float): Rect {
+    /** Matches [android.view.accessibility.AccessibilityNodeInfo.getBoundsInScreen] coordinate space. */
+    fun accessibilityScreenSizePx(context: Context): Pair<Int, Int> {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: run {
+            val metrics = context.resources.displayMetrics
+            return metrics.widthPixels to metrics.heightPixels
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = wm.maximumWindowMetrics.bounds
+            return bounds.width() to bounds.height()
+        }
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.getRealMetrics(metrics)
+        return metrics.widthPixels to metrics.heightPixels
+    }
+
+    fun padScreenRect(rect: Rect, paddingPx: Int = CROP_EDGE_PADDING_PX): Rect {
+        if (paddingPx <= 0) return Rect(rect)
+        return Rect(
+            rect.left - paddingPx,
+            rect.top - paddingPx,
+            rect.right + paddingPx,
+            rect.bottom + paddingPx,
+        )
+    }
+
+    fun expandPoint(
+        metrics: DisplayMetrics,
+        x: Float,
+        y: Float,
+        screenWidth: Int = metrics.widthPixels,
+        screenHeight: Int = metrics.heightPixels,
+    ): Rect {
         val halfPx = (POINT_PICK_HALF_DP * metrics.density).roundToInt()
         val cx = x.roundToInt()
         val cy = y.roundToInt()
         return clampToScreen(
             Rect(cx - halfPx, cy - halfPx, cx + halfPx, cy + halfPx),
-            metrics.widthPixels,
-            metrics.heightPixels,
+            screenWidth,
+            screenHeight,
         )
+    }
+
+    /**
+     * Maps logical screen coordinates to screenshot bitmap coordinates.
+     * [takeScreenshot] buffer size can differ from the logical screen (e.g. gesture nav
+     * excluded from capture while accessibility bounds still use full screen height).
+     */
+    fun mapScreenRectToBitmap(
+        screenRect: Rect,
+        screenWidth: Int,
+        screenHeight: Int,
+        bitmapWidth: Int,
+        bitmapHeight: Int,
+    ): Rect {
+        if (screenWidth <= 0 || screenHeight <= 0 || bitmapWidth <= 0 || bitmapHeight <= 0) {
+            return Rect(screenRect)
+        }
+        if (screenWidth == bitmapWidth && screenHeight == bitmapHeight) {
+            return Rect(screenRect)
+        }
+        val scaleX = bitmapWidth.toFloat() / screenWidth
+        val scaleY = bitmapHeight.toFloat() / screenHeight
+        val left = (screenRect.left * scaleX).roundToInt()
+        val top = (screenRect.top * scaleY).roundToInt()
+        val right = (screenRect.right * scaleX).roundToInt().coerceAtLeast(left + 1)
+        val bottom = (screenRect.bottom * scaleY).roundToInt().coerceAtLeast(top + 1)
+        return Rect(left, top, right, bottom)
     }
 
     fun clampToScreen(rect: Rect, screenWidth: Int, screenHeight: Int): Rect {

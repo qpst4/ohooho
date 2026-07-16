@@ -341,6 +341,14 @@
     <string name="float_ball_line_height">Line height</string>
     <string name="float_ball_line_width">Trigger width</string>
     <string name="float_ball_line_opacity">Line opacity</string>
+    <string name="float_ball_translate_pick_panel_transparency">Pick card transparency when translating</string>
+    <string name="float_ball_translate_pick_panel_transparency_desc">Higher values make the pick panel more transparent behind the translation overlay</string>
+    <string name="float_ball_appearance_settings_title">Appearance</string>
+    <string name="float_ball_pick_settings_title">Text pick</string>
+    <string name="float_ball_appearance_settings_summary">%1$.0f dp · Opacity %2$d%%</string>
+    <string name="float_ball_pick_settings_summary">Spacing %1$.0f dp · OCR %2$s</string>
+    <string name="float_ball_ocr_fallback_on">On</string>
+    <string name="float_ball_ocr_fallback_off">Off</string>
     <string name="float_ball_line_hint">A thin line sits on the screen edge; trigger width only affects the inward swipe zone, not the line position.</string>
     <string name="float_ball_size">Ball size</string>
     <string name="float_ball_size_value">%1$.0f dp</string>
@@ -349,6 +357,8 @@
     <string name="float_ball_pointer_speed_hint">Independent from edge Floating pointer speed. Higher values move the plus sign faster.</string>
     <string name="float_ball_usage_hint">Drag the float ball or swipe inward from the edge trigger to pick text: the ball follows your finger as a joystick; the plus sign stays above the ball by default and smoothly moves below near the bottom. Small moves keep the plus with the ball; beyond the threshold it moves independently on screen. Pause about half a second until it turns yellow, then release to recognize text; releasing before yellow still picks at the current plus position. Keep dragging to draw a selection box for a regional screenshot.</string>
     <string name="float_ball_pick_offset">Plus spacing</string>
+    <string name="float_ball_pick_text_size">Pick text size</string>
+    <string name="float_ball_text_size_value">%1$.0f sp</string>
     <string name="float_ball_pick_bottom_transition">Bottom transition zone</string>
     <string name="float_ball_pointer_slop">Full-screen pointer threshold</string>
     <string name="float_ball_pick_anchor_hint">Plus spacing controls the distance between the plus sign and the ball edge. Bottom transition is only a short band at the very bottom: when the ball bottom enters it, the plus moves from above to below; in the middle of the screen the plus stays above.</string>

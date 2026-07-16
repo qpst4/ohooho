@@ -38,13 +38,14 @@ private class SelectionReportingTextView @JvmOverloads constructor(
 fun PickResultSelectableText(
     text: String,
     maxHeight: Dp,
+    textSizeSp: Float = 15f,
     modifier: Modifier = Modifier,
     selectAllRequest: Int = 0,
     deselectAllRequest: Int = 0,
     onSelectionChanged: (start: Int, end: Int) -> Unit,
 ) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val textSizeSp = 15f
+    val textSizeSpValue = textSizeSp
     var lastSelectAllRequest by remember { mutableIntStateOf(0) }
     var lastDeselectAllRequest by remember { mutableIntStateOf(0) }
 
@@ -75,7 +76,7 @@ fun PickResultSelectableText(
                     isFocusable = true
                     isFocusableInTouchMode = true
                     movementMethod = ArrowKeyMovementMethod.getInstance()
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSp)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSpValue)
                     setLineSpacing(0f, 1.35f)
                     setTextColor(textColor)
                     setPadding(0, 0, 0, 0)
@@ -93,6 +94,7 @@ fun PickResultSelectableText(
                 textView.setText(SpannableString(text), TextView.BufferType.SPANNABLE)
             }
             textView.setTextColor(textColor)
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSizeSpValue)
             textView.onSelectionRangeChanged = { start, end ->
                 onSelectionChanged(start, end)
             }

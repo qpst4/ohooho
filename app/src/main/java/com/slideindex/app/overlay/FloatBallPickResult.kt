@@ -22,8 +22,8 @@ data class FloatBallPickResult(
 
     fun textFor(source: PickResultTextSource): String? {
         return when (source) {
-            PickResultTextSource.A11Y -> a11yText?.takeIf { it.isNotBlank() } ?: ocrText?.takeIf { it.isNotBlank() }
-            PickResultTextSource.OCR -> ocrText?.takeIf { it.isNotBlank() } ?: a11yText?.takeIf { it.isNotBlank() }
+            PickResultTextSource.A11Y -> a11yText?.takeIf { it.isNotBlank() }
+            PickResultTextSource.OCR -> ocrText?.takeIf { it.isNotBlank() }
         }
     }
 
