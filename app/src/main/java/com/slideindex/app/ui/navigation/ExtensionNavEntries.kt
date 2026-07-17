@@ -13,6 +13,7 @@ import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.ExtensionAboutScreen
 import com.slideindex.app.ui.FloatBallAppearanceSettingsScreen
+import com.slideindex.app.ui.FloatBallGestureSettingsScreen
 import com.slideindex.app.ui.FloatBallPickSettingsScreen
 import com.slideindex.app.ui.ShareImageOcrHistoryScreen
 import com.slideindex.app.ui.FloatBallSettingsScreen
@@ -24,6 +25,8 @@ import com.slideindex.app.ui.WidgetPanelSettingsScreen
 import com.slideindex.app.ui.viewmodel.ExtensionHubViewModel
 import com.slideindex.app.ui.viewmodel.ExtensionSettingsViewModel
 import com.slideindex.app.ui.FloatBallTranslationSettingsScreen
+import com.slideindex.app.ui.SearchEngineSettingsScreen
+import com.slideindex.app.ui.viewmodel.SearchEngineSettingsViewModel
 import com.slideindex.app.ui.TranslateModelSettingsScreen
 import com.slideindex.app.ui.OcrModelSettingsScreen
 import com.slideindex.app.ui.viewmodel.OcrModelSettingsViewModel
@@ -128,8 +131,30 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onBack = { ctx.navigateBackTo(AppNavKey.ExtensionHub) },
             onEnabledChange = viewModel::setFloatBallEnabled,
             onOpenAppearanceSettings = { ctx.navigate(AppNavKey.FloatBallAppearance) },
+            onOpenGestureSettings = { ctx.navigate(AppNavKey.FloatBallGesture) },
             onOpenPickSettings = { ctx.navigate(AppNavKey.FloatBallPick) },
             onOpenTranslationSettings = { ctx.navigate(AppNavKey.FloatBallTranslation) },
+            onOpenSearchEngineSettings = { ctx.navigate(AppNavKey.FloatBallSearchEngine) },
+        )
+    }
+
+    entry<AppNavKey.FloatBallSearchEngine> {
+        val viewModel: SearchEngineSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val importPreviewState by viewModel.importPreviewState.collectAsStateWithLifecycle()
+        SearchEngineSettingsScreen(
+            settings = settings,
+            importPreviewState = importPreviewState,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
+            onImport = viewModel::previewImport,
+            onDismissImportPreview = viewModel::dismissImportPreview,
+            onConfirmImport = viewModel::confirmImport,
+            onUpsertEngine = viewModel::upsertEngine,
+            onDeleteEngine = viewModel::deleteEngine,
+            onMoveEngine = viewModel::moveEngine,
+            onGridColumnsChange = viewModel::setGridColumns,
+            onGridRowsChange = viewModel::setGridRows,
+            onShowLabelsChange = viewModel::setShowLabels,
         )
     }
 
@@ -149,6 +174,25 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onLineHeightChange = viewModel::setFloatBallLineHeightFraction,
             onLineWidthChange = viewModel::setFloatBallLineWidthFraction,
             onLineOpacityChange = viewModel::setFloatBallLineOpacity,
+            onStyleTypeChange = viewModel::setFloatBallStyleType,
+            onCustomImageUriChange = viewModel::setFloatBallCustomImageUri,
+            onSlideshowUrisChange = viewModel::setFloatBallSlideshowUris,
+            onGifUriChange = viewModel::setFloatBallGifUri,
+        )
+    }
+
+    entry<AppNavKey.FloatBallGesture> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val permissions = ctx.collectPermissions()
+        FloatBallGestureSettingsScreen(
+            settings = settings,
+            accessibilityGranted = permissions.accessibilityGranted,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBall) },
+            onGestureActionChange = viewModel::setFloatBallGestureAction,
+            onDownSwipeShortPercentChange = viewModel::setFloatBallDownSwipeShortPercent,
+            onSideSwipeShortPercentChange = viewModel::setFloatBallSideSwipeShortPercent,
+            onUpSwipeShortPercentChange = viewModel::setFloatBallUpSwipeShortPercent,
         )
     }
 

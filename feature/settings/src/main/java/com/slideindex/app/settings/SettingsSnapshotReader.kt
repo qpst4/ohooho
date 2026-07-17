@@ -1,6 +1,9 @@
 package com.slideindex.app.settings
 
 import androidx.datastore.preferences.core.Preferences
+import com.slideindex.app.floatball.FloatBallGestureCodec
+import com.slideindex.app.floatball.FloatBallGestureType
+import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureAngleConfig
 import com.slideindex.app.gesture.GestureRuleCodec
 import com.slideindex.app.gesture.GestureTriggerMode
@@ -185,6 +188,16 @@ internal object SettingsSnapshotReader {
             floatBallLineHeightFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_HEIGHT_FRACTION] ?: 0.08f,
             floatBallLineWidthFraction = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_WIDTH_FRACTION] ?: 0.30f,
             floatBallLineOpacity = prefs[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] ?: 0.9f,
+            floatBallGestureActions = readFloatBallGestureActions(prefs),
+            floatBallStyleType = FloatBallStyleType.fromStorageKey(
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_STYLE_TYPE],
+            ),
+            floatBallCustomImageUri = prefs[SettingsPreferenceKeys.FLOAT_BALL_CUSTOM_IMAGE_URI].orEmpty(),
+            floatBallSlideshowUris = prefs[SettingsPreferenceKeys.FLOAT_BALL_SLIDESHOW_URIS]
+                ?.filter { it.isNotBlank() }
+                ?.toList()
+                ?: emptyList(),
+            floatBallGifUri = prefs[SettingsPreferenceKeys.FLOAT_BALL_GIF_URI].orEmpty(),
             floatBallPickOffsetDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] ?: 48f,
             floatBallPickTextSizeSp =
                 prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_TEXT_SIZE_SP]?.coerceIn(12f, 22f) ?: 15f,
@@ -192,6 +205,12 @@ internal object SettingsSnapshotReader {
                 prefs[SettingsPreferenceKeys.FLOAT_BALL_PICK_BOTTOM_TRANSITION_FRACTION]?.coerceIn(0.04f, 0.25f)
                     ?: 0.22f,
             floatBallPointerSlopDp = prefs[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] ?: 8f,
+            floatBallDownSwipeShortPercent =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_DOWN_SWIPE_SHORT_PERCENT] ?: 200f,
+            floatBallSideSwipeShortPercent =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_SIDE_SWIPE_SHORT_PERCENT] ?: 320f,
+            floatBallUpSwipeShortPercent =
+                prefs[SettingsPreferenceKeys.FLOAT_BALL_UP_SWIPE_SHORT_PERCENT] ?: 200f,
             floatBallInstantTranslate = prefs[SettingsPreferenceKeys.FLOAT_BALL_INSTANT_TRANSLATE] ?: false,
             floatBallTranslateEngine = FloatBallTranslateEngine.fromStorageKey(
                 prefs[SettingsPreferenceKeys.FLOAT_BALL_TRANSLATE_ENGINE],
@@ -204,7 +223,24 @@ internal object SettingsSnapshotReader {
                         ?.let { alpha -> (1f - alpha).coerceIn(0f, 1f) }
                     ?: 0.65f,
             shareImageOcrHistoryEnabled = prefs[SettingsPreferenceKeys.SHARE_IMAGE_OCR_HISTORY_ENABLED] ?: true,
+            searchEngines = readSearchEngines(prefs),
+            searchEngineGridColumns = prefs[SettingsPreferenceKeys.SEARCH_ENGINE_GRID_COLUMNS]?.coerceIn(3, 7) ?: 5,
+            searchEngineGridRows = prefs[SettingsPreferenceKeys.SEARCH_ENGINE_GRID_ROWS]?.coerceIn(1, 4) ?: 2,
+            searchEngineShowLabels = prefs[SettingsPreferenceKeys.SEARCH_ENGINE_SHOW_LABELS] ?: true,
         ).withResolvedHandleEdgeWidths()
+    }
+
+    private fun readSearchEngines(prefs: Preferences): List<SearchEngineConfig> {
+        val initialized = prefs[SettingsPreferenceKeys.SEARCH_ENGINES_INITIALIZED] ?: false
+        if (!initialized) return SearchEngineCatalog.defaultEngines()
+        return SearchEngineStore.decode(prefs[SettingsPreferenceKeys.SEARCH_ENGINES_JSON])
+    }
+
+    fun readFloatBallGestureActions(prefs: Preferences): Map<FloatBallGestureType, GestureAction> {
+        val decoded = FloatBallGestureCodec.decodeAll(
+            prefs[SettingsPreferenceKeys.FLOAT_BALL_GESTURE_ACTIONS] ?: emptySet(),
+        )
+        return decoded.ifEmpty { FloatBallGestureCodec.defaultActions() }
     }
 
     fun readShakeGestureSettings(prefs: Preferences): ShakeGestureSettings =

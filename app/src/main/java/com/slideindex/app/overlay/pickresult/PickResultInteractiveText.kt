@@ -75,8 +75,11 @@ internal fun PickResultInteractiveTextSection(
     showEditingToolbar: Boolean = true,
     showActionBar: Boolean = true,
     pinActionBarOutside: Boolean = false,
+    embedInParentScroll: Boolean = false,
+    showSearch: Boolean = false,
     translateEnabled: Boolean = true,
-    onSearch: (String) -> Unit,
+    onActiveTextChange: (String) -> Unit = {},
+    onSearch: (String) -> Unit = {},
     onShare: (String) -> Unit,
     onCopy: (String) -> Unit,
     onPaste: () -> Unit,
@@ -178,6 +181,18 @@ internal fun PickResultInteractiveTextSection(
         activeText().takeIf { it.isNotBlank() }?.let(action)
     }
 
+    LaunchedEffect(
+        text,
+        textMode,
+        selectedWordIndices,
+        selectionStart,
+        selectionEnd,
+        textFieldValue,
+        effectiveWordTokens,
+    ) {
+        onActiveTextChange(activeText())
+    }
+
     fun splitWordAt(index: Int) {
         val tokens = currentWordTokens()
         val split = PickResultWordTokenizer.splitTokenAtIndex(
@@ -205,6 +220,7 @@ internal fun PickResultInteractiveTextSection(
             PickResultTextActionBar(
                 enabled = text.isNotBlank(),
                 translateEnabled = translateEnabled,
+                showSearch = showSearch,
                 splitSelectedEnabled = textMode == PickResultTextMode.WORD_TAP &&
                     selectedWordIndices.isNotEmpty(),
                 onSearch = { runOnActiveText(onSearch) },
@@ -298,14 +314,15 @@ internal fun PickResultInteractiveTextSection(
             )
         }
         if (pinActionBarOutside) {
-            Column(
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .verticalScroll(
-                        bodyScrollState,
-                        enabled = textMode != PickResultTextMode.WORD_TAP,
-                    ),
-            ) {
+            val bodyModifier = if (embedInParentScroll) {
+                Modifier
+            } else {
+                Modifier.verticalScroll(
+                    bodyScrollState,
+                    enabled = textMode != PickResultTextMode.WORD_TAP,
+                )
+            }
+            Column(modifier = bodyModifier) {
                 if (showOcrLoading) {
                     PickResultOcrLoadingBody(
                         showBackgroundAction = showBackgroundOcrAction,

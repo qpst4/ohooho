@@ -256,7 +256,20 @@ fun Md3PickerIconLeading(
 
 @Composable
 fun Md3PickerAppLeading(app: AppInfo) {
-    val bitmap = remember(app.packageName) { app.icon.toSafeImageBitmap(96) }
+    Md3PickerDrawableLeading(
+        drawable = app.icon,
+        contentDescription = app.label,
+        cacheKey = app.packageName,
+    )
+}
+
+@Composable
+fun Md3PickerDrawableLeading(
+    drawable: android.graphics.drawable.Drawable,
+    contentDescription: String,
+    cacheKey: String,
+) {
+    val bitmap = remember(cacheKey) { drawable.toSafeImageBitmap(96) }
     Surface(
         modifier = Modifier.size(40.dp),
         shape = MaterialTheme.shapes.small,
@@ -264,7 +277,7 @@ fun Md3PickerAppLeading(app: AppInfo) {
     ) {
         Image(
             bitmap = bitmap,
-            contentDescription = app.label,
+            contentDescription = contentDescription,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(4.dp)

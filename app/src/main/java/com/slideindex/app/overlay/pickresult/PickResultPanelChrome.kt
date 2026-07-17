@@ -77,6 +77,12 @@ internal fun pickResultMaxTextHeight(textSizeSp: Float): Dp {
 }
 internal val PickResultPanelCardCorner = 14.dp
 internal val PickResultPanelCardShape = RoundedCornerShape(PickResultPanelCardCorner)
+internal val PickResultBottomPanelShape = RoundedCornerShape(
+    topStart = PickResultPanelCardCorner,
+    topEnd = PickResultPanelCardCorner,
+    bottomStart = 0.dp,
+    bottomEnd = 0.dp,
+)
 internal val PickResultPanelCardElevation = 12.dp
 
 @Composable
@@ -87,6 +93,16 @@ internal fun Modifier.pickResultPanelCard(): Modifier = this
         clip = false,
     )
     .clip(PickResultPanelCardShape)
+    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
+
+@Composable
+internal fun Modifier.pickResultBottomPanelCard(): Modifier = this
+    .shadow(
+        elevation = PickResultPanelCardElevation,
+        shape = PickResultBottomPanelShape,
+        clip = false,
+    )
+    .clip(PickResultBottomPanelShape)
     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.98f))
 
 @Composable
@@ -132,7 +148,8 @@ internal fun PickResultTextActionBar(
     translateEnabled: Boolean = true,
     splitSelectedEnabled: Boolean = false,
     showMoreMenu: Boolean = true,
-    onSearch: () -> Unit,
+    showSearch: Boolean = true,
+    onSearch: () -> Unit = {},
     onShare: () -> Unit,
     onCopy: () -> Unit,
     onPaste: () -> Unit,
@@ -148,7 +165,9 @@ internal fun PickResultTextActionBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PickResultToolbarIcon(Icons.Default.Search, enabled, onSearch)
+        if (showSearch) {
+            PickResultToolbarIcon(Icons.Default.Search, enabled, onSearch)
+        }
         PickResultToolbarIcon(Icons.Default.Share, enabled, onShare)
         PickResultToolbarIcon(Icons.Default.ContentCopy, enabled, onCopy)
         PickResultToolbarIcon(Icons.Default.ContentPaste, enabled, onPaste)

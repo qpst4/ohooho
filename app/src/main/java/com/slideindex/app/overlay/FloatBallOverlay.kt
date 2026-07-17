@@ -4,8 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.ImageDecoder
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -14,9 +17,10 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,34 +31,45 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.perf.PickPerf
 import com.slideindex.app.service.AccessibilityTextExtractor
 import com.slideindex.app.service.SlideIndexAccessibilityService
+import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.floatball.FloatBallGestureType
 import com.slideindex.app.settings.FloatBallPositionMode
 import com.slideindex.app.settings.FloatBallSide
+import com.slideindex.app.settings.FloatBallStyleType
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import com.slideindex.app.util.PermissionHelper
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -93,8 +108,10 @@ object FloatBallOverlay {
     private var windowManager: WindowManager? = null
     private var ballView: View? = null
     private var ballComposeView: ComposeView? = null
-    private var edgeCaptureView: ComposeView? = null
-    private var lineView: ComposeView? = null
+    private var edgeCaptureHost: FloatBallStripHost? = null
+    private var edgeCaptureComposeView: ComposeView? = null
+    private var lineHost: FloatBallStripHost? = null
+    private var lineComposeView: ComposeView? = null
     private var cursorView: ComposeView? = null
     private var ballOwner: OverlayComposeOwner? = null
     private var edgeCaptureOwner: OverlayComposeOwner? = null
@@ -123,6 +140,7 @@ object FloatBallOverlay {
     private var dragOriginatedFromLine = false
     private var dragActiveSideOverride: FloatBallSide? = null
     private var chromeHiddenForDrag = false
+    private var passthroughRestorePending = false
     private var committedActiveSideUntilPersist: FloatBallSide? = null
     private var activeSideAtDragStart: FloatBallSide? = null
     private var finishDragRequested = false
@@ -191,6 +209,9 @@ object FloatBallOverlay {
                 incoming
             }
             settingsState?.value = merged
+            (ballView as? FloatBallStripHost)?.updateSettings(merged)
+            edgeCaptureHost?.updateSettings(merged)
+            lineHost?.updateSettings(merged)
             recoverStuckLineCaptureIfNeeded(merged)
             if (!isDragging) {
                 restorePassiveOverlayLayout(merged)
@@ -207,15 +228,15 @@ object FloatBallOverlay {
         cancelPauseTimer()
         val wm = windowManager
         ballView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
-        edgeCaptureView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
-        lineView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
+        edgeCaptureHost?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
+        lineHost?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
         cursorView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
         screenOffReceiver?.let { receiver ->
             appContext?.let { ctx -> runCatching { ctx.unregisterReceiver(receiver) } }
         }
         OverlayCompose.disposeComposeView(ballComposeView)
-        OverlayCompose.disposeComposeView(edgeCaptureView)
-        OverlayCompose.disposeComposeView(lineView)
+        OverlayCompose.disposeComposeView(edgeCaptureComposeView)
+        OverlayCompose.disposeComposeView(lineComposeView)
         OverlayCompose.disposeComposeView(cursorView)
         ballOwner?.destroy()
         edgeCaptureOwner?.destroy()
@@ -227,8 +248,10 @@ object FloatBallOverlay {
         cursorOwner = null
         ballComposeView = null
         ballView = null
-        edgeCaptureView = null
-        lineView = null
+        edgeCaptureHost = null
+        edgeCaptureComposeView = null
+        lineHost = null
+        lineComposeView = null
         cursorView = null
         ballParams = null
         edgeCaptureParams = null
@@ -284,8 +307,8 @@ object FloatBallOverlay {
         }
         captureSuppressed = true
         ballView?.visibility = View.GONE
-        edgeCaptureView?.visibility = View.GONE
-        lineView?.visibility = View.GONE
+        edgeCaptureHost?.visibility = View.GONE
+        lineHost?.visibility = View.GONE
         hideCursor()
     }
 
@@ -318,7 +341,7 @@ object FloatBallOverlay {
                 activeSideAtDragStart = null
                 dragOriginatedFromLine = false
                 dragActiveSideOverride = null
-                edgeCaptureView?.visibility = View.GONE
+                edgeCaptureHost?.visibility = View.GONE
                 showCursorAtScreenTouch(screenX, screenY, deferBallWindowMutation = true)
             }
 
@@ -347,11 +370,15 @@ object FloatBallOverlay {
         val ballDialogOwner = OverlayComposeOwner()
         val ballHost = FloatBallStripHost(overlayContext).apply {
             OverlayCompose.bindOwners(this, ballDialogOwner)
+            updateSettings(settings)
             bindDragCallbacks(
                 onDragStart = { screenX, screenY -> dragCallbacks.onStart(screenX, screenY) },
                 onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
                 onDragEnd = { dragCallbacks.onEnd() },
                 onDragCancel = { dragCallbacks.onCancel() },
+                onGesture = { gestureType, rawX, rawY ->
+                    performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
+                },
             )
         }
         val ballCompose = OverlayCompose.createComposeView(overlayContext, ballDialogOwner).apply {
@@ -372,45 +399,72 @@ object FloatBallOverlay {
 
         val edgeCaptureDialogOwner = OverlayComposeOwner()
         val edgeCaptureCompose = OverlayCompose.createComposeView(overlayContext, edgeCaptureDialogOwner).apply {
+            isClickable = false
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             setContent {
-                FloatBallEdgeCaptureContent(
-                    windowOrigin = {
-                        val params = edgeCaptureParams ?: return@FloatBallEdgeCaptureContent IntOffset.Zero
-                        IntOffset(params.x, params.y)
-                    },
-                    onDragStart = { screenX, screenY -> dragCallbacks.onStart(screenX, screenY) },
-                    onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
-                    onDragEnd = { dragCallbacks.onEnd() },
-                    onDragCancel = { dragCallbacks.onCancel() },
-                )
+                FloatBallEdgeCaptureContent()
             }
         }
+        val edgeHost = FloatBallStripHost(overlayContext).apply {
+            OverlayCompose.bindOwners(this, edgeCaptureDialogOwner)
+            updateSettings(settings)
+            bindDragCallbacks(
+                onDragStart = { screenX, screenY -> dragCallbacks.onStart(screenX, screenY) },
+                onDrag = { dx, dy -> dragCallbacks.onDrag(dx, dy) },
+                onDragEnd = { dragCallbacks.onEnd() },
+                onDragCancel = { dragCallbacks.onCancel() },
+                onGesture = { gestureType, rawX, rawY ->
+                    performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
+                },
+            )
+        }
+        edgeHost.addView(
+            edgeCaptureCompose,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
 
         val lineDialogOwner = OverlayComposeOwner()
         val lineCompose = OverlayCompose.createComposeView(overlayContext, lineDialogOwner).apply {
+            isClickable = false
+            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             setContent {
-                FloatBallLineContent(
-                    settingsState = settingsHolder,
-                    windowOrigin = {
-                        val params = lineParams ?: return@FloatBallLineContent IntOffset.Zero
-                        IntOffset(params.x, params.y)
-                    },
-                    onLineDragDown = { screenX, screenY -> prepareLineDrag(screenX, screenY) },
-                    onLineDrag = { dx, dy ->
-                        onFingerDrag(dx, dy)
-                        onDragMoved()
-                    },
-                    onLineDragEnd = {
-                        commitLineDragSideSwap()
-                        completeDragGesture()
-                    },
-                    onLineDragCancel = {
-                        revertLineDragSideSwapIfNeeded()
-                        cancelDragWithoutPick()
-                    },
-                )
+                FloatBallLineContent(settingsState = settingsHolder)
             }
         }
+        val lineStripHost = FloatBallStripHost(overlayContext).apply {
+            OverlayCompose.bindOwners(this, lineDialogOwner)
+            updateSettings(settings)
+            bindDragCallbacks(
+                onDragStart = { screenX, screenY -> prepareLineDrag(screenX, screenY) },
+                onDrag = { dx, dy ->
+                    onFingerDrag(dx, dy)
+                    onDragMoved()
+                },
+                onDragEnd = {
+                    commitLineDragSideSwap()
+                    completeDragGesture()
+                },
+                onDragCancel = {
+                    revertLineDragSideSwapIfNeeded()
+                    cancelDragWithoutPick()
+                },
+                onGesture = { gestureType, rawX, rawY ->
+                    performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
+                },
+            )
+        }
+        lineStripHost.addView(
+            lineCompose,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+            ),
+        )
 
         val cursorDialogOwner = OverlayComposeOwner()
         val cursorCompose = OverlayCompose.createComposeView(overlayContext, cursorDialogOwner).apply {
@@ -438,7 +492,7 @@ object FloatBallOverlay {
         val lineLp = buildTouchableStripLayoutParams(hostContext)
         val cursorLp = buildCursorLayoutParams(hostContext)
 
-        val edgeAdded = runCatching { wm.addView(edgeCaptureCompose, edgeCaptureLp) }.isSuccess
+        val edgeAdded = runCatching { wm.addView(edgeHost, edgeCaptureLp) }.isSuccess
         if (!edgeAdded) {
             ballDialogOwner.destroy()
             edgeCaptureDialogOwner.destroy()
@@ -447,9 +501,9 @@ object FloatBallOverlay {
             Log.e(TAG, "failed to add edge capture overlay")
             return
         }
-        val lineAdded = runCatching { wm.addView(lineCompose, lineLp) }.isSuccess
+        val lineAdded = runCatching { wm.addView(lineStripHost, lineLp) }.isSuccess
         if (!lineAdded) {
-            runCatching { wm.removeView(edgeCaptureCompose) }
+            runCatching { wm.removeView(edgeHost) }
             ballDialogOwner.destroy()
             edgeCaptureDialogOwner.destroy()
             lineDialogOwner.destroy()
@@ -459,8 +513,8 @@ object FloatBallOverlay {
         }
         val ballAdded = runCatching { wm.addView(ballHost, ballLp) }.isSuccess
         if (!ballAdded) {
-            runCatching { wm.removeView(edgeCaptureCompose) }
-            runCatching { wm.removeView(lineCompose) }
+            runCatching { wm.removeView(edgeHost) }
+            runCatching { wm.removeView(lineStripHost) }
             ballDialogOwner.destroy()
             edgeCaptureDialogOwner.destroy()
             lineDialogOwner.destroy()
@@ -471,8 +525,8 @@ object FloatBallOverlay {
         val cursorAdded = runCatching { wm.addView(cursorCompose, cursorLp) }.isSuccess
         if (!cursorAdded) {
             runCatching { wm.removeView(ballHost) }
-            runCatching { wm.removeView(edgeCaptureCompose) }
-            runCatching { wm.removeView(lineCompose) }
+            runCatching { wm.removeView(edgeHost) }
+            runCatching { wm.removeView(lineStripHost) }
             ballDialogOwner.destroy()
             edgeCaptureDialogOwner.destroy()
             lineDialogOwner.destroy()
@@ -484,8 +538,10 @@ object FloatBallOverlay {
         windowManager = wm
         ballView = ballHost
         ballComposeView = ballCompose
-        edgeCaptureView = edgeCaptureCompose
-        lineView = lineCompose
+        edgeCaptureHost = edgeHost
+        edgeCaptureComposeView = edgeCaptureCompose
+        lineHost = lineStripHost
+        lineComposeView = lineCompose
         cursorView = cursorCompose
         ballOwner = ballDialogOwner
         edgeCaptureOwner = edgeCaptureDialogOwner
@@ -507,6 +563,44 @@ object FloatBallOverlay {
         applyAllLayouts(settings)
     }
 
+    private fun performFloatBallGesture(
+        settings: AppSettings,
+        gestureType: FloatBallGestureType,
+        rawX: Float,
+        rawY: Float,
+    ) {
+        val action = settings.floatBallGestureActions[gestureType] ?: GestureAction.None
+        if (action is GestureAction.None) return
+        if (action is GestureAction.ClickPassthrough) {
+            OverlayPassthrough.run(
+                hideTriggers = ::hideFloatBallOverlaysForPassthrough,
+                showTriggers = ::restoreFloatBallOverlaysAfterPassthrough,
+                rawX = rawX,
+                rawY = rawY,
+                onComplete = {},
+            )
+            return
+        }
+        SlideIndexAccessibilityService.perform(action)
+    }
+
+    private fun hideFloatBallOverlaysForPassthrough() {
+        passthroughRestorePending = true
+        ballView?.visibility = View.GONE
+        edgeCaptureHost?.visibility = View.GONE
+        lineHost?.visibility = View.GONE
+        cursorView?.visibility = View.GONE
+    }
+
+    private fun restoreFloatBallOverlaysAfterPassthrough() {
+        if (!passthroughRestorePending) return
+        passthroughRestorePending = false
+        settingsState?.value?.let { updateChromeVisibility(it) }
+        if (cursorVisibleState?.value == true) {
+            cursorView?.visibility = View.VISIBLE
+        }
+    }
+
     /**
      * Reset drag capture and snap ball/line back to edge strips.
      * Shrinks any fullscreen line capture left from an in-progress or stuck gesture.
@@ -522,10 +616,10 @@ object FloatBallOverlay {
 
         lineParams?.let { params ->
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-            lineView?.let { runCatching { wm.updateViewLayout(it, params) } }
+            lineHost?.let { runCatching { wm.updateViewLayout(it, params) } }
         }
 
-        edgeCaptureView?.visibility = View.GONE
+        edgeCaptureHost?.visibility = View.GONE
         applyAllLayouts(settings)
         if (fixZOrder) {
             bringBallAboveLine()
@@ -550,7 +644,7 @@ object FloatBallOverlay {
     }
 
     private fun recoverStuckLineCaptureIfNeeded(settings: AppSettings) {
-        val metrics = lineView?.resources?.displayMetrics ?: return
+        val metrics = lineHost?.resources?.displayMetrics ?: return
         val params = lineParams ?: return
         val stuckFullscreen = params.width >= metrics.widthPixels || params.height >= metrics.heightPixels
         if (!stuckFullscreen) return
@@ -630,7 +724,7 @@ object FloatBallOverlay {
 
     private fun applyEdgeCaptureLayout(settings: AppSettings) {
         val wm = windowManager ?: return
-        val view = edgeCaptureView ?: return
+        val view = edgeCaptureHost ?: return
         val params = edgeCaptureParams ?: return
         val metrics = view.resources.displayMetrics
         val activeSide = FloatBallLayout.resolvedActiveSide(settings)
@@ -644,7 +738,7 @@ object FloatBallOverlay {
 
     private fun applyLineLayout(settings: AppSettings) {
         val wm = windowManager ?: return
-        val view = lineView ?: return
+        val view = lineHost ?: return
         val params = lineParams ?: return
         val metrics = view.resources.displayMetrics
         if (!FloatBallLayout.shouldShowLine(settings)) return
@@ -660,22 +754,22 @@ object FloatBallOverlay {
     private fun updateChromeVisibility(settings: AppSettings) {
         if (captureSuppressed) {
             ballView?.visibility = View.GONE
-            edgeCaptureView?.visibility = View.GONE
-            lineView?.visibility = View.GONE
+            edgeCaptureHost?.visibility = View.GONE
+            lineHost?.visibility = View.GONE
             return
         }
         if (isDragging) {
             ballView?.visibility = View.VISIBLE
-            edgeCaptureView?.visibility = View.GONE
-            lineView?.visibility = when {
+            edgeCaptureHost?.visibility = View.GONE
+            lineHost?.visibility = when {
                 dragOriginatedFromLine && FloatBallLayout.shouldShowLine(settings) -> View.VISIBLE
                 else -> View.GONE
             }
             return
         }
         ballView?.visibility = View.VISIBLE
-        edgeCaptureView?.visibility = View.GONE
-        lineView?.visibility = if (FloatBallLayout.shouldShowLine(settings)) View.VISIBLE else View.GONE
+        edgeCaptureHost?.visibility = View.GONE
+        lineHost?.visibility = if (FloatBallLayout.shouldShowLine(settings)) View.VISIBLE else View.GONE
     }
 
     private fun effectiveActiveSide(settings: AppSettings): FloatBallSide =
@@ -1291,42 +1385,17 @@ object FloatBallOverlay {
 }
 
 @Composable
-private fun FloatBallEdgeCaptureContent(
-    windowOrigin: () -> IntOffset,
-    onDragStart: (screenX: Float, screenY: Float) -> Unit,
-    onDrag: (dx: Float, dy: Float) -> Unit,
-    onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit,
-) {
+private fun FloatBallEdgeCaptureContent() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val origin = windowOrigin()
-                        onDragStart(origin.x + offset.x, origin.y + offset.y)
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        onDrag(dragAmount.x, dragAmount.y)
-                    },
-                    onDragEnd = { onDragEnd() },
-                    onDragCancel = { onDragCancel() },
-                )
-            },
+            .fillMaxHeight(),
     )
 }
 
 @Composable
 private fun FloatBallLineContent(
     settingsState: MutableState<AppSettings>,
-    windowOrigin: () -> IntOffset,
-    onLineDragDown: (screenX: Float, screenY: Float) -> Unit,
-    onLineDrag: (dx: Float, dy: Float) -> Unit,
-    onLineDragEnd: () -> Unit,
-    onLineDragCancel: () -> Unit,
 ) {
     val settings = settingsState.value
     val lineColor = Color(settings.themeColorArgb)
@@ -1344,22 +1413,7 @@ private fun FloatBallLineContent(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        val origin = windowOrigin()
-                        onLineDragDown(origin.x + offset.x, origin.y + offset.y)
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        onLineDrag(dragAmount.x, dragAmount.y)
-                    },
-                    onDragEnd = { onLineDragEnd() },
-                    onDragCancel = { onLineDragCancel() },
-                )
-            },
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = outerAlignment,
     ) {
         Box(
@@ -1389,15 +1443,77 @@ private fun FloatBallContent(
 
     SlideIndexTheme {
         if (isCustom) {
-            FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
+            FloatBallStyledVisual(
+                sizeDp = sizeDp,
+                ballColor = ballColor,
+                settings = settings,
+            )
         } else {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = dockAlignment,
             ) {
-                FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
+                FloatBallStyledVisual(
+                    sizeDp = sizeDp,
+                    ballColor = ballColor,
+                    settings = settings,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun FloatBallStyledVisual(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    ballColor: Color,
+    settings: AppSettings,
+) {
+    when (settings.floatBallStyleType) {
+        FloatBallStyleType.DEFAULT -> FloatBallVisual(sizeDp = sizeDp, ballColor = ballColor)
+        FloatBallStyleType.PRESET_1 -> FloatBallPresetVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            outer = Color(0xFF42A5F5),
+            inner = Color(0xFF1565C0),
+        )
+        FloatBallStyleType.PRESET_2 -> FloatBallPresetVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            outer = Color(0xFF66BB6A),
+            inner = Color(0xFF2E7D32),
+            square = true,
+        )
+        FloatBallStyleType.PRESET_3 -> FloatBallPresetVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            outer = Color(0xFFFFA726),
+            inner = Color(0xFFE65100),
+            ring = true,
+        )
+        FloatBallStyleType.PRESET_4 -> FloatBallPresetVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            outer = Color(0xFFAB47BC),
+            inner = Color(0xFF6A1B9A),
+            ring = true,
+            square = true,
+        )
+        FloatBallStyleType.CUSTOM_IMAGE -> FloatBallUriVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            uri = settings.floatBallCustomImageUri,
+        )
+        FloatBallStyleType.SLIDESHOW -> FloatBallSlideshowVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            uris = settings.floatBallSlideshowUris,
+        )
+        FloatBallStyleType.GIF -> FloatBallGifVisual(
+            sizeDp = sizeDp,
+            opacity = settings.floatBallOpacity,
+            uri = settings.floatBallGifUri,
+        )
     }
 }
 
@@ -1416,6 +1532,141 @@ private fun FloatBallVisual(sizeDp: androidx.compose.ui.unit.Dp, ballColor: Colo
                 .size((sizeDp.value * 0.35f).dp)
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.9f)),
+        )
+    }
+}
+
+@Composable
+private fun FloatBallPresetVisual(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    opacity: Float,
+    outer: Color,
+    inner: Color,
+    square: Boolean = false,
+    ring: Boolean = false,
+) {
+    val shape = if (square) RoundedCornerShape(12.dp) else CircleShape
+    val alpha = opacity.coerceIn(0.3f, 1f)
+    Box(
+        modifier = Modifier
+            .size(sizeDp)
+            .shadow(8.dp, shape)
+            .clip(shape)
+            .background(Brush.radialGradient(listOf(inner.copy(alpha = alpha), outer.copy(alpha = alpha)))),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (ring) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    color = Color.White.copy(alpha = alpha * 0.85f),
+                    radius = size.minDimension * 0.32f,
+                    style = Stroke(width = size.minDimension * 0.06f),
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size((sizeDp.value * 0.35f).dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = alpha * 0.9f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatBallUriVisual(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    opacity: Float,
+    uri: String,
+) {
+    val context = LocalContext.current
+    val bitmap = remember(uri) { FloatBallImageLoader.loadBitmap(context, uri) }
+    val shape = CircleShape
+    val alpha = opacity.coerceIn(0.3f, 1f)
+    Box(
+        modifier = Modifier
+            .size(sizeDp)
+            .shadow(8.dp, shape)
+            .clip(shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = alpha,
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Gray.copy(alpha = alpha * 0.5f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatBallSlideshowVisual(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    opacity: Float,
+    uris: List<String>,
+) {
+    if (uris.isEmpty()) {
+        FloatBallUriVisual(sizeDp = sizeDp, opacity = opacity, uri = "")
+        return
+    }
+    var index by remember(uris) { mutableIntStateOf(0) }
+    LaunchedEffect(uris) {
+        while (true) {
+            delay(3000L)
+            index = (index + 1) % uris.size
+        }
+    }
+    FloatBallUriVisual(sizeDp = sizeDp, opacity = opacity, uri = uris[index])
+}
+
+@Composable
+private fun FloatBallGifVisual(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    opacity: Float,
+    uri: String,
+) {
+    val context = LocalContext.current
+    val shape = CircleShape
+    val alpha = opacity.coerceIn(0.3f, 1f)
+    if (uri.isBlank() || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+        FloatBallUriVisual(sizeDp = sizeDp, opacity = opacity, uri = uri)
+        return
+    }
+    Box(
+        modifier = Modifier
+            .size(sizeDp)
+            .shadow(8.dp, shape)
+            .clip(shape),
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    this.alpha = alpha
+                }
+            },
+            update = { imageView ->
+                imageView.alpha = alpha
+                runCatching {
+                    val source = ImageDecoder.createSource(context.contentResolver, Uri.parse(uri))
+                    val drawable = ImageDecoder.decodeDrawable(source)
+                    imageView.setImageDrawable(drawable)
+                    if (drawable is android.graphics.drawable.AnimatedImageDrawable) {
+                        drawable.start()
+                    }
+                }
+            },
         )
     }
 }

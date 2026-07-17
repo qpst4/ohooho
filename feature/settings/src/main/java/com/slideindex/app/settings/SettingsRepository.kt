@@ -1,5 +1,6 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.floatball.FloatBallGestureType
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureAngleConfig
 import com.slideindex.app.gesture.GestureRule
@@ -253,6 +254,21 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatBallLineOpacity(value: Float) =
         overlay.setFloatBallLineOpacity(value)
 
+    suspend fun setFloatBallGestureAction(type: FloatBallGestureType, action: GestureAction) =
+        overlay.setFloatBallGestureAction(type, action)
+
+    suspend fun setFloatBallStyleType(type: FloatBallStyleType) =
+        overlay.setFloatBallStyleType(type)
+
+    suspend fun setFloatBallCustomImageUri(uri: String) =
+        overlay.setFloatBallCustomImageUri(uri)
+
+    suspend fun setFloatBallSlideshowUris(uris: List<String>) =
+        overlay.setFloatBallSlideshowUris(uris)
+
+    suspend fun setFloatBallGifUri(uri: String) =
+        overlay.setFloatBallGifUri(uri)
+
     suspend fun setFloatBallPickOffsetDp(value: Float) =
         overlay.setFloatBallPickOffsetDp(value)
 
@@ -264,6 +280,15 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setFloatBallPointerSlopDp(value: Float) =
         overlay.setFloatBallPointerSlopDp(value)
+
+    suspend fun setFloatBallDownSwipeShortPercent(value: Float) =
+        overlay.setFloatBallDownSwipeShortPercent(value)
+
+    suspend fun setFloatBallSideSwipeShortPercent(value: Float) =
+        overlay.setFloatBallSideSwipeShortPercent(value)
+
+    suspend fun setFloatBallUpSwipeShortPercent(value: Float) =
+        overlay.setFloatBallUpSwipeShortPercent(value)
 
     suspend fun setFloatBallInstantTranslate(enabled: Boolean) =
         overlay.setFloatBallInstantTranslate(enabled)
@@ -279,6 +304,18 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setShareImageOcrHistoryEnabled(enabled: Boolean) =
         overlay.setShareImageOcrHistoryEnabled(enabled)
+
+    suspend fun setSearchEngines(engines: List<SearchEngineConfig>) =
+        overlay.setSearchEngines(engines)
+
+    suspend fun setSearchEngineGridColumns(value: Int) =
+        overlay.setSearchEngineGridColumns(value)
+
+    suspend fun setSearchEngineGridRows(value: Int) =
+        overlay.setSearchEngineGridRows(value)
+
+    suspend fun setSearchEngineShowLabels(enabled: Boolean) =
+        overlay.setSearchEngineShowLabels(enabled)
 
     suspend fun setOtpCopyToClipboard(enabled: Boolean) = otp.setOtpCopyToClipboard(enabled)
     suspend fun setOtpKeywordsRegex(value: String) = otp.setOtpKeywordsRegex(value)

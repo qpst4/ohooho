@@ -707,6 +707,8 @@ private fun FloatBallTranslatePanelContent(
 
                                 pinActionBarOutside = true,
 
+                                showSearch = true,
+
                                 onSearch = onSearch,
 
                                 onShare = onShare,

@@ -1,5 +1,7 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.floatball.FloatBallGestureCodec
+import com.slideindex.app.floatball.FloatBallGestureType
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.launcher.QuickLauncherItemCodec
 import com.slideindex.app.shell.ShellCommand
@@ -430,6 +432,29 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOAT_BALL_LINE_OPACITY] = value.coerceIn(0.1f, 1f)
     }
 
+    suspend fun setFloatBallGestureAction(type: FloatBallGestureType, action: GestureAction) = editor.edit { prefs ->
+        val updated = SettingsSnapshotReader.readFloatBallGestureActions(prefs).toMutableMap().apply {
+            put(type, action)
+        }
+        prefs[SettingsPreferenceKeys.FLOAT_BALL_GESTURE_ACTIONS] = FloatBallGestureCodec.encodeAll(updated)
+    }
+
+    suspend fun setFloatBallStyleType(type: FloatBallStyleType) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_STYLE_TYPE] = type.storageKey
+    }
+
+    suspend fun setFloatBallCustomImageUri(uri: String) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_CUSTOM_IMAGE_URI] = uri
+    }
+
+    suspend fun setFloatBallSlideshowUris(uris: List<String>) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_SLIDESHOW_URIS] = uris.filter { it.isNotBlank() }.toSet()
+    }
+
+    suspend fun setFloatBallGifUri(uri: String) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_GIF_URI] = uri
+    }
+
     suspend fun setFloatBallPickOffsetDp(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_PICK_OFFSET_DP] = value.coerceIn(4f, 48f)
     }
@@ -445,6 +470,18 @@ class OverlaySettingsMutator @Inject constructor(
 
     suspend fun setFloatBallPointerSlopDp(value: Float) = editor.edit {
         it[SettingsPreferenceKeys.FLOAT_BALL_POINTER_SLOP_DP] = value.coerceIn(4f, 32f)
+    }
+
+    suspend fun setFloatBallDownSwipeShortPercent(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_DOWN_SWIPE_SHORT_PERCENT] = value.coerceIn(50f, 500f)
+    }
+
+    suspend fun setFloatBallSideSwipeShortPercent(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_SIDE_SWIPE_SHORT_PERCENT] = value.coerceIn(50f, 500f)
+    }
+
+    suspend fun setFloatBallUpSwipeShortPercent(value: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_UP_SWIPE_SHORT_PERCENT] = value.coerceIn(50f, 500f)
     }
 
     suspend fun setFloatBallInstantTranslate(enabled: Boolean) = editor.edit {
@@ -466,5 +503,22 @@ class OverlaySettingsMutator @Inject constructor(
 
     suspend fun setShareImageOcrHistoryEnabled(enabled: Boolean) = editor.edit {
         it[SettingsPreferenceKeys.SHARE_IMAGE_OCR_HISTORY_ENABLED] = enabled
+    }
+
+    suspend fun setSearchEngines(engines: List<SearchEngineConfig>) = editor.edit {
+        it[SettingsPreferenceKeys.SEARCH_ENGINES_JSON] = SearchEngineStore.encode(engines)
+        it[SettingsPreferenceKeys.SEARCH_ENGINES_INITIALIZED] = true
+    }
+
+    suspend fun setSearchEngineGridColumns(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.SEARCH_ENGINE_GRID_COLUMNS] = value.coerceIn(3, 7)
+    }
+
+    suspend fun setSearchEngineGridRows(value: Int) = editor.edit {
+        it[SettingsPreferenceKeys.SEARCH_ENGINE_GRID_ROWS] = value.coerceIn(1, 4)
+    }
+
+    suspend fun setSearchEngineShowLabels(enabled: Boolean) = editor.edit {
+        it[SettingsPreferenceKeys.SEARCH_ENGINE_SHOW_LABELS] = enabled
     }
 }

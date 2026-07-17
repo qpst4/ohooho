@@ -1,5 +1,7 @@
 package com.slideindex.app.settings
 
+import com.slideindex.app.floatball.FloatBallGestureCodec
+import com.slideindex.app.floatball.FloatBallGestureType
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureAngleConfig
 import com.slideindex.app.gesture.GestureRule
@@ -170,6 +172,17 @@ data class AppSettings(
     /** Edge line / capture strip width as fraction of screen width. */
     val floatBallLineWidthFraction: Float = 0.30f,
     val floatBallLineOpacity: Float = 0.9f,
+    /** 悬浮球手势 → 动作绑定。 */
+    val floatBallGestureActions: Map<FloatBallGestureType, GestureAction> =
+        FloatBallGestureCodec.defaultActions(),
+    /** 悬浮球外观样式。 */
+    val floatBallStyleType: FloatBallStyleType = FloatBallStyleType.DEFAULT,
+    /** 自定义图片 URI（[floatBallStyleType] 为 CUSTOM_IMAGE 时使用）。 */
+    val floatBallCustomImageUri: String = "",
+    /** 幻灯片图片 URI 列表（[floatBallStyleType] 为 SLIDESHOW 时使用）。 */
+    val floatBallSlideshowUris: List<String> = emptyList(),
+    /** GIF 图片 URI（[floatBallStyleType] 为 GIF 时使用）。 */
+    val floatBallGifUri: String = "",
     /** Gap between ball edge and pick crosshair in dp (above / below). */
     val floatBallPickOffsetDp: Float = 48f,
     /** Body text size for pick-result panel in sp. */
@@ -178,6 +191,12 @@ data class AppSettings(
     val floatBallPickBottomTransitionFraction: Float = 0.22f,
     /** Finger travel before full-screen pointer mode activates. */
     val floatBallPointerSlopDp: Float = 8f,
+    /** FV down_swipe_short_distance_2：短滑阈值 = percent × 40dp / 100。 */
+    val floatBallDownSwipeShortPercent: Float = 200f,
+    /** FV side_swipe_short_distance_2：短滑阈值 = percent × 40dp / 100。 */
+    val floatBallSideSwipeShortPercent: Float = 320f,
+    /** 上滑短滑阈值 = percent × 40dp / 100；超过即为长滑。 */
+    val floatBallUpSwipeShortPercent: Float = 200f,
     /** When false, translate opens Google Translate in browser; when true, shows in-app overlay. */
     val floatBallInstantTranslate: Boolean = false,
     val floatBallTranslateEngine: FloatBallTranslateEngine = FloatBallTranslateEngine.GOOGLE,
@@ -187,4 +206,9 @@ data class AppSettings(
     val floatBallTranslatePickPanelTransparency: Float = 0.65f,
     /** Save shared long-image OCR results for later re-open from pick settings. */
     val shareImageOcrHistoryEnabled: Boolean = true,
+    /** Configured text/image search engines for pick panel. */
+    val searchEngines: List<SearchEngineConfig> = SearchEngineCatalog.defaultEngines(),
+    val searchEngineGridColumns: Int = 5,
+    val searchEngineGridRows: Int = 2,
+    val searchEngineShowLabels: Boolean = true,
 )

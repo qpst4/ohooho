@@ -69,6 +69,8 @@ class SlideIndexAccessibilityService : AccessibilityService() {
 
         fun isConnected(): Boolean = instance != null
 
+        fun accessibilityInstance(): SlideIndexAccessibilityService? = instance
+
         fun perform(action: GestureAction): Boolean =
             SlideIndexAccessibilityGestureInjector.perform(action) { instance }
 

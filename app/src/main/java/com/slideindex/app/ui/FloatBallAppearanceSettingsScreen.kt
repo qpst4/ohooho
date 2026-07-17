@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.FloatBallPositionMode
+import com.slideindex.app.settings.FloatBallStyleType
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -42,6 +43,10 @@ fun FloatBallAppearanceSettingsScreen(
     onLineHeightChange: (Float) -> Unit,
     onLineWidthChange: (Float) -> Unit,
     onLineOpacityChange: (Float) -> Unit,
+    onStyleTypeChange: (FloatBallStyleType) -> Unit,
+    onCustomImageUriChange: (String) -> Unit,
+    onSlideshowUrisChange: (List<String>) -> Unit,
+    onGifUriChange: (String) -> Unit,
 ) {
     var showPositionDialog by remember { mutableStateOf(false) }
     val controlsEnabled = settings.floatBallEnabled && accessibilityGranted
@@ -110,6 +115,15 @@ fun FloatBallAppearanceSettingsScreen(
                 )
             }
         }
+
+        FloatBallStyleSection(
+            settings = settings,
+            enabled = controlsEnabled,
+            onStyleTypeChange = onStyleTypeChange,
+            onCustomImageUriChange = onCustomImageUriChange,
+            onSlideshowUrisChange = onSlideshowUrisChange,
+            onGifUriChange = onGifUriChange,
+        )
 
         SettingsHintText(stringResource(R.string.float_ball_position_y_hint))
 

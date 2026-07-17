@@ -1,8 +1,10 @@
 package com.slideindex.app.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -12,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.slideindex.app.R
 import com.slideindex.app.settings.AppSettings
+import com.slideindex.app.settings.SearchEngineStore
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -22,8 +25,10 @@ fun FloatBallSettingsScreen(
     onBack: () -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     onOpenAppearanceSettings: () -> Unit,
+    onOpenGestureSettings: () -> Unit,
     onOpenPickSettings: () -> Unit,
     onOpenTranslationSettings: () -> Unit,
+    onOpenSearchEngineSettings: () -> Unit,
 ) {
     val controlsEnabled = settings.floatBallEnabled && accessibilityGranted
 
@@ -61,6 +66,13 @@ fun FloatBallSettingsScreen(
                 onClick = onOpenAppearanceSettings,
             )
             SettingNavigationRow(
+                icon = { label -> Icon(Icons.Default.Gesture, contentDescription = label) },
+                title = stringResource(R.string.float_ball_gesture_settings_title),
+                subtitle = stringResource(R.string.float_ball_gesture_settings_summary),
+                enabled = controlsEnabled,
+                onClick = onOpenGestureSettings,
+            )
+            SettingNavigationRow(
                 icon = { label -> Icon(Icons.Default.TextFields, contentDescription = label) },
                 title = stringResource(R.string.float_ball_pick_settings_title),
                 subtitle = stringResource(
@@ -81,6 +93,16 @@ fun FloatBallSettingsScreen(
                 subtitle = floatBallTranslationSubtitle(settings),
                 enabled = controlsEnabled,
                 onClick = onOpenTranslationSettings,
+            )
+            SettingNavigationRow(
+                icon = { label -> Icon(Icons.Default.Search, contentDescription = label) },
+                title = stringResource(R.string.search_engine_settings_title),
+                subtitle = stringResource(
+                    R.string.search_engine_settings_summary,
+                    SearchEngineStore.textPickPanelEngines(settings.searchEngines).size,
+                ),
+                enabled = controlsEnabled,
+                onClick = onOpenSearchEngineSettings,
             )
         }
     }

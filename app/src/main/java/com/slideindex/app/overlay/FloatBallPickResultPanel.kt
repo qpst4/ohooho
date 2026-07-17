@@ -14,7 +14,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -24,20 +23,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -47,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -58,10 +53,12 @@ import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
 import com.slideindex.app.perf.PickPerf
 import com.slideindex.app.di.OverlayDependencyAccess
-import com.slideindex.app.overlay.pickresult.PickResultInteractiveTextSection
+import com.slideindex.app.overlay.pickresult.PickResultTextSearchGrid
+import com.slideindex.app.overlay.pickresult.pickResultSearchGridReservedHeight
+import com.slideindex.app.search.SearchEngineLauncher
 import com.slideindex.app.settings.AppSettings
-import com.slideindex.app.overlay.pickresult.PickResultPanelMaxWidth
-import com.slideindex.app.overlay.pickresult.pickResultPanelCard
+import com.slideindex.app.overlay.pickresult.PickResultInteractiveTextSection
+import com.slideindex.app.overlay.pickresult.pickResultBottomPanelCard
 import com.slideindex.app.overlay.pickresult.PickResultSectionHeader
 import com.slideindex.app.overlay.pickresult.PickResultToolbarIcon
 import com.slideindex.app.overlay.pickresult.PickResultTextMode
@@ -69,13 +66,11 @@ import com.slideindex.app.service.ShareImageOcrCoordinator
 import com.slideindex.app.ui.theme.SlideIndexTheme
 import kotlinx.coroutines.flow.collect
 
-private val PANEL_HORIZONTAL_PADDING = 12.dp
-private val PANEL_MAX_WIDTH = PickResultPanelMaxWidth
 private val PANEL_MAX_HEIGHT_FRACTION = 0.85f
-private val PANEL_MAX_IMAGE_HEIGHT = 140.dp
+private val PANEL_MAX_IMAGE_HEIGHT = 160.dp
 
 /**
- * FV-style centered pick-result window after float-ball text pick / regional screenshot.
+ * Bottom-anchored overlay pick-result panel after float-ball text pick / regional screenshot.
  */
 object FloatBallPickResultPanel {
     private const val TAG = "FloatBallPickPanel"
@@ -92,7 +87,7 @@ object FloatBallPickResultPanel {
     private var textState: MutableState<String?>? = null
     private var screenshotState: MutableState<Bitmap?>? = null
     private var textExpandedState: MutableState<Boolean>? = null
-    private var imageExpandedState: MutableState<Boolean>? = null
+    private var activeTextState: MutableState<String>? = null
     private var textModeState: MutableState<PickResultTextMode>? = null
     private var a11yTextState: MutableState<String?>? = null
     private var ocrTextState: MutableState<String?>? = null
@@ -156,10 +151,10 @@ object FloatBallPickResultPanel {
         isShareImageOcrState?.value = result.isShareImageOcr
         ocrSwitchOnComplete = result.ocrPreferSwitchOnComplete
         textState?.value = result.text
+        activeTextState?.value = result.text.orEmpty()
         screenshotState?.value?.recycle()
         screenshotState?.value = result.screenshot
         textExpandedState?.value = true
-        imageExpandedState?.value = result.screenshot != null
         textModeState?.value = initialTextMode ?: defaultTextModeFor(result.text)
         updateWindowFocusableForMode(textModeState?.value ?: PickResultTextMode.WORD_TAP)
         if (result.text.isNullOrBlank() && result.screenshot == null) {
@@ -184,6 +179,7 @@ object FloatBallPickResultPanel {
         if (switchToOcr || textSourceState?.value == PickResultTextSource.OCR) {
             textSourceState?.value = PickResultTextSource.OCR
             textState?.value = ocrText
+            activeTextState?.value = ocrText
         }
         initialTextMode?.let { mode ->
             textModeState?.value = mode
@@ -230,7 +226,7 @@ object FloatBallPickResultPanel {
         textState = null
         screenshotState = null
         textExpandedState = null
-        imageExpandedState = null
+        activeTextState = null
         textModeState = null
         a11yTextState = null
         ocrTextState = null
@@ -262,7 +258,7 @@ object FloatBallPickResultPanel {
         val textHolder = mutableStateOf<String?>(null)
         val screenshotHolder = mutableStateOf<Bitmap?>(null)
         val textExpandedHolder = mutableStateOf(true)
-        val imageExpandedHolder = mutableStateOf(true)
+        val activeTextHolder = mutableStateOf("")
         val textModeHolder = mutableStateOf(PickResultTextMode.WORD_TAP)
         val a11yTextHolder = mutableStateOf<String?>(null)
         val ocrTextHolder = mutableStateOf<String?>(null)
@@ -274,7 +270,7 @@ object FloatBallPickResultPanel {
         textState = textHolder
         screenshotState = screenshotHolder
         textExpandedState = textExpandedHolder
-        imageExpandedState = imageExpandedHolder
+        activeTextState = activeTextHolder
         textModeState = textModeHolder
         a11yTextState = a11yTextHolder
         ocrTextState = ocrTextHolder
@@ -291,7 +287,7 @@ object FloatBallPickResultPanel {
                 val text by textHolder
                 val screenshot by screenshotHolder
                 val textExpanded by textExpandedHolder
-                val imageExpanded by imageExpandedHolder
+                val activeText by activeTextHolder
                 val textMode by textModeHolder
                 val ocrText by ocrTextHolder
                 val textSource by textSourceHolder
@@ -308,11 +304,16 @@ object FloatBallPickResultPanel {
                     flow.collect { settingsHolder.value = it }
                 }
                 val settings by settingsHolder
+                LaunchedEffect(text) {
+                    if (text != null) {
+                        activeTextHolder.value = text.orEmpty()
+                    }
+                }
                 FloatBallPickResultContent(
                     text = text,
                     screenshot = screenshot,
                     textExpanded = textExpanded,
-                    imageExpanded = imageExpanded,
+                    activeText = activeText,
                     textMode = textMode,
                     textSource = textSource,
                     ocrAvailable = ocrAvailable,
@@ -324,6 +325,10 @@ object FloatBallPickResultPanel {
                     },
                     translatePickPanelTransparency = settings.floatBallTranslatePickPanelTransparency,
                     textSizeSp = settings.floatBallPickTextSizeSp,
+                    searchEngines = settings.searchEngines,
+                    searchEngineGridColumns = settings.searchEngineGridColumns,
+                    searchEngineGridRows = settings.searchEngineGridRows,
+                    searchEngineShowLabels = settings.searchEngineShowLabels,
                     onTextSourceChange = { source ->
                         if (source == PickResultTextSource.A11Y && !a11ySourceEnabledHolder.value) {
                             return@FloatBallPickResultContent
@@ -332,13 +337,15 @@ object FloatBallPickResultPanel {
                             return@FloatBallPickResultContent
                         }
                         textSourceHolder.value = source
-                        textHolder.value = when (source) {
+                        val switched = when (source) {
                             PickResultTextSource.A11Y -> a11yTextHolder.value.orEmpty()
                             PickResultTextSource.OCR -> ocrTextHolder.value.orEmpty()
                         }
+                        textHolder.value = switched
+                        activeTextHolder.value = switched
                     },
                     onTextExpandedChange = { textExpandedHolder.value = it },
-                    onImageExpandedChange = { imageExpandedHolder.value = it },
+                    onActiveTextChange = { activeTextHolder.value = it },
                     onTextModeChange = { mode ->
                         textModeHolder.value = mode
                         updateWindowFocusableForMode(mode)
@@ -355,7 +362,6 @@ object FloatBallPickResultPanel {
                         FloatBallTextPick.copyText(context, value)
                         Toast.makeText(context, R.string.float_ball_text_copied, Toast.LENGTH_SHORT).show()
                     },
-                    onSearch = { FloatBallTextPick.searchText(context, it) },
                     onShareText = { FloatBallTextPick.shareText(context, it) },
                     onPaste = {
                         val pasted = FloatBallTextPick.readClipboardText(context)
@@ -363,6 +369,7 @@ object FloatBallPickResultPanel {
                             Toast.makeText(context, R.string.float_ball_paste_empty, Toast.LENGTH_SHORT).show()
                         } else {
                             textHolder.value = pasted
+                            activeTextHolder.value = pasted
                         }
                     },
                     onTranslate = { FloatBallTranslateCoordinator.translate(context, it) },
@@ -385,6 +392,16 @@ object FloatBallPickResultPanel {
                     onShareScreenshot = {
                         val bitmap = screenshotHolder.value ?: return@FloatBallPickResultContent
                         FloatBallTextPick.shareScreenshot(context, bitmap)
+                    },
+                    onSearchEngineClick = { engine ->
+                        val launched = SearchEngineLauncher.launch(
+                            context,
+                            engine,
+                            activeTextHolder.value,
+                        )
+                        if (launched) {
+                            dismiss()
+                        }
                     },
                 )
             }
@@ -448,7 +465,7 @@ private fun FloatBallPickResultContent(
     text: String?,
     screenshot: Bitmap?,
     textExpanded: Boolean,
-    imageExpanded: Boolean,
+    activeText: String,
     textMode: PickResultTextMode,
     textSource: PickResultTextSource,
     ocrAvailable: Boolean,
@@ -458,20 +475,24 @@ private fun FloatBallPickResultContent(
     onBackgroundOcr: () -> Unit,
     translatePickPanelTransparency: Float,
     textSizeSp: Float,
+    searchEngines: List<com.slideindex.app.settings.SearchEngineConfig>,
+    searchEngineGridColumns: Int,
+    searchEngineGridRows: Int,
+    searchEngineShowLabels: Boolean,
     onTextSourceChange: (PickResultTextSource) -> Unit,
     onTextExpandedChange: (Boolean) -> Unit,
-    onImageExpandedChange: (Boolean) -> Unit,
+    onActiveTextChange: (String) -> Unit,
     onTextModeChange: (PickResultTextMode) -> Unit,
     onDismiss: () -> Unit,
     onTextChange: (String) -> Unit,
     onCopy: (String) -> Unit,
-    onSearch: (String) -> Unit,
     onShareText: (String) -> Unit,
     onPaste: () -> Unit,
     onTranslate: (String) -> Unit,
     onRemoveSpaces: (String, removeAll: Boolean) -> Unit,
     onSaveScreenshot: () -> Unit,
     onShareScreenshot: () -> Unit,
+    onSearchEngineClick: (com.slideindex.app.settings.SearchEngineConfig) -> Unit,
 ) {
     val hasTextSection = ocrLoading || !text.isNullOrBlank() || screenshot != null || ocrAvailable
     val hasImageSection = screenshot != null
@@ -483,10 +504,20 @@ private fun FloatBallPickResultContent(
     }
 
     val maxPanelHeight = (LocalConfiguration.current.screenHeightDp * PANEL_MAX_HEIGHT_FRACTION).dp
-    val bodyScrollState = rememberScrollState()
 
     val dismissInteraction = remember { MutableInteractionSource() }
     val cardInteraction = remember { MutableInteractionSource() }
+    val hasSearchGrid = hasTextSection && !text.isNullOrBlank()
+    val searchGridReservedHeight = if (hasSearchGrid) {
+        pickResultSearchGridReservedHeight(
+            searchEngineGridRows,
+            searchEngineShowLabels,
+            searchEngineGridColumns,
+        )
+    } else {
+        0.dp
+    }
+    val scrollState = rememberScrollState()
 
     SlideIndexTheme {
         Box(
@@ -497,15 +528,14 @@ private fun FloatBallPickResultContent(
                     indication = null,
                     onClick = onDismiss,
                 ),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.BottomCenter,
         ) {
             Column(
                 modifier = Modifier
-                    .padding(PANEL_HORIZONTAL_PADDING)
-                    .widthIn(max = PANEL_MAX_WIDTH)
+                    .fillMaxWidth()
                     .heightIn(max = maxPanelHeight)
                     .graphicsLayer { alpha = pickPanelAlpha }
-                    .pickResultPanelCard()
+                    .pickResultBottomPanelCard()
                     .then(
                         if (translateVisible) {
                             Modifier.clickable(
@@ -521,17 +551,38 @@ private fun FloatBallPickResultContent(
                             )
                         },
                     )
-                    .padding(vertical = 4.dp),
+                    .padding(top = 4.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 Column(
                     modifier = Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(
-                            bodyScrollState,
-                            enabled = textMode != PickResultTextMode.WORD_TAP,
+                        .fillMaxWidth()
+                        .then(
+                            if (hasSearchGrid) {
+                                Modifier
+                                    .heightIn(max = maxPanelHeight - searchGridReservedHeight)
+                                    .verticalScroll(scrollState)
+                            } else {
+                                Modifier
+                            },
                         ),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
+                if (hasImageSection) {
+                    PickResultImageSection(
+                        screenshot = screenshot,
+                        onSave = onSaveScreenshot,
+                        onShare = onShareScreenshot,
+                    )
+                }
+
+                if (hasImageSection && hasTextSection) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
+
                 if (hasTextSection) {
                     PickResultSectionHeader(
                         title = stringResource(R.string.float_ball_pick_result_text_section),
@@ -539,73 +590,84 @@ private fun FloatBallPickResultContent(
                         onToggle = { onTextExpandedChange(!textExpanded) },
                     )
                     if (textExpanded) {
-                        Column(
+                        PickResultInteractiveTextSection(
+                            text = text.orEmpty(),
+                            textMode = textMode,
+                            onTextModeChange = onTextModeChange,
+                            onTextChange = onTextChange,
                             modifier = Modifier.padding(horizontal = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            PickResultInteractiveTextSection(
-                                text = text.orEmpty(),
-                                textMode = textMode,
-                                onTextModeChange = onTextModeChange,
-                                onTextChange = onTextChange,
-                                textSizeSp = textSizeSp,
-                                textSource = textSource,
-                                ocrAvailable = ocrAvailable,
-                                a11yAvailable = a11yAvailable,
-                                ocrLoading = ocrLoading,
-                                showBackgroundOcrAction = isShareImageOcr && ocrLoading,
-                                onBackgroundOcr = onBackgroundOcr,
-                                onTextSourceChange = onTextSourceChange,
-                                onSearch = onSearch,
-                                onShare = onShareText,
-                                onCopy = onCopy,
-                                onPaste = onPaste,
-                                onTranslate = onTranslate,
-                                onRemoveSpaces = onRemoveSpaces,
-                            )
-                        }
+                            textSizeSp = textSizeSp,
+                            textSource = textSource,
+                            ocrAvailable = ocrAvailable,
+                            a11yAvailable = a11yAvailable,
+                            ocrLoading = ocrLoading,
+                            showBackgroundOcrAction = isShareImageOcr && ocrLoading,
+                            onBackgroundOcr = onBackgroundOcr,
+                            onTextSourceChange = onTextSourceChange,
+                            pinActionBarOutside = true,
+                            embedInParentScroll = hasSearchGrid,
+                            showSearch = false,
+                            onActiveTextChange = onActiveTextChange,
+                            onShare = onShareText,
+                            onCopy = onCopy,
+                            onPaste = onPaste,
+                            onTranslate = onTranslate,
+                            onRemoveSpaces = onRemoveSpaces,
+                        )
                     }
                 }
+                }
 
-                if (hasTextSection && hasImageSection) {
+                if (hasSearchGrid) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                     )
-                }
-
-                if (hasImageSection) {
-                    PickResultSectionHeader(
-                        title = stringResource(R.string.float_ball_pick_result_image_section),
-                        expanded = imageExpanded,
-                        onToggle = { onImageExpandedChange(!imageExpanded) },
+                    PickResultTextSearchGrid(
+                        engines = searchEngines,
+                        query = activeText,
+                        columns = searchEngineGridColumns,
+                        rows = searchEngineGridRows,
+                        showLabels = searchEngineShowLabels,
+                        onEngineClick = onSearchEngineClick,
                     )
-                    if (imageExpanded) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            val image = screenshot
-                            if (image != null) {
-                                Image(
-                                    bitmap = image.asImageBitmap(),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = PANEL_MAX_IMAGE_HEIGHT)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Fit,
-                                )
-                                PickResultImageActionBar(
-                                    onSave = onSaveScreenshot,
-                                    onShare = onShareScreenshot,
-                                )
-                            }
-                        }
-                    }
-                }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PickResultImageSection(
+    screenshot: Bitmap?,
+    onSave: () -> Unit,
+    onShare: () -> Unit,
+) {
+    PickResultSectionHeader(
+        title = stringResource(R.string.float_ball_pick_result_image_section),
+        expanded = true,
+        onToggle = {},
+        collapsible = false,
+    )
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        val image = screenshot
+        if (image != null) {
+            Image(
+                bitmap = image.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = PANEL_MAX_IMAGE_HEIGHT)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit,
+            )
+            PickResultImageActionBar(
+                onSave = onSave,
+                onShare = onShare,
+            )
         }
     }
 }

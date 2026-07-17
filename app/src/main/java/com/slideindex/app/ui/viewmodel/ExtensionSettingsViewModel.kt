@@ -6,6 +6,8 @@ import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.settings.FloatingPointerEdgeSide
 import com.slideindex.app.settings.FloatingPointerTrailType
 import com.slideindex.app.settings.FloatBallPositionMode
+import com.slideindex.app.floatball.FloatBallGestureType
+import com.slideindex.app.settings.FloatBallStyleType
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.ui.feedback.UserMessageBus
@@ -304,8 +306,40 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setFloatBallLineOpacity(value)
     }
 
+    fun setFloatBallGestureAction(type: FloatBallGestureType, action: GestureAction) = launchSettingsWrite {
+        settingsRepository.setFloatBallGestureAction(type, action)
+    }
+
+    fun setFloatBallStyleType(type: FloatBallStyleType) = launchSettingsWrite {
+        settingsRepository.setFloatBallStyleType(type)
+    }
+
+    fun setFloatBallCustomImageUri(uri: String) = launchSettingsWrite {
+        settingsRepository.setFloatBallCustomImageUri(uri)
+    }
+
+    fun setFloatBallSlideshowUris(uris: List<String>) = launchSettingsWrite {
+        settingsRepository.setFloatBallSlideshowUris(uris)
+    }
+
+    fun setFloatBallGifUri(uri: String) = launchSettingsWrite {
+        settingsRepository.setFloatBallGifUri(uri)
+    }
+
     fun setFloatBallPointerSlopDp(value: Float) = launchSettingsWrite {
         settingsRepository.setFloatBallPointerSlopDp(value)
+    }
+
+    fun setFloatBallDownSwipeShortPercent(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallDownSwipeShortPercent(value)
+    }
+
+    fun setFloatBallSideSwipeShortPercent(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallSideSwipeShortPercent(value)
+    }
+
+    fun setFloatBallUpSwipeShortPercent(value: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallUpSwipeShortPercent(value)
     }
 
     fun setFloatBallPickOffsetDp(value: Float) = launchSettingsWrite {
