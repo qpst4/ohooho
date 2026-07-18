@@ -504,8 +504,10 @@ private fun FloatBallImageSearchPanelContent(
                                     webView.isFocusableInTouchMode = interactive
                                 },
                                 onRelease = { webView ->
-                                    engineWebViews.remove(engine)
-                                    loadingByEngine.remove(engine)
+                                    if (engineWebViews[engine] == webView) {
+                                        engineWebViews.remove(engine)
+                                        loadingByEngine.remove(engine)
+                                    }
                                     FloatBallImageSearchPanel.releaseSearchWebView(webView)
                                 },
                                 modifier = Modifier
