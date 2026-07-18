@@ -9,7 +9,6 @@ import android.graphics.PixelFormat
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.os.Message
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -58,9 +57,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
@@ -76,12 +77,16 @@ import com.slideindex.app.overlay.pickresult.PickResultPanelMaxWidth
 import com.slideindex.app.overlay.pickresult.pickResultPanelCard
 import com.slideindex.app.overlay.pickresult.pickResultWindowHeightDp
 import com.slideindex.app.ui.theme.SlideIndexTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val PANEL_HORIZONTAL_PADDING = 12.dp
 private val PANEL_MAX_HEIGHT_FRACTION = 0.78f
 private const val WEBVIEW_LOG_TAG = "FloatBallImageSearchPanel"
+private const val PRELOAD_STAGGER_MS = 300L
 private val tagLoadGeneration: Int = "image_search_load_gen".hashCode()
 private val tagExpectedEngine: Int = "image_search_expected_engine".hashCode()
+private val tagLoadedKey: Int = "image_search_loaded_key".hashCode()
 
 private enum class ImageSearchPanelPhase {
     UPLOADING,
@@ -90,7 +95,7 @@ private enum class ImageSearchPanelPhase {
 }
 
 /**
- * Independent image-search overlay with a single reusable WebView per panel session.
+ * Independent image-search overlay with one WebView per engine, preloaded in the background.
  */
 object FloatBallImageSearchPanel {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -324,20 +329,24 @@ private fun FloatBallImageSearchPanelContent(
     val engines = remember { ImageSearchEngine.entries }
     var selectedEngine by remember { mutableStateOf(engines.first()) }
     val preloadedUrls = remember { mutableStateMapOf<ImageSearchEngine, String>() }
-    var searchWebView by remember { mutableStateOf<WebView?>(null) }
-    var lastLoadedKey by remember { mutableStateOf<String?>(null) }
+    val engineWebViews = remember { mutableStateMapOf<ImageSearchEngine, WebView>() }
+    val loadingByEngine = remember { mutableStateMapOf<ImageSearchEngine, Boolean>() }
+    var mountedEngines by remember { mutableStateOf(setOf<ImageSearchEngine>()) }
+    var webViewSession by remember { mutableIntStateOf(0) }
+    var googleFirstLoadDone by remember { mutableStateOf(false) }
     var isPageLoading by remember { mutableStateOf(false) }
-    var activeLoadId by remember { mutableIntStateOf(0) }
     val maxPanelHeight = pickResultWindowHeightDp(PANEL_MAX_HEIGHT_FRACTION)
     val dismissInteraction = remember { MutableInteractionSource() }
 
     LaunchedEffect(bitmap, retryToken) {
         val source = bitmap ?: return@LaunchedEffect
-        activeLoadId++
-        lastLoadedKey = null
+        webViewSession++
+        mountedEngines = emptySet()
+        engineWebViews.clear()
+        loadingByEngine.clear()
         preloadedUrls.clear()
+        googleFirstLoadDone = false
         isPageLoading = false
-        searchWebView?.stopLoading()
 
         val hostedUrl = ImageHostUploader.upload(source)
         if (hostedUrl.isNullOrBlank()) {
@@ -347,6 +356,7 @@ private fun FloatBallImageSearchPanelContent(
         engines.forEach { engine ->
             preloadedUrls[engine] = ImageSearchUrlBuilder.build(engine, hostedUrl)
         }
+        clearSearchSessionCookies()
         Log.d(
             WEBVIEW_LOG_TAG,
             "google uploadbyurl url=${preloadedUrls[ImageSearchEngine.Google]}",
@@ -354,21 +364,58 @@ private fun FloatBallImageSearchPanelContent(
         onUploadSuccess()
     }
 
-    LaunchedEffect(selectedEngine, preloadedUrls.size, searchWebView, phase) {
-        if (phase != ImageSearchPanelPhase.READY) return@LaunchedEffect
-        val webView = searchWebView ?: return@LaunchedEffect
-        val url = preloadedUrls[selectedEngine] ?: return@LaunchedEffect
-        val loadKey = "$selectedEngine|$url"
-        if (loadKey == lastLoadedKey) return@LaunchedEffect
-        lastLoadedKey = loadKey
-        val loadId = ++activeLoadId
-        isPageLoading = true
-        webView.loadSearchUrlAfterLayout(
-            url = url,
-            engine = selectedEngine,
-            context = webViewContext,
-            loadId = loadId,
-        )
+    LaunchedEffect(phase, webViewSession, preloadedUrls.size) {
+        if (phase != ImageSearchPanelPhase.READY || preloadedUrls.size != engines.size) return@LaunchedEffect
+        val session = webViewSession
+        mountedEngines = setOf(ImageSearchEngine.Google)
+
+        var sessionValid = true
+        withTimeoutOrNull(20_000) {
+            while (!googleFirstLoadDone) {
+                delay(100)
+                if (session != webViewSession) {
+                    sessionValid = false
+                    return@withTimeoutOrNull
+                }
+            }
+        }
+        if (!sessionValid || session != webViewSession) return@LaunchedEffect
+
+        val otherEngines = engines.filter { it != ImageSearchEngine.Google }
+        otherEngines.forEachIndexed { index, engine ->
+            if (index > 0) delay(PRELOAD_STAGGER_MS)
+            if (session != webViewSession) return@LaunchedEffect
+            mountedEngines = mountedEngines + engine
+        }
+    }
+
+    LaunchedEffect(selectedEngine, engineWebViews.size) {
+        isPageLoading = loadingByEngine[selectedEngine] == true
+        engineWebViews.forEach { (engine, webView) ->
+            if (engine == selectedEngine) {
+                webView.onResume()
+            } else if (loadingByEngine[engine] != true) {
+                webView.onPause()
+            }
+        }
+    }
+
+    mountedEngines.forEach { engine ->
+        val webView = engineWebViews[engine]
+        LaunchedEffect(engine, webView, preloadedUrls[engine], phase, webViewSession) {
+            if (phase != ImageSearchPanelPhase.READY) return@LaunchedEffect
+            val view = engineWebViews[engine] ?: return@LaunchedEffect
+            val url = preloadedUrls[engine] ?: return@LaunchedEffect
+            val expectedKey = "$webViewSession|${engine.name}|$url"
+            if (view.getTag(tagLoadedKey) == expectedKey) return@LaunchedEffect
+            view.setTag(tagLoadedKey, expectedKey)
+            view.loadSearchUrlAfterLayout(
+                url = url,
+                engine = engine,
+                context = webViewContext,
+                loadId = webViewSession,
+            )
+        }
     }
 
     SlideIndexTheme {
@@ -428,25 +475,52 @@ private fun FloatBallImageSearchPanelContent(
                         .weight(1f, fill = true)
                         .padding(horizontal = 12.dp),
                 ) {
-                    AndroidView(
-                        factory = {
-                            createSearchWebView(
-                                context = webViewContext,
-                                onRegister = onRegisterWebView,
-                                onPageLoadingChanged = { loading ->
-                                    isPageLoading = loading
+                    engines.filter { it in mountedEngines }.forEach { engine ->
+                        key(webViewSession, engine) {
+                            val isSelected = selectedEngine == engine
+                            AndroidView(
+                                factory = {
+                                    createSearchWebView(
+                                        context = webViewContext,
+                                        engine = engine,
+                                        isFirstEngine = engine == engines.first(),
+                                        onRegister = onRegisterWebView,
+                                        onPageLoadingChanged = { loading ->
+                                            loadingByEngine[engine] = loading
+                                            if (!loading && engine == ImageSearchEngine.Google) {
+                                                googleFirstLoadDone = true
+                                            }
+                                            if (selectedEngine == engine) {
+                                                isPageLoading = loading
+                                            }
+                                        },
+                                    ).also { engineWebViews[engine] = it }
                                 },
-                            ).also { searchWebView = it }
-                        },
-                        onRelease = { webView ->
-                            searchWebView = null
-                            lastLoadedKey = null
-                            FloatBallImageSearchPanel.releaseSearchWebView(webView)
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(if (phase == ImageSearchPanelPhase.READY) 1f else 0f),
-                    )
+                                update = { webView ->
+                                    val interactive =
+                                        isSelected && phase == ImageSearchPanelPhase.READY
+                                    webView.isClickable = interactive
+                                    webView.isFocusable = interactive
+                                    webView.isFocusableInTouchMode = interactive
+                                },
+                                onRelease = { webView ->
+                                    engineWebViews.remove(engine)
+                                    loadingByEngine.remove(engine)
+                                    FloatBallImageSearchPanel.releaseSearchWebView(webView)
+                                },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .zIndex(if (isSelected) 1f else 0f)
+                                    .alpha(
+                                        if (isSelected && phase == ImageSearchPanelPhase.READY) {
+                                            1f
+                                        } else {
+                                            0f
+                                        },
+                                    ),
+                            )
+                        }
+                    }
 
                     when (phase) {
                         ImageSearchPanelPhase.UPLOADING -> {
@@ -515,7 +589,7 @@ private fun FloatBallImageSearchPanelContent(
                     val currentUrl = preloadedUrls[selectedEngine]
                     IconButton(
                         onClick = {
-                            searchWebView?.reload()
+                            engineWebViews[selectedEngine]?.reload()
                         },
                         enabled = phase == ImageSearchPanelPhase.READY,
                     ) {
@@ -575,17 +649,24 @@ private fun EngineTabRow(
     }
 }
 
-private fun createSearchWebView(
-    context: Context,
-    onRegister: (WebView) -> Unit,
-    onPageLoadingChanged: (Boolean) -> Unit,
-): WebView {
+private fun clearSearchSessionCookies() {
     CookieManager.getInstance().setAcceptCookie(true)
     CookieManager.getInstance().removeAllCookies(null)
     CookieManager.getInstance().flush()
+}
+
+private fun createSearchWebView(
+    context: Context,
+    engine: ImageSearchEngine,
+    isFirstEngine: Boolean,
+    onRegister: (WebView) -> Unit,
+    onPageLoadingChanged: (Boolean) -> Unit,
+): WebView {
     return WebView(context).apply {
-        clearCache(true)
-        syncSearchUserAgent(context, ImageSearchEngine.Google)
+        if (isFirstEngine) {
+            clearCache(true)
+        }
+        syncSearchUserAgent(context, engine)
         setLayerType(View.LAYER_TYPE_HARDWARE, null)
         layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -718,7 +799,6 @@ private fun WebView.loadSearchUrlAfterLayout(
         stopLoading()
         syncSearchUserAgent(context, engine)
         onResume()
-        resumeTimers()
         CookieManager.getInstance().flush()
         Log.d(
             WEBVIEW_LOG_TAG,
