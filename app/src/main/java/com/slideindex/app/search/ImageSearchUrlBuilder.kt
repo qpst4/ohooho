@@ -18,13 +18,16 @@ object ImageSearchUrlBuilder {
 
     /** System default mobile Chrome UA for in-panel WebView engines. */
     fun userAgent(context: Context, engine: ImageSearchEngine): String {
+        val defaultUa = WebSettings.getDefaultUserAgent(context)
         return if (engine == ImageSearchEngine.Google) {
-            // Hardcoded Mobile Chrome UA (without '; wv').
-            // By NOT having '; wv', we bypass Catbox's WAF block so the image thumbnail loads.
-            // By natively stripping X-Requested-With (in FloatBallImageSearchPanel), we perfectly mimic a mobile Chrome browser.
-            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            // Dynamically strip out the WebView specific tags from the system's default UA.
+            // By NOT having '; wv' and 'Version/X.X', we bypass Catbox's WAF block so the image thumbnail loads,
+            // while remaining aligned with the actual device Chrome version.
+            defaultUa
+                .replace("; wv", "")
+                .replace(Regex("Version/[0-9.]+\\s"), "")
         } else {
-            WebSettings.getDefaultUserAgent(context)
+            defaultUa
         }
     }
 }

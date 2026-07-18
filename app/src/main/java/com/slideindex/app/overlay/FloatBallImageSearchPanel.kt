@@ -610,6 +610,8 @@ private fun createSearchWebView(
         }
         if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
             androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
+        } else if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
+            androidx.webkit.WebSettingsCompat.setRequestedWithHeaderMode(settings, androidx.webkit.WebSettingsCompat.REQUESTED_WITH_HEADER_NO_HEADER)
         }
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
@@ -657,10 +659,7 @@ private fun createSearchWebView(
                 view: WebView?,
                 request: WebResourceRequest,
             ): WebResourceResponse? {
-                val webView = view ?: return null
-                val engine = webView.getTag(tagExpectedEngine) as? ImageSearchEngine
-                if (engine != ImageSearchEngine.Google) return null
-                return ImageSearchGoogleRequestInterceptor.intercept(webView, request)
+                return null
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
