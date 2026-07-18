@@ -543,7 +543,7 @@
     <string name="float_ball_image_search_uploading">Uploading image…</string>
     <string name="float_ball_image_search_upload_failed">Image upload failed. Check your network and try again.</string>
     <string name="float_ball_image_search_retry">Retry</string>
-    <string name="float_ball_image_search_privacy_hint">Images are uploaded to a third-party host (Catbox; Litterbox ~1h if Catbox fails) for search.</string>
+    <string name="float_ball_image_search_privacy_hint">Images are temporarily uploaded to a host for search.</string>
     <string name="float_ball_image_search_refresh">Refresh</string>
     <string name="float_ball_image_search_open_browser">Open in browser</string>
     <string name="float_ball_pick_source_a11y">Accessibility</string>

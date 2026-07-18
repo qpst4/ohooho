@@ -67,12 +67,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.slideindex.app.R
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.search.ImageHostUploader
 import com.slideindex.app.search.ImageSearchEngine
+import com.slideindex.app.search.ImageSearchPostResult
+import com.slideindex.app.search.ImageSearchPostUploader
 import com.slideindex.app.search.ImageSearchUrlBuilder
 import com.slideindex.app.overlay.pickresult.PickResultPanelMaxWidth
 import com.slideindex.app.overlay.pickresult.pickResultPanelCard
@@ -349,6 +352,8 @@ private fun FloatBallImageSearchPanelContent(
     val engines = remember { ImageSearchEngine.entries }
     var selectedEngine by remember { mutableStateOf(engines.first()) }
     val preloadedUrls = remember { mutableStateMapOf<ImageSearchEngine, String>() }
+    val postResults = remember { mutableStateMapOf<ImageSearchEngine, ImageSearchPostResult>() }
+    val refreshGeneration = remember { mutableStateMapOf<ImageSearchEngine, Int>() }
     val engineWebViews = remember { mutableStateMapOf<ImageSearchEngine, WebView>() }
     val loadingByEngine = remember { mutableStateMapOf<ImageSearchEngine, Boolean>() }
     var mountedEngines by remember { mutableStateOf(setOf<ImageSearchEngine>()) }
@@ -365,6 +370,8 @@ private fun FloatBallImageSearchPanelContent(
         engineWebViews.clear()
         loadingByEngine.clear()
         preloadedUrls.clear()
+        postResults.clear()
+        refreshGeneration.clear()
         isPageLoading = false
 
         val hostedUrl = cachedHostedUrl ?: ImageHostUploader.upload(source)
@@ -375,7 +382,7 @@ private fun FloatBallImageSearchPanelContent(
         if (cachedHostedUrl == null) {
             onUrlUploaded(hostedUrl)
         }
-        engines.forEach { engine ->
+        ImageSearchEngine.hostedUrlEngines.forEach { engine ->
             preloadedUrls[engine] = ImageSearchUrlBuilder.build(engine, hostedUrl)
         }
         Log.d(
@@ -386,7 +393,8 @@ private fun FloatBallImageSearchPanelContent(
     }
 
     LaunchedEffect(phase, webViewSession, preloadedUrls.size) {
-        if (phase != ImageSearchPanelPhase.READY || preloadedUrls.size != engines.size) return@LaunchedEffect
+        val hostedReady = ImageSearchEngine.hostedUrlEngines.all { preloadedUrls.containsKey(it) }
+        if (phase != ImageSearchPanelPhase.READY || !hostedReady) return@LaunchedEffect
         val session = webViewSession
         mountedEngines = setOf(ImageSearchEngine.Google)
 
@@ -409,19 +417,53 @@ private fun FloatBallImageSearchPanelContent(
 
     mountedEngines.forEach { engine ->
         val webView = engineWebViews[engine]
-        LaunchedEffect(engine, webView, preloadedUrls[engine], phase, webViewSession) {
+        val refreshToken = refreshGeneration[engine] ?: 0
+        LaunchedEffect(
+            engine,
+            webView,
+            preloadedUrls[engine],
+            postResults[engine],
+            refreshToken,
+            phase,
+            webViewSession,
+            bitmap,
+        ) {
             if (phase != ImageSearchPanelPhase.READY) return@LaunchedEffect
             val view = engineWebViews[engine] ?: return@LaunchedEffect
-            val url = preloadedUrls[engine] ?: return@LaunchedEffect
-            val expectedKey = "$webViewSession|${engine.name}|$url"
+            val sourceBitmap = bitmap ?: return@LaunchedEffect
+            val expectedKey = when {
+                engine.usesHostedUrl -> {
+                    val url = preloadedUrls[engine] ?: return@LaunchedEffect
+                    "$webViewSession|${engine.name}|url|$url|$refreshToken"
+                }
+                engine.usesDirectPost -> {
+                    "$webViewSession|${engine.name}|post|$refreshToken"
+                }
+                else -> return@LaunchedEffect
+            }
             if (view.getTag(tagLoadedKey) == expectedKey) return@LaunchedEffect
-            view.setTag(tagLoadedKey, expectedKey)
-            view.loadSearchUrlAfterLayout(
-                url = url,
-                engine = engine,
-                context = webViewContext,
-                loadId = webViewSession,
-            )
+
+            if (engine.usesDirectPost) {
+                val result = postResults[engine]
+                    ?: ImageSearchPostUploader.search(sourceBitmap, engine)?.also { postResults[engine] = it }
+                    ?: return@LaunchedEffect
+                view.setTag(tagLoadedKey, expectedKey)
+                view.loadSearchPostResultAfterLayout(
+                    result = result,
+                    engine = engine,
+                    context = webViewContext,
+                    loadId = webViewSession,
+                )
+            } else {
+                val url = preloadedUrls[engine] ?: return@LaunchedEffect
+                view.setTag(tagLoadedKey, expectedKey)
+                view.loadSearchUrlAfterLayout(
+                    url = url,
+                    engine = engine,
+                    context = webViewContext,
+                    loadId = webViewSession,
+                )
+            }
         }
     }
 
@@ -578,28 +620,40 @@ private fun FloatBallImageSearchPanelContent(
                     }
                 }
 
-                Text(
-                    text = stringResource(R.string.float_ball_image_search_privacy_hint),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val currentUrl = preloadedUrls[selectedEngine]
+                    val externalUrl = when {
+                        selectedEngine.usesHostedUrl -> preloadedUrls[selectedEngine]
+                        else -> selectedEngine.externalPageUrl
+                    }
+                    Text(
+                        text = stringResource(R.string.float_ball_image_search_privacy_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp, end = 4.dp),
+                    )
                     IconButton(
                         onClick = {
                             coroutineScope.launch {
                                 if (selectedEngine == ImageSearchEngine.Google) {
                                     clearSearchSessionCookies()
                                 }
-                                engineWebViews[selectedEngine]?.reload()
+                                if (selectedEngine.usesDirectPost) {
+                                    postResults.remove(selectedEngine)
+                                    engineWebViews[selectedEngine]?.setTag(tagLoadedKey, null)
+                                    refreshGeneration[selectedEngine] =
+                                        (refreshGeneration[selectedEngine] ?: 0) + 1
+                                } else {
+                                    engineWebViews[selectedEngine]?.reload()
+                                }
                             }
                         },
                         enabled = phase == ImageSearchPanelPhase.READY,
@@ -608,9 +662,9 @@ private fun FloatBallImageSearchPanelContent(
                     }
                     IconButton(
                         onClick = {
-                            currentUrl?.let(onOpenExternal)
+                            externalUrl?.let(onOpenExternal)
                         },
-                        enabled = phase == ImageSearchPanelPhase.READY && currentUrl != null,
+                        enabled = phase == ImageSearchPanelPhase.READY && externalUrl != null,
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = stringResource(R.string.float_ball_image_search_open_browser))
                     }
@@ -797,6 +851,59 @@ private fun urlMatchesEngine(url: String?, engine: ImageSearchEngine): Boolean {
         ImageSearchEngine.Google -> url.contains("google") || url.contains("lens.google")
         ImageSearchEngine.Yandex -> url.contains("yandex")
         ImageSearchEngine.TinEye -> url.contains("tineye")
+        ImageSearchEngine.Iqdb -> url.contains("iqdb.org") && !url.contains("3d.iqdb")
+        ImageSearchEngine.SauceNao -> url.contains("saucenao")
+        ImageSearchEngine.Iqdb3D -> url.contains("3d.iqdb")
+        ImageSearchEngine.Ascii2d -> url.contains("ascii2d")
+    }
+}
+
+private fun WebView.loadSearchPostResultAfterLayout(
+    result: ImageSearchPostResult,
+    engine: ImageSearchEngine,
+    context: Context,
+    loadId: Int,
+) {
+    fun doLoad() {
+        setTag(tagLoadGeneration, loadId)
+        setTag(tagExpectedEngine, engine)
+        stopLoading()
+        syncSearchUserAgent(context, engine)
+        onResume()
+        CookieManager.getInstance().flush()
+        when (result) {
+            is ImageSearchPostResult.Html -> {
+                Log.d(
+                    WEBVIEW_LOG_TAG,
+                    "loadData: engine=$engine id=$loadId base=${result.baseUrl} " +
+                        "(size=${width}x$height, htmlLen=${result.html.length})",
+                )
+                loadDataWithBaseURL(result.baseUrl, result.html, "text/html", "UTF-8", null)
+            }
+            is ImageSearchPostResult.RedirectUrl -> {
+                Log.d(
+                    WEBVIEW_LOG_TAG,
+                    "loadUrl redirect: ${result.url} engine=$engine id=$loadId " +
+                        "(size=${width}x$height)",
+                )
+                loadUrl(result.url)
+            }
+        }
+    }
+    post {
+        if (width > 0 && height > 0) {
+            doLoad()
+        } else {
+            viewTreeObserver.addOnGlobalLayoutListener(
+                object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        if (width <= 0 || height <= 0) return
+                        viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        doLoad()
+                    }
+                },
+            )
+        }
     }
 }
 

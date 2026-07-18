@@ -6,13 +6,19 @@ import java.net.URLEncoder
 
 object ImageSearchUrlBuilder {
     fun build(engine: ImageSearchEngine, hostedImageUrl: String): String {
+        require(engine.usesHostedUrl) { "Engine $engine does not use hosted image URLs" }
         val encoded = URLEncoder.encode(hostedImageUrl, Charsets.UTF_8.name())
         return when (engine) {
             ImageSearchEngine.Google ->
                 "https://lens.google.com/uploadbyurl?url=$encoded"
-            ImageSearchEngine.Yandex ->
-                "https://yandex.com/images/search?rpt=imageview&url=$encoded"
             ImageSearchEngine.TinEye -> "https://tineye.com/search?url=$encoded"
+            ImageSearchEngine.Yandex,
+            ImageSearchEngine.Iqdb,
+            ImageSearchEngine.SauceNao,
+            ImageSearchEngine.Iqdb3D,
+            ImageSearchEngine.Ascii2d,
+            ->
+                error("Direct POST engines do not use hosted URLs")
         }
     }
 
