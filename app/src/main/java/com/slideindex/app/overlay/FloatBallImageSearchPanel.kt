@@ -609,8 +609,6 @@ private fun createSearchWebView(
         }
         if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
             androidx.webkit.WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())
-        } else if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.REQUESTED_WITH_HEADER_CONTROL)) {
-            androidx.webkit.WebSettingsCompat.setRequestedWithHeaderMode(settings, androidx.webkit.WebSettingsCompat.REQUESTED_WITH_HEADER_NO_HEADER)
         }
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
