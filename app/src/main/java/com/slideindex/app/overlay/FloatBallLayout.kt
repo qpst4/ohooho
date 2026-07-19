@@ -4,6 +4,7 @@ import android.graphics.Rect
 import android.util.DisplayMetrics
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.FloatBallPositionMode
+import com.slideindex.app.settings.FloatBallPositionFractions
 import com.slideindex.app.settings.FloatBallSide
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -13,6 +14,17 @@ internal object FloatBallLayout {
     private const val LINE_VISUAL_WIDTH_DP = 4f
     private const val MIN_CAPTURE_WIDTH_DP = 24f
     private const val MIN_STRIP_HEIGHT_DP = 48f
+    private const val MIN_POSITION_Y_FRACTION = FloatBallPositionFractions.MIN_Y
+    private const val MAX_POSITION_Y_FRACTION = FloatBallPositionFractions.MAX_Y
+
+    fun coerceVisibleFraction(fraction: Float): Float =
+        FloatBallPositionFractions.coerceVisible(fraction)
+
+    fun coerceCustomCenterXFraction(fraction: Float): Float =
+        FloatBallPositionFractions.coerceCustomCenterX(fraction)
+
+    fun coercePositionYFraction(fraction: Float): Float =
+        FloatBallPositionFractions.coerceY(fraction)
 
     fun resolvedActiveSide(settings: AppSettings): FloatBallSide =
         when (settings.floatBallPositionMode) {
@@ -20,7 +32,7 @@ internal object FloatBallLayout {
             FloatBallPositionMode.RIGHT -> FloatBallSide.RIGHT
             FloatBallPositionMode.BOTH_EDGES -> settings.floatBallActiveSide
             FloatBallPositionMode.CUSTOM -> {
-                if (settings.floatBallPositionXFraction < 0.5f) FloatBallSide.LEFT else FloatBallSide.RIGHT
+                if (settings.floatBallCustomCenterXFraction < 0.5f) FloatBallSide.LEFT else FloatBallSide.RIGHT
             }
         }
 
@@ -28,69 +40,95 @@ internal object FloatBallLayout {
         settings.floatBallPositionMode == FloatBallPositionMode.BOTH_EDGES
 
     fun dockCenterY(settings: AppSettings, screenHeight: Int): Float =
-        settings.floatBallPositionYFraction.coerceIn(0.05f, 0.95f) * screenHeight
+        coercePositionYFraction(settings.floatBallPositionYFraction) * screenHeight
 
     fun ballSizePx(settings: AppSettings, density: Float): Int =
         (settings.floatBallSizeDp.coerceIn(36f, 72f) * density).roundToInt()
 
     fun marginPx(density: Float): Int = (EDGE_MARGIN_DP * density).roundToInt()
 
-    fun stripWidthPx(settings: AppSettings, screenWidth: Int, density: Float): Int {
+    fun lineTriggerWidthPx(settings: AppSettings, screenWidth: Int, density: Float): Int {
         val fractionWidth = (screenWidth * settings.floatBallLineWidthFraction.coerceIn(0.04f, 0.5f)).roundToInt()
         val minWidth = (MIN_CAPTURE_WIDTH_DP * density).roundToInt()
         return max(fractionWidth, minWidth)
     }
 
-    fun lineVisualWidthPx(density: Float): Int =
-        max((LINE_VISUAL_WIDTH_DP * density).roundToInt(), 1)
-
-    fun stripHeightPx(settings: AppSettings, screenHeight: Int, density: Float, ballSizePx: Int): Int {
+    fun lineTriggerHeightPx(settings: AppSettings, screenHeight: Int, density: Float): Int {
         val fractionHeight = (screenHeight * settings.floatBallLineHeightFraction.coerceIn(0.04f, 0.4f)).roundToInt()
-        val minHeight = max((MIN_STRIP_HEIGHT_DP * density).roundToInt(), ballSizePx)
+        val minHeight = (MIN_STRIP_HEIGHT_DP * density).roundToInt()
         return max(fractionHeight, minHeight)
     }
 
-    fun ballTopLeft(settings: AppSettings, metrics: DisplayMetrics, activeSide: FloatBallSide): Pair<Int, Int> {
+    fun lineVisualWidthPx(density: Float): Int =
+        max((LINE_VISUAL_WIDTH_DP * density).roundToInt(), 1)
+
+    fun ballTopLeft(
+        settings: AppSettings,
+        metrics: DisplayMetrics,
+        activeSide: FloatBallSide,
+        screenWidthPx: Int = metrics.widthPixels,
+        screenHeightPx: Int = metrics.heightPixels,
+    ): Pair<Int, Int> {
         val density = metrics.density
         val ballSizePx = ballSizePx(settings, density)
         val marginPx = marginPx(density)
-        val centerY = dockCenterY(settings, metrics.heightPixels)
+        val centerY = dockCenterY(settings, screenHeightPx)
         val left = when (settings.floatBallPositionMode) {
             FloatBallPositionMode.CUSTOM -> {
-                val centerX = settings.floatBallPositionXFraction.coerceIn(0.05f, 0.95f) * metrics.widthPixels
+                val centerX = coerceCustomCenterXFraction(settings.floatBallCustomCenterXFraction) * screenWidthPx
                 (centerX - ballSizePx / 2f).roundToInt()
-                    .coerceIn(marginPx, metrics.widthPixels - ballSizePx - marginPx)
             }
-            else -> when (activeSide) {
-                FloatBallSide.LEFT -> 0
-                FloatBallSide.RIGHT -> metrics.widthPixels - ballSizePx
-            }
+            else -> dockedBallLeftPx(
+                activeSide = activeSide,
+                ballSizePx = ballSizePx,
+                screenWidth = screenWidthPx,
+                visibleFraction = coerceVisibleFraction(settings.floatBallVisibleFraction),
+            )
         }
         val top = (centerY - ballSizePx / 2f).roundToInt()
-            .coerceIn(marginPx, metrics.heightPixels - ballSizePx - marginPx)
+            .coerceIn(marginPx, screenHeightPx - ballSizePx - marginPx)
         return left to top
     }
 
-    fun ballCenterPx(settings: AppSettings, metrics: DisplayMetrics, activeSide: FloatBallSide): Pair<Float, Float> {
+    fun ballCenterPx(
+        settings: AppSettings,
+        metrics: DisplayMetrics,
+        activeSide: FloatBallSide,
+        screenWidthPx: Int = metrics.widthPixels,
+        screenHeightPx: Int = metrics.heightPixels,
+    ): Pair<Float, Float> {
         val ballSizePx = ballSizePx(settings, metrics.density)
-        val (left, top) = ballTopLeft(settings, metrics, activeSide)
+        val (left, top) = ballTopLeft(settings, metrics, activeSide, screenWidthPx, screenHeightPx)
         return (left + ballSizePx / 2f) to (top + ballSizePx / 2f)
     }
 
-    fun edgeStripBounds(
+    fun ballWindowBounds(
         settings: AppSettings,
         metrics: DisplayMetrics,
         side: FloatBallSide,
+        screenWidthPx: Int = metrics.widthPixels,
+        screenHeightPx: Int = metrics.heightPixels,
+    ): Rect {
+        val ballSizePx = ballSizePx(settings, metrics.density)
+        val (left, top) = ballTopLeft(settings, metrics, side, screenWidthPx, screenHeightPx)
+        return Rect(left, top, left + ballSizePx, top + ballSizePx)
+    }
+
+    fun lineStripBounds(
+        settings: AppSettings,
+        metrics: DisplayMetrics,
+        side: FloatBallSide,
+        screenWidthPx: Int = metrics.widthPixels,
+        screenHeightPx: Int = metrics.heightPixels,
     ): Rect {
         val density = metrics.density
-        val ballSizePx = ballSizePx(settings, density)
-        val width = stripWidthPx(settings, metrics.widthPixels, density)
-        val height = stripHeightPx(settings, metrics.heightPixels, density, ballSizePx)
-        val centerY = dockCenterY(settings, metrics.heightPixels).roundToInt()
-        val top = (centerY - height / 2).coerceIn(0, metrics.heightPixels - height)
+        val width = lineTriggerWidthPx(settings, screenWidthPx, density)
+        val height = lineTriggerHeightPx(settings, screenHeightPx, density)
+        val centerY = dockCenterY(settings, screenHeightPx).roundToInt()
+        val top = (centerY - height / 2).coerceIn(0, screenHeightPx - height)
         val left = when (side) {
             FloatBallSide.LEFT -> 0
-            FloatBallSide.RIGHT -> metrics.widthPixels - width
+            FloatBallSide.RIGHT -> screenWidthPx - width
         }
         return Rect(left, top, left + width, top + height)
     }
@@ -99,35 +137,32 @@ internal object FloatBallLayout {
     fun activeSideAfterLineDragSwap(settings: AppSettings): FloatBallSide =
         FloatBallSide.opposite(resolvedActiveSide(settings))
 
-    fun dockXFraction(settings: AppSettings, activeSide: FloatBallSide): Float =
-        when (settings.floatBallPositionMode) {
-            FloatBallPositionMode.CUSTOM -> settings.floatBallPositionXFraction
-            FloatBallPositionMode.LEFT -> 0.08f
-            FloatBallPositionMode.RIGHT -> 0.92f
-            FloatBallPositionMode.BOTH_EDGES -> when (activeSide) {
-                FloatBallSide.LEFT -> 0.08f
-                FloatBallSide.RIGHT -> 0.92f
-            }
-        }
-
-    /** Strip window origin so the docked ball visual tracks [ballCenterX]/[ballCenterY]. */
+    /** Ball window origin so the docked ball visual tracks [ballCenterX]/[ballCenterY]. */
     fun stripWindowOriginForBallCenter(
         settings: AppSettings,
         metrics: DisplayMetrics,
         activeSide: FloatBallSide,
         ballCenterX: Float,
         ballCenterY: Float,
+        screenHeightPx: Int = metrics.heightPixels,
     ): Pair<Int, Int> {
         val ballSizePx = ballSizePx(settings, metrics.density)
-        val strip = edgeStripBounds(settings, metrics, activeSide)
-        val stripW = strip.width()
-        val stripH = strip.height()
-        val windowX = when (activeSide) {
-            FloatBallSide.LEFT -> (ballCenterX - ballSizePx / 2f).roundToInt()
-            FloatBallSide.RIGHT -> (ballCenterX + ballSizePx / 2f - stripW).roundToInt()
-        }
-        val windowY = (ballCenterY - stripH / 2f).roundToInt()
-        return windowX.coerceIn(0, metrics.widthPixels - stripW) to
-            windowY.coerceIn(0, metrics.heightPixels - stripH)
+        val windowX = (ballCenterX - ballSizePx / 2f).roundToInt()
+        val windowY = (ballCenterY - ballSizePx / 2f).roundToInt()
+        return windowX to windowY.coerceIn(0, screenHeightPx - ballSizePx)
+    }
+
+    /**
+     * Docked ball window X for [side].
+     * [visibleFraction] is how much of the ball width stays on screen (1 = fully visible, flush to edge).
+     */
+    fun dockedBallLeftPx(
+        activeSide: FloatBallSide,
+        ballSizePx: Int,
+        screenWidth: Int,
+        visibleFraction: Float,
+    ): Int = when (activeSide) {
+        FloatBallSide.LEFT -> (-ballSizePx * (1f - visibleFraction)).roundToInt()
+        FloatBallSide.RIGHT -> (screenWidth - ballSizePx * visibleFraction).roundToInt()
     }
 }

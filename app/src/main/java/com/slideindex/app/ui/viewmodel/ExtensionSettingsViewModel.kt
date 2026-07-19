@@ -1,13 +1,17 @@
 package com.slideindex.app.ui.viewmodel
 
 import android.content.Context
+import androidx.core.net.toUri
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.launcher.QuickLauncherItem
 import com.slideindex.app.settings.FloatingPointerEdgeSide
 import com.slideindex.app.settings.FloatingPointerTrailType
 import com.slideindex.app.settings.FloatBallPositionMode
 import com.slideindex.app.floatball.FloatBallGestureType
+import com.slideindex.app.overlay.FloatBallStyleAssetStore
 import com.slideindex.app.settings.FloatBallStyleType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.slideindex.app.settings.SettingsRepository
 import com.slideindex.app.shell.ShellCommand
 import com.slideindex.app.ui.feedback.UserMessageBus
@@ -290,8 +294,8 @@ class ExtensionSettingsViewModel @Inject constructor(
         settingsRepository.setFloatBallPositionYFraction(fraction)
     }
 
-    fun setFloatBallPositionXFraction(fraction: Float) = launchSettingsWrite {
-        settingsRepository.setFloatBallPositionXFraction(fraction)
+    fun setFloatBallVisibleFraction(fraction: Float) = launchSettingsWrite {
+        settingsRepository.setFloatBallVisibleFraction(fraction)
     }
 
     fun setFloatBallLineHeightFraction(value: Float) = launchSettingsWrite {
@@ -315,15 +319,24 @@ class ExtensionSettingsViewModel @Inject constructor(
     }
 
     fun setFloatBallCustomImageUri(uri: String) = launchSettingsWrite {
-        settingsRepository.setFloatBallCustomImageUri(uri)
+        val stored = withContext(Dispatchers.IO) {
+            FloatBallStyleAssetStore.importCustomImage(appContext, uri.toUri())
+        } ?: uri
+        settingsRepository.setFloatBallCustomImageUri(stored)
     }
 
     fun setFloatBallSlideshowUris(uris: List<String>) = launchSettingsWrite {
-        settingsRepository.setFloatBallSlideshowUris(uris)
+        val stored = withContext(Dispatchers.IO) {
+            FloatBallStyleAssetStore.importSlideshow(appContext, uris.map { it.toUri() })
+        }.ifEmpty { uris }
+        settingsRepository.setFloatBallSlideshowUris(stored)
     }
 
     fun setFloatBallGifUri(uri: String) = launchSettingsWrite {
-        settingsRepository.setFloatBallGifUri(uri)
+        val stored = withContext(Dispatchers.IO) {
+            FloatBallStyleAssetStore.importGif(appContext, uri.toUri())
+        } ?: uri
+        settingsRepository.setFloatBallGifUri(stored)
     }
 
     fun setFloatBallPointerSlopDp(value: Float) = launchSettingsWrite {

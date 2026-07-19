@@ -218,14 +218,14 @@ class SettingsRepository @Inject constructor(
     suspend fun setFloatBallEnabled(enabled: Boolean) = overlay.setFloatBallEnabled(enabled)
     suspend fun setFloatBallSizeDp(value: Float) = overlay.setFloatBallSizeDp(value)
     suspend fun setFloatBallOpacity(value: Float) = overlay.setFloatBallOpacity(value)
-    suspend fun setFloatBallPosition(xFraction: Float, yFraction: Float) =
-        overlay.setFloatBallPosition(xFraction, yFraction)
+    suspend fun setFloatBallPosition(customCenterXFraction: Float, yFraction: Float) =
+        overlay.setFloatBallPosition(customCenterXFraction, yFraction)
 
     suspend fun setFloatBallPositionYFraction(yFraction: Float) =
         overlay.setFloatBallPositionYFraction(yFraction)
 
-    suspend fun setFloatBallPositionXFraction(xFraction: Float) =
-        overlay.setFloatBallPositionXFraction(xFraction)
+    suspend fun setFloatBallVisibleFraction(visibleFraction: Float) =
+        overlay.setFloatBallVisibleFraction(visibleFraction)
 
     suspend fun setFloatBallOcrFallbackEnabled(enabled: Boolean) =
         overlay.setFloatBallOcrFallbackEnabled(enabled)

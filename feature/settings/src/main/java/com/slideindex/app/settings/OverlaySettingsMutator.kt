@@ -373,17 +373,21 @@ class OverlaySettingsMutator @Inject constructor(
         it[SettingsPreferenceKeys.FLOAT_BALL_OPACITY] = value.coerceIn(0.3f, 1f)
     }
 
-    suspend fun setFloatBallPosition(xFraction: Float, yFraction: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] = xFraction.coerceIn(0.05f, 0.95f)
-        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] = yFraction.coerceIn(0.05f, 0.95f)
+    suspend fun setFloatBallPosition(customCenterXFraction: Float, yFraction: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] =
+            FloatBallPositionFractions.coerceCustomCenterX(customCenterXFraction)
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] =
+            FloatBallPositionFractions.coerceY(yFraction)
     }
 
     suspend fun setFloatBallPositionYFraction(yFraction: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] = yFraction.coerceIn(0.05f, 0.95f)
+        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_Y_FRACTION] =
+            FloatBallPositionFractions.coerceY(yFraction)
     }
 
-    suspend fun setFloatBallPositionXFraction(xFraction: Float) = editor.edit {
-        it[SettingsPreferenceKeys.FLOAT_BALL_POSITION_X_FRACTION] = xFraction.coerceIn(0.05f, 0.95f)
+    suspend fun setFloatBallVisibleFraction(visibleFraction: Float) = editor.edit {
+        it[SettingsPreferenceKeys.FLOAT_BALL_VISIBLE_FRACTION] =
+            FloatBallPositionFractions.coerceVisible(visibleFraction)
     }
 
     suspend fun setFloatBallOcrFallbackEnabled(enabled: Boolean) = editor.edit {

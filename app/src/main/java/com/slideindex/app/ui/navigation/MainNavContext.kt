@@ -167,6 +167,14 @@ class MainNavContext(
         sendOverlayPreviewIntent(OverlayService.ACTION_PREVIEW_STOP)
     }
 
+    fun startFloatBallStripZonePreview() {
+        com.slideindex.app.service.SlideIndexAccessibilityService.setFloatBallStripZonePreview(true)
+    }
+
+    fun stopFloatBallStripZonePreview() {
+        com.slideindex.app.service.SlideIndexAccessibilityService.setFloatBallStripZonePreview(false)
+    }
+
     private fun triggerPreviewFocus(
         side: PanelSide,
         handleId: String,

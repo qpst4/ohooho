@@ -1,24 +1,15 @@
 package com.slideindex.app.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.slideindex.app.R
@@ -35,7 +25,6 @@ import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureTriggerType
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.floatball.FloatBallGestureType
-import com.slideindex.app.settings.FloatBallStyleType
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -187,128 +176,4 @@ fun floatBallGestureLabel(type: FloatBallGestureType): String = when (type) {
     FloatBallGestureType.SINGLE_TAP -> stringResource(R.string.float_ball_gesture_single_tap)
     FloatBallGestureType.DOUBLE_TAP -> stringResource(R.string.float_ball_gesture_double_tap)
     FloatBallGestureType.LONG_PRESS -> stringResource(R.string.float_ball_gesture_long_press)
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun FloatBallStyleSection(
-    settings: AppSettings,
-    enabled: Boolean,
-    onStyleTypeChange: (FloatBallStyleType) -> Unit,
-    onCustomImageUriChange: (String) -> Unit,
-    onSlideshowUrisChange: (List<String>) -> Unit,
-    onGifUriChange: (String) -> Unit,
-) {
-    val imagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-    ) { uri ->
-        uri?.let { onCustomImageUriChange(it.toString()) }
-    }
-    val slideshowPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            onSlideshowUrisChange(uris.map { it.toString() })
-        }
-    }
-    val gifPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-    ) { uri ->
-        uri?.let { onGifUriChange(it.toString()) }
-    }
-
-    SettingsSectionTitle(stringResource(R.string.float_ball_section_style))
-    SettingsCard {
-        FloatBallStyleType.entries.forEach { style ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = enabled) { onStyleTypeChange(style) }
-                    .padding(vertical = 8.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = settings.floatBallStyleType == style,
-                    onClick = { if (enabled) onStyleTypeChange(style) },
-                    enabled = enabled,
-                )
-                Text(
-                    text = floatBallStyleLabel(style),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 8.dp),
-                )
-                when (style) {
-                    FloatBallStyleType.CUSTOM_IMAGE -> {
-                        if (settings.floatBallStyleType == style) {
-                            IconButton(
-                                onClick = { imagePicker.launch("image/*") },
-                                enabled = enabled,
-                            ) {
-                                Icon(Icons.Default.Image, contentDescription = null)
-                            }
-                        }
-                    }
-                    FloatBallStyleType.SLIDESHOW -> {
-                        if (settings.floatBallStyleType == style) {
-                            IconButton(
-                                onClick = { slideshowPicker.launch(arrayOf("image/*")) },
-                                enabled = enabled,
-                            ) {
-                                Icon(Icons.Default.Image, contentDescription = null)
-                            }
-                        }
-                    }
-                    FloatBallStyleType.GIF -> {
-                        if (settings.floatBallStyleType == style) {
-                            IconButton(
-                                onClick = { gifPicker.launch("image/*") },
-                                enabled = enabled,
-                            ) {
-                                Icon(Icons.Default.Image, contentDescription = null)
-                            }
-                        }
-                    }
-                    else -> Unit
-                }
-            }
-        }
-    }
-
-    when (settings.floatBallStyleType) {
-        FloatBallStyleType.CUSTOM_IMAGE -> {
-            if (settings.floatBallCustomImageUri.isNotBlank()) {
-                SettingsHintText(stringResource(R.string.float_ball_style_image_selected))
-            } else {
-                SettingsHintText(stringResource(R.string.float_ball_style_custom_image_hint))
-            }
-        }
-        FloatBallStyleType.SLIDESHOW -> {
-            SettingsHintText(
-                pluralStringResource(
-                    R.plurals.float_ball_style_slideshow_hint,
-                    settings.floatBallSlideshowUris.size,
-                    settings.floatBallSlideshowUris.size,
-                ),
-            )
-        }
-        FloatBallStyleType.GIF -> {
-            if (settings.floatBallGifUri.isBlank()) {
-                SettingsHintText(stringResource(R.string.float_ball_style_gif_hint))
-            }
-        }
-        else -> Unit
-    }
-}
-
-@Composable
-fun floatBallStyleLabel(style: FloatBallStyleType): String = when (style) {
-    FloatBallStyleType.DEFAULT -> stringResource(R.string.float_ball_style_default)
-    FloatBallStyleType.PRESET_1 -> stringResource(R.string.float_ball_style_preset_1)
-    FloatBallStyleType.PRESET_2 -> stringResource(R.string.float_ball_style_preset_2)
-    FloatBallStyleType.PRESET_3 -> stringResource(R.string.float_ball_style_preset_3)
-    FloatBallStyleType.PRESET_4 -> stringResource(R.string.float_ball_style_preset_4)
-    FloatBallStyleType.CUSTOM_IMAGE -> stringResource(R.string.float_ball_style_custom_image)
-    FloatBallStyleType.SLIDESHOW -> stringResource(R.string.float_ball_style_slideshow)
-    FloatBallStyleType.GIF -> stringResource(R.string.float_ball_style_gif)
 }

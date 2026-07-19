@@ -190,6 +190,7 @@ internal object SettingsPreferenceKeys {
     val FLOAT_BALL_ENABLED = booleanPreferencesKey("float_ball_enabled")
     val FLOAT_BALL_SIZE_DP = floatPreferencesKey("float_ball_size_dp")
     val FLOAT_BALL_OPACITY = floatPreferencesKey("float_ball_opacity")
+    val FLOAT_BALL_VISIBLE_FRACTION = floatPreferencesKey("float_ball_visible_fraction")
     val FLOAT_BALL_POSITION_X_FRACTION = floatPreferencesKey("float_ball_position_x_fraction")
     val FLOAT_BALL_POSITION_Y_FRACTION = floatPreferencesKey("float_ball_position_y_fraction")
     val FLOAT_BALL_OCR_FALLBACK_ENABLED = booleanPreferencesKey("float_ball_ocr_fallback_enabled")

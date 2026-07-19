@@ -8,8 +8,13 @@ enum class FloatBallPositionMode(val storageKey: String) {
     ;
 
     companion object {
+        val selectable: List<FloatBallPositionMode> = listOf(LEFT, RIGHT, BOTH_EDGES)
+
         fun fromStorageKey(key: String?): FloatBallPositionMode =
-            entries.firstOrNull { it.storageKey == key } ?: RIGHT
+            when (val mode = entries.firstOrNull { it.storageKey == key }) {
+                null, CUSTOM -> RIGHT
+                else -> mode
+            }
     }
 }
 

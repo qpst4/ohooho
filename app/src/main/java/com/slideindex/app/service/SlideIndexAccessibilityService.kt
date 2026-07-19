@@ -127,6 +127,10 @@ class SlideIndexAccessibilityService : AccessibilityService() {
             instance?.edgeOverlayHost?.reloadApps()
         }
 
+        fun setFloatBallStripZonePreview(active: Boolean) {
+            com.slideindex.app.overlay.FloatBallOverlay.setStripZonePreviewActive(active)
+        }
+
         fun setPreviewMode(
             enabled: Boolean,
             content: LayoutPreviewContent = LayoutPreviewContent.TRIGGER_ONLY,

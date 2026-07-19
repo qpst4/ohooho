@@ -13,6 +13,7 @@ import com.slideindex.app.ui.FloatingPointerRadialMenuSettingsScreen
 import com.slideindex.app.ui.FloatingPointerSettingsScreen
 import com.slideindex.app.ui.ExtensionAboutScreen
 import com.slideindex.app.ui.FloatBallAppearanceSettingsScreen
+import com.slideindex.app.ui.FloatBallStyleSettingsScreen
 import com.slideindex.app.ui.FloatBallGestureSettingsScreen
 import com.slideindex.app.ui.FloatBallPickSettingsScreen
 import com.slideindex.app.ui.ShareImageOcrHistoryScreen
@@ -183,11 +184,25 @@ fun EntryProviderScope<AppNavKey>.extensionNavEntries(ctx: MainNavContext) {
             onSizeChange = viewModel::setFloatBallSizeDp,
             onOpacityChange = viewModel::setFloatBallOpacity,
             onPositionModeChange = viewModel::setFloatBallPositionMode,
+            onVisibleFractionChange = viewModel::setFloatBallVisibleFraction,
             onPositionYChange = viewModel::setFloatBallPositionYFraction,
-            onPositionXChange = viewModel::setFloatBallPositionXFraction,
             onLineHeightChange = viewModel::setFloatBallLineHeightFraction,
             onLineWidthChange = viewModel::setFloatBallLineWidthFraction,
             onLineOpacityChange = viewModel::setFloatBallLineOpacity,
+            onOpenStyleSettings = { ctx.navigate(AppNavKey.FloatBallStyle) },
+            onStripZonePreviewStart = { ctx.startFloatBallStripZonePreview() },
+            onStripZonePreviewStop = { ctx.stopFloatBallStripZonePreview() },
+        )
+    }
+
+    entry<AppNavKey.FloatBallStyle> {
+        val viewModel: ExtensionSettingsViewModel = hiltViewModel()
+        val settings by viewModel.settings.collectAsStateWithLifecycle()
+        val permissions = ctx.collectPermissions()
+        FloatBallStyleSettingsScreen(
+            settings = settings,
+            enabled = settings.floatBallEnabled && permissions.accessibilityGranted,
+            onBack = { ctx.navigateBackTo(AppNavKey.FloatBallAppearance) },
             onStyleTypeChange = viewModel::setFloatBallStyleType,
             onCustomImageUriChange = viewModel::setFloatBallCustomImageUri,
             onSlideshowUrisChange = viewModel::setFloatBallSlideshowUris,

@@ -85,12 +85,13 @@ internal class FloatBallDragSession {
   ): Offset {
     val center = ballCenter()
     val half = ballSizePx / 2f
-    val minCenter = marginPx + half
-    val maxCenterX = screenWidth - marginPx - half
+    val minCenterX = -half
+    val maxCenterX = screenWidth + half
+    val minCenterY = marginPx + half
     val maxCenterY = screenHeight - marginPx - half
     return Offset(
-      x = center.x.coerceIn(minCenter, maxCenterX),
-      y = center.y.coerceIn(minCenter, maxCenterY),
+      x = center.x.coerceIn(minCenterX, maxCenterX),
+      y = center.y.coerceIn(minCenterY, maxCenterY),
     )
   }
 

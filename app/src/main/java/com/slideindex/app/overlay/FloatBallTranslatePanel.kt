@@ -19,7 +19,7 @@ import android.os.Looper
 import android.util.Log
 
 import android.view.Gravity
-
+import android.view.View
 import android.view.WindowManager
 
 import android.widget.Toast
@@ -159,6 +159,28 @@ object FloatBallTranslatePanel {
     internal val panelVisible = mutableStateOf(false)
 
     val isShowing: Boolean get() = composeView != null
+
+    private var fileChooserSuppressed = false
+
+    fun suppressForFileChooser() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { suppressForFileChooser() }
+            return
+        }
+        if (composeView == null || fileChooserSuppressed) return
+        fileChooserSuppressed = true
+        composeView?.visibility = View.GONE
+    }
+
+    fun restoreAfterFileChooser() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { restoreAfterFileChooser() }
+            return
+        }
+        if (!fileChooserSuppressed) return
+        fileChooserSuppressed = false
+        composeView?.visibility = View.VISIBLE
+    }
 
 
 

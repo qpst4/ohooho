@@ -621,10 +621,12 @@
     <string name="float_ball_position_both_edges">左右两边同时显示</string>
     <string name="float_ball_position_custom">自定义</string>
     <string name="float_ball_position_y">垂直位置</string>
-    <string name="float_ball_position_x">水平位置</string>
+    <string name="float_ball_visible_fraction">显示百分比</string>
     <string name="float_ball_position_y_hint">贴边模式下球与边缘线共用此高度；左右/双侧模式仅垂直位置可调。</string>
+    <string name="float_ball_position_xy_hint" formatted="false">显示百分比表示贴边时球体留在屏幕内的比例：100% 为整球可见，50% 为一半在屏外。左右贴边与双侧模式共用此设置；垂直位置按屏幕百分比调节。</string>
     <string name="float_ball_line_height">线高度</string>
     <string name="float_ball_line_width">触发区宽度</string>
+    <string name="float_ball_line_width_preview_hint">拖动「触发区宽度」滑块时，会在屏幕边缘预览有效滑动范围</string>
     <string name="float_ball_line_opacity">线透明度</string>
     <string name="float_ball_line_hint">细线贴在屏幕边缘；触发区宽度仅影响向内滑动的有效范围，不改变线的贴边位置。</string>
     <string name="float_ball_size">球体大小</string>
@@ -706,6 +708,9 @@
     <string name="float_ball_image_search_open_browser">在浏览器中打开</string>
     <string name="float_ball_image_search_no_engines">没有可用的聚合搜索引擎，请在设置中开启</string>
     <string name="float_ball_image_search_ascii2d_screenshot_saved">截图已保存到相册，可在 ASCII2D 上传时选择该文件</string>
+    <string name="float_ball_image_search_tab_loading">搜索中</string>
+    <string name="float_ball_image_search_tab_ready">搜索完成</string>
+    <string name="float_ball_image_search_tab_failed">搜索失败</string>
     <string name="float_ball_pick_source_a11y">无障碍</string>
     <string name="float_ball_pick_source_ocr">OCR</string>
     <string name="float_ball_paste_empty">剪贴板为空</string>
@@ -748,6 +753,11 @@
     <string name="float_ball_gesture_double_tap">双击</string>
     <string name="float_ball_gesture_long_press">长按</string>
     <string name="float_ball_section_style">样式</string>
+    <string name="float_ball_style_picker_title">悬浮球样式</string>
+    <string name="float_ball_style_picker_summary">选择悬浮球外观样式</string>
+    <string name="float_ball_style_pick_image">选择图片</string>
+    <string name="float_ball_style_pick_slideshow">选择幻灯片图片</string>
+    <string name="float_ball_style_pick_gif">选择 GIF</string>
     <string name="float_ball_style_default">默认样式</string>
     <string name="float_ball_style_preset_1">预设样式 1</string>
     <string name="float_ball_style_preset_2">预设样式 2</string>

@@ -334,10 +334,12 @@
     <string name="float_ball_position_both_edges">Both edges</string>
     <string name="float_ball_position_custom">Custom</string>
     <string name="float_ball_position_y">Vertical position</string>
-    <string name="float_ball_position_x">Horizontal position</string>
+    <string name="float_ball_visible_fraction">Visible amount</string>
     <string name="float_ball_position_y_hint">In edge mode the ball and edge line share this height; in left/right/both modes only vertical position is adjustable.</string>
+    <string name="float_ball_position_xy_hint" formatted="false">Visible amount is how much of the ball stays on screen when docked: 100% fully visible, 50% half off-screen. Applies to left, right, and both-edge modes. Vertical position is a screen percentage.</string>
     <string name="float_ball_line_height">Line height</string>
     <string name="float_ball_line_width">Trigger width</string>
+    <string name="float_ball_line_width_preview_hint">Drag the trigger width slider to preview the active swipe zone along the screen edge.</string>
     <string name="float_ball_line_opacity">Line opacity</string>
     <string name="float_ball_translation_settings_title">Translate</string>
     <string name="float_ball_translation_settings_hint">When instant translate is off, translation opens Google Translate in the browser. For instant translate and offline ML Kit translation in games and other apps, Google Translate must be reachable.</string>
@@ -486,6 +488,11 @@
     <string name="float_ball_gesture_double_tap">Double tap</string>
     <string name="float_ball_gesture_long_press">Long press</string>
     <string name="float_ball_section_style">Style</string>
+    <string name="float_ball_style_picker_title">Float ball style</string>
+    <string name="float_ball_style_picker_summary">Choose how the float ball looks</string>
+    <string name="float_ball_style_pick_image">Pick image</string>
+    <string name="float_ball_style_pick_slideshow">Pick slideshow images</string>
+    <string name="float_ball_style_pick_gif">Pick GIF</string>
     <string name="float_ball_style_default">Default</string>
     <string name="float_ball_style_preset_1">Preset 1</string>
     <string name="float_ball_style_preset_2">Preset 2</string>
@@ -582,6 +589,9 @@
     <string name="float_ball_image_search_open_browser">Open in browser</string>
     <string name="float_ball_image_search_no_engines">No aggregated search engines are enabled. Turn one on in settings.</string>
     <string name="float_ball_image_search_ascii2d_screenshot_saved">Screenshot saved to gallery. Select it when uploading in ASCII2D.</string>
+    <string name="float_ball_image_search_tab_loading">Searching</string>
+    <string name="float_ball_image_search_tab_ready">Search complete</string>
+    <string name="float_ball_image_search_tab_failed">Search failed</string>
     <string name="float_ball_pick_source_a11y">Accessibility</string>
     <string name="float_ball_pick_source_ocr">OCR</string>
     <string name="float_ball_paste_empty">Clipboard is empty</string>

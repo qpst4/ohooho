@@ -149,8 +149,10 @@ data class AppSettings(
     val floatBallEnabled: Boolean = false,
     val floatBallSizeDp: Float = 48f,
     val floatBallOpacity: Float = 0.88f,
-    /** Ball center X as fraction of screen width (0–1). */
-    val floatBallPositionXFraction: Float = 0.92f,
+    /** Fraction of ball width visible on screen when docked to an edge (0.5–1). */
+    val floatBallVisibleFraction: Float = 1f,
+    /** CUSTOM mode only: ball center X as fraction of screen width. */
+    val floatBallCustomCenterXFraction: Float = 0.92f,
     /** Ball center Y as fraction of screen height (0–1). */
     val floatBallPositionYFraction: Float = 0.55f,
     /** When a11y text pick fails, capture screen region and run on-device OCR. */
