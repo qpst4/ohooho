@@ -14,6 +14,7 @@ object ImageHostUploader {
     private const val TAG = "ImageHostUploader"
     private const val USER_AGENT = "SlideIndex-ImageSearch/1.0"
     private const val TIMEOUT_MS = 30_000
+    private const val MAX_UPLOAD_LENGTH = 2048
 
     suspend fun upload(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
         val uploadBitmap = bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
@@ -27,7 +28,7 @@ object ImageHostUploader {
     }
 
     private fun compressToJpeg(bitmap: Bitmap): ByteArray {
-        val resized = ImageSearchBitmapUtils.resizeForUpload(bitmap)
+        val resized = ImageSearchBitmapUtils.resizeForUpload(bitmap, maxLength = MAX_UPLOAD_LENGTH)
         val shouldRecycleResized = resized !== bitmap
         return try {
             ByteArrayOutputStream().apply {

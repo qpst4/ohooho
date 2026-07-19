@@ -465,7 +465,8 @@ private fun FloatBallImageSearchPanelContent(
                 uploadFailed[engine] = false
             }
         }
-        orderedPreload.filter { it.usesDirectPost }.forEach { engine ->
+        val postPreload = orderedPreload.filter { it.usesDirectPost }
+        postPreload.forEach { engine ->
             loadingByEngine[engine] = true
             uploadFailed[engine] = false
         }
@@ -478,6 +479,19 @@ private fun FloatBallImageSearchPanelContent(
                     cachedHostedUrl = cachedHostedUrl,
                     onUrlUploaded = onUrlUploaded,
                     preloadedUrls = preloadedUrls,
+                    loadingByEngine = loadingByEngine,
+                    uploadFailed = uploadFailed,
+                )
+            }
+        }
+
+        coroutineScope.launch {
+            if (postPreload.isNotEmpty()) {
+                preloadPostSearchResults(
+                    source = source,
+                    engines = postPreload,
+                    isSessionActive = { session == webViewSession },
+                    postResults = postResults,
                     loadingByEngine = loadingByEngine,
                     uploadFailed = uploadFailed,
                 )
@@ -517,7 +531,7 @@ private fun FloatBallImageSearchPanelContent(
             bitmap,
         ) {
             val view = engineWebViews[engine] ?: return@LaunchedEffect
-            val sourceBitmap = bitmap ?: return@LaunchedEffect
+            if (bitmap == null) return@LaunchedEffect
             val expectedKey = when {
                 engine.usesHostedUrl -> {
                     val url = preloadedUrls[engine] ?: return@LaunchedEffect
@@ -531,15 +545,8 @@ private fun FloatBallImageSearchPanelContent(
             if (view.getTag(tagLoadedKey) == expectedKey) return@LaunchedEffect
 
             if (engine.usesDirectPost) {
-                loadingByEngine[engine] = true
-                uploadFailed[engine] = false
-                val result = postResults[engine]
-                    ?: ImageSearchPostUploader.search(sourceBitmap, engine)?.also { postResults[engine] = it }
-                if (result == null) {
-                    loadingByEngine[engine] = false
-                    uploadFailed[engine] = true
-                    return@LaunchedEffect
-                }
+                val result = postResults[engine] ?: return@LaunchedEffect
+                if (uploadFailed[engine] == true) return@LaunchedEffect
                 view.setTag(tagLoadedKey, expectedKey)
                 view.loadSearchPostResultAfterLayout(
                     result = result,
@@ -632,11 +639,20 @@ private fun FloatBallImageSearchPanelContent(
                         }
                         selectedEngine = engine
                         mountedEngines = mountedEngines + engine
-                        if (engine.usesDirectPost && postResults[engine] == null) {
+                        val source = bitmap
+                        if (source != null && engine.usesDirectPost && postResults[engine] == null) {
                             loadingByEngine[engine] = true
                             uploadFailed[engine] = false
+                            coroutineScope.launch {
+                                ensurePostSearchResult(
+                                    source = source,
+                                    engine = engine,
+                                    postResults = postResults,
+                                    loadingByEngine = loadingByEngine,
+                                    uploadFailed = uploadFailed,
+                                )
+                            }
                         }
-                        val source = bitmap
                         if (source != null && engine.usesHostedUrl && preloadedUrls[engine] == null) {
                             loadingByEngine[engine] = true
                             uploadFailed[engine] = false
@@ -768,6 +784,18 @@ private fun FloatBallImageSearchPanelContent(
                                     readyByEngine.remove(activeEngine)
                                     retryTokenByEngine[activeEngine] =
                                         (retryTokenByEngine[activeEngine] ?: 0) + 1
+                                    val source = bitmap
+                                    if (source != null && activeEngine.usesDirectPost) {
+                                        coroutineScope.launch {
+                                            ensurePostSearchResult(
+                                                source = source,
+                                                engine = activeEngine,
+                                                postResults = postResults,
+                                                loadingByEngine = loadingByEngine,
+                                                uploadFailed = uploadFailed,
+                                            )
+                                        }
+                                    }
                                 },
                             )
                         }
@@ -833,6 +861,16 @@ private fun FloatBallImageSearchPanelContent(
                                     engineWebViews[activeEngine]?.setTag(tagLoadedKey, null)
                                     refreshGeneration[activeEngine] =
                                         (refreshGeneration[activeEngine] ?: 0) + 1
+                                    val source = bitmap
+                                    if (source != null) {
+                                        ensurePostSearchResult(
+                                            source = source,
+                                            engine = activeEngine,
+                                            postResults = postResults,
+                                            loadingByEngine = loadingByEngine,
+                                            uploadFailed = uploadFailed,
+                                        )
+                                    }
                                 } else {
                                     engineWebViews[activeEngine]?.reload()
                                 }
@@ -953,6 +991,58 @@ private fun EngineTabRow(
                 }
             }
         }
+    }
+}
+
+private suspend fun preloadPostSearchResults(
+    source: Bitmap,
+    engines: List<ImageSearchEngine>,
+    isSessionActive: () -> Boolean,
+    postResults: MutableMap<ImageSearchEngine, ImageSearchPostResult>,
+    loadingByEngine: MutableMap<ImageSearchEngine, Boolean>,
+    uploadFailed: MutableMap<ImageSearchEngine, Boolean>,
+) {
+    val postEngines = engines.filter { it.usesDirectPost }
+    if (postEngines.isEmpty()) return
+    postEngines.forEach { engine ->
+        loadingByEngine[engine] = true
+        uploadFailed[engine] = false
+    }
+    val results = withContext(Dispatchers.IO) {
+        ImageSearchPostUploader.searchParallel(source, postEngines)
+    }
+    if (!isSessionActive()) return
+    postEngines.forEach { engine ->
+        val result = results[engine]
+        if (result != null) {
+            postResults[engine] = result
+            uploadFailed[engine] = false
+        } else {
+            uploadFailed[engine] = true
+            loadingByEngine[engine] = false
+        }
+    }
+}
+
+private suspend fun ensurePostSearchResult(
+    source: Bitmap,
+    engine: ImageSearchEngine,
+    postResults: MutableMap<ImageSearchEngine, ImageSearchPostResult>,
+    loadingByEngine: MutableMap<ImageSearchEngine, Boolean>,
+    uploadFailed: MutableMap<ImageSearchEngine, Boolean>,
+) {
+    if (!engine.usesDirectPost || postResults[engine] != null) return
+    loadingByEngine[engine] = true
+    uploadFailed[engine] = false
+    val result = withContext(Dispatchers.IO) {
+        ImageSearchPostUploader.search(source, engine)
+    }
+    if (result != null) {
+        postResults[engine] = result
+        uploadFailed[engine] = false
+    } else {
+        uploadFailed[engine] = true
+        loadingByEngine[engine] = false
     }
 }
 

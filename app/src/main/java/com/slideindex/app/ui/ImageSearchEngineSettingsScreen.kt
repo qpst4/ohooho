@@ -136,7 +136,7 @@ fun ImageSearchEngineSettingsScreen(
             if (engine != null) {
                 AggregatedImageSearchEngineReorderRow(
                     engine = engine,
-                    subtitle = aggregatedImageSearchEngineStatusSummary(config),
+                    subtitle = aggregatedImageSearchEngineRowSubtitle(engine, config),
                     segmentIndex = segmentIndex,
                     segmentCount = segmentCount,
                     onClick = { onOpenAggregatedEngine(config.engineId) },

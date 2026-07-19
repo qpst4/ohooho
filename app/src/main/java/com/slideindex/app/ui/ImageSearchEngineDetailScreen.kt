@@ -25,6 +25,11 @@ fun ImageSearchEngineDetailScreen(
         onBack = onBack,
     ) {
         SettingsCard {
+            SettingsHintText(
+                text = "${imageSearchEngineModeLabel(engine)} · ${imageSearchEngineModeDescription(engine)}",
+            )
+        }
+        SettingsCard {
             SettingSwitchRow(
                 title = stringResource(R.string.image_search_engine_show_in_panel),
                 checked = config.showInPanel,

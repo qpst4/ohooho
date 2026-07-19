@@ -17,6 +17,18 @@ object NotificationHistoryIntentCapture {
     )
 
     fun capture(sbn: StatusBarNotification, context: Context): CapturedIntent {
+        return runCatching { captureUnchecked(sbn, context) }
+            .onFailure { error ->
+                Log.w(
+                    NotificationHistoryIntentSerialization.TAG,
+                    "Notification intent capture failed for ${sbn.packageName} key=${sbn.key}",
+                    error,
+                )
+            }
+            .getOrDefault(emptyCapture())
+    }
+
+    private fun captureUnchecked(sbn: StatusBarNotification, context: Context): CapturedIntent {
         val notification = sbn.notification ?: return emptyCapture()
         val notificationExtras = notification.extras
         val extrasBase64 = NotificationHistoryIntentSerialization.serializeNotificationExtras(notificationExtras)

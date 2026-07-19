@@ -3,6 +3,9 @@ package com.slideindex.app.search
 import android.graphics.Bitmap
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
@@ -14,42 +17,44 @@ import java.net.URL
 object ImageSearchPostUploader {
     private const val TAG = "ImageSearchPostUploader"
     private const val TIMEOUT_MS = 60_000
-    private const val JPEG_QUALITY = 50
-    private const val MAX_LENGTH = 800
     private const val BOUNDARY = "U1DCBvfRB8uKxu-pX-R-854T-dkBP8UH"
     private const val LINE_BREAK = "\r\n"
 
     suspend fun search(bitmap: Bitmap, engine: ImageSearchEngine): ImageSearchPostResult? =
-        withContext(Dispatchers.IO) {
-            require(engine.usesDirectPost) { "Engine $engine does not use direct POST upload" }
-            val uploadBitmap = bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
-            try {
-                val imageBytes = compressToJpeg(uploadBitmap)
-                postImage(engine, imageBytes)
-            } finally {
-                uploadBitmap.recycle()
-            }
-        }
+        searchParallel(bitmap, listOf(engine))[engine]
 
-    private fun compressToJpeg(bitmap: Bitmap): ByteArray {
-        val resized = ImageSearchBitmapUtils.resizeForUpload(bitmap, maxLength = MAX_LENGTH)
-        val shouldRecycleResized = resized !== bitmap
-        return try {
-            ByteArrayOutputStream().apply {
-                resized.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, this)
-            }.toByteArray()
-        } finally {
-            if (shouldRecycleResized) {
-                resized.recycle()
+    suspend fun searchParallel(
+        bitmap: Bitmap,
+        engines: List<ImageSearchEngine>,
+    ): Map<ImageSearchEngine, ImageSearchPostResult?> = withContext(Dispatchers.IO) {
+        val postEngines = engines.filter { it.usesDirectPost }
+        if (postEngines.isEmpty()) return@withContext emptyMap()
+
+        val uploadBitmap = bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+        try {
+            val imageBytes = encodeBitmap(uploadBitmap)
+            coroutineScope {
+                postEngines
+                    .map { engine -> async { engine to postImage(engine, imageBytes) } }
+                    .awaitAll()
+                    .toMap()
             }
+        } finally {
+            uploadBitmap.recycle()
         }
     }
+
+    private fun encodeBitmap(bitmap: Bitmap): ByteArray =
+        ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        }
 
     private fun postImage(engine: ImageSearchEngine, imageBytes: ByteArray): ImageSearchPostResult? {
         val startedAt = System.currentTimeMillis()
         val postUrl = engine.postUploadUrl ?: return null
         val baseUrl = engine.webViewBaseUrl ?: return null
-        val fileName = "${System.currentTimeMillis() / 1000}.jpg"
+        val fileName = "${System.currentTimeMillis() / 1000}.png"
         return try {
             val connection = (URL(postUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -111,7 +116,7 @@ object ImageSearchPostUploader {
         dos.writeBytes(
             "Content-Disposition: form-data; name=\"$fieldName\"; filename=\"$fileName\"$LINE_BREAK",
         )
-        dos.writeBytes("Content-Type: application/octet-stream$LINE_BREAK")
+        dos.writeBytes("Content-Type: image/png$LINE_BREAK")
         dos.writeBytes(LINE_BREAK)
         dos.write(imageBytes)
         dos.writeBytes(LINE_BREAK)

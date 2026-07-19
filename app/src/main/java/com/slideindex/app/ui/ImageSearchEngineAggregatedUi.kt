@@ -10,6 +10,32 @@ fun resolveImageSearchEngine(engineId: String): ImageSearchEngine? =
     ImageSearchEngine.entries.find { it.name == engineId }
 
 @Composable
+fun imageSearchEngineModeLabel(engine: ImageSearchEngine): String = stringResource(
+    when {
+        engine.usesDirectPost -> R.string.image_search_engine_mode_direct_post
+        else -> R.string.image_search_engine_mode_hosted_url
+    },
+)
+
+@Composable
+fun imageSearchEngineModeDescription(engine: ImageSearchEngine): String = stringResource(
+    when {
+        engine.usesDirectPost -> R.string.image_search_engine_mode_direct_post_desc
+        else -> R.string.image_search_engine_mode_hosted_url_desc
+    },
+)
+
+@Composable
+fun aggregatedImageSearchEngineRowSubtitle(
+    engine: ImageSearchEngine,
+    config: AggregatedImageSearchEngineConfig,
+): String {
+    val mode = imageSearchEngineModeLabel(engine)
+    val status = aggregatedImageSearchEngineStatusSummary(config)
+    return "$mode · $status"
+}
+
+@Composable
 fun aggregatedImageSearchEngineStatusSummary(config: AggregatedImageSearchEngineConfig): String {
     if (!config.showInPanel) {
         return stringResource(R.string.image_search_engine_status_hidden)

@@ -11,14 +11,20 @@ object BundleParcelCompat {
     }
 
     fun getParcelableArrayOfBundles(bundle: Bundle, key: String): Array<Bundle>? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            bundle.getParcelableArray(key, Bundle::class.java)
-        } else {
+        val array: Array<out Parcelable>? = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                bundle.getParcelableArray(key, Bundle::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                bundle.getParcelableArray(key)
+            }
+        }.getOrElse {
             @Suppress("DEPRECATION")
             bundle.getParcelableArray(key)
-                ?.mapNotNull { it as? Bundle }
-                ?.toTypedArray()
         }
+        return array
+            ?.mapNotNull { it as? Bundle }
+            ?.toTypedArray()
     }
 
     fun <T : Parcelable> getParcelable(bundle: Bundle, key: String, clazz: Class<T>): T? {

@@ -460,8 +460,10 @@
     <string name="image_search_engine_status_hidden">Hidden</string>
     <string name="image_search_engine_status_visible_preload">Visible · Preload on open</string>
     <string name="image_search_engine_status_visible_on_tab">Visible · Search on tab switch</string>
-    <string name="image_search_engine_mode_hosted_url">Hosted image URL</string>
-    <string name="image_search_engine_mode_direct_post">Direct upload</string>
+    <string name="image_search_engine_mode_hosted_url">Hosted URL</string>
+    <string name="image_search_engine_mode_direct_post">POST</string>
+    <string name="image_search_engine_mode_hosted_url_desc">Uploads the image to a host, then searches by URL</string>
+    <string name="image_search_engine_mode_direct_post_desc">Uploads the image directly to the search engine</string>
     <string name="image_search_engine_share_section">Share to app (%1$d)</string>
     <string name="image_search_engine_share_hint">Shown on the screenshot bar. Tap to open the app directly. Long-press to reorder.</string>
     <string name="image_search_engine_add_share_target">Add share target</string>

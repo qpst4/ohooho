@@ -883,8 +883,10 @@
     <string name="image_search_engine_status_hidden">已隐藏</string>
     <string name="image_search_engine_status_visible_preload">显示 · 打开时并行搜索</string>
     <string name="image_search_engine_status_visible_on_tab">显示 · 切换 Tab 时搜索</string>
-    <string name="image_search_engine_mode_hosted_url">图床链接</string>
-    <string name="image_search_engine_mode_direct_post">直传上传</string>
+    <string name="image_search_engine_mode_hosted_url">图床</string>
+    <string name="image_search_engine_mode_direct_post">POST</string>
+    <string name="image_search_engine_mode_hosted_url_desc">图片先上传图床，搜索引擎通过链接检索</string>
+    <string name="image_search_engine_mode_direct_post_desc">图片直接上传到搜索引擎检索</string>
     <string name="image_search_engine_share_section">分享到 App（%1$d）</string>
     <string name="image_search_engine_share_hint">配置后显示在截图底栏，点击直达目标 App。长按可拖动排序</string>
     <string name="image_search_engine_add_share_target">添加分享目标</string>
