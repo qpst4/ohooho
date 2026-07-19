@@ -50,9 +50,11 @@ internal class FloatBallGestureDetector(
     private var onPickEnd: (() -> Unit)? = null
     private var onPickCancel: (() -> Unit)? = null
     private var onGesture: ((FloatBallGestureType, rawX: Float, rawY: Float) -> Unit)? = null
+    private var onGestureHint: ((FloatBallGestureType?) -> Unit)? = null
 
     private val pickGestureLockRunnable = Runnable {
         pickGestureLocked = true
+        onGestureHint?.invoke(null)
     }
 
     private val longPressRunnable = Runnable {
@@ -85,6 +87,7 @@ internal class FloatBallGestureDetector(
         onPickEnd: () -> Unit,
         onPickCancel: () -> Unit,
         onGesture: (FloatBallGestureType, rawX: Float, rawY: Float) -> Unit,
+        onGestureHint: (FloatBallGestureType?) -> Unit = {},
     ) {
         this.density = density
         downSwipeShortPx = swipeThresholdPx(settings.floatBallDownSwipeShortPercent, density)
@@ -96,6 +99,7 @@ internal class FloatBallGestureDetector(
         this.onPickEnd = onPickEnd
         this.onPickCancel = onPickCancel
         this.onGesture = onGesture
+        this.onGestureHint = onGestureHint
     }
 
     fun onTouchEvent(event: MotionEvent): Boolean {
@@ -108,6 +112,7 @@ internal class FloatBallGestureDetector(
                 lastY = downY
                 downTime = SystemClock.uptimeMillis()
                 pickActive = true
+                onGestureHint?.invoke(null)
                 onPickStart?.invoke(downX, downY)
                 handler.postDelayed(pickGestureLockRunnable, PICK_GESTURE_LOCK_MS)
                 handler.postDelayed(longPressRunnable, LONG_PRESS_MS)
@@ -125,9 +130,11 @@ internal class FloatBallGestureDetector(
                     handler.removeCallbacks(longPressRunnable)
                     pendingSingleTap = false
                 }
+                emitGestureHint(event.rawX - downX, event.rawY - downY)
                 return true
             }
             MotionEvent.ACTION_UP -> {
+                onGestureHint?.invoke(null)
                 cancelDeferredCallbacks()
                 val dx = event.rawX - downX
                 val dy = event.rawY - downY
@@ -152,6 +159,7 @@ internal class FloatBallGestureDetector(
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
+                onGestureHint?.invoke(null)
                 cancelDeferredCallbacks()
                 if (pickActive) {
                     pickActive = false
@@ -219,6 +227,16 @@ internal class FloatBallGestureDetector(
             absDx > absDy * DIRECTION_RATIO -> true
             else -> false
         }
+    }
+
+    internal fun predictSwipeGesture(dx: Float, dy: Float): FloatBallGestureType? {
+        if (pickGestureLocked || longPressFired) return null
+        if (!qualifiesAsSwipe(dx, dy)) return null
+        return classifySwipe(dx, dy)
+    }
+
+    private fun emitGestureHint(dx: Float, dy: Float) {
+        onGestureHint?.invoke(predictSwipeGesture(dx, dy))
     }
 
     private fun classifySwipe(dx: Float, dy: Float): FloatBallGestureType? {

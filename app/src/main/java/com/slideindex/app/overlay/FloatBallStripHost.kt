@@ -20,6 +20,7 @@ internal class FloatBallStripHost(context: Context) : FrameLayout(context) {
     private var onDragEnd: (() -> Unit)? = null
     private var onDragCancel: (() -> Unit)? = null
     private var onGesture: ((FloatBallGestureType, rawX: Float, rawY: Float) -> Unit)? = null
+    private var onGestureHint: ((FloatBallGestureType?) -> Unit)? = null
 
     fun updateSettings(settings: AppSettings) {
         this.settings = settings
@@ -32,6 +33,7 @@ internal class FloatBallStripHost(context: Context) : FrameLayout(context) {
             onPickEnd = { onDragEnd?.invoke() },
             onPickCancel = { onDragCancel?.invoke() },
             onGesture = { type, rawX, rawY -> onGesture?.invoke(type, rawX, rawY) },
+            onGestureHint = { type -> onGestureHint?.invoke(type) },
         )
     }
 
@@ -41,12 +43,14 @@ internal class FloatBallStripHost(context: Context) : FrameLayout(context) {
         onDragEnd: () -> Unit,
         onDragCancel: () -> Unit,
         onGesture: (FloatBallGestureType, rawX: Float, rawY: Float) -> Unit,
+        onGestureHint: (FloatBallGestureType?) -> Unit = {},
     ) {
         this.onDragStart = onDragStart
         this.onDrag = onDrag
         this.onDragEnd = onDragEnd
         this.onDragCancel = onDragCancel
         this.onGesture = onGesture
+        this.onGestureHint = onGestureHint
         settings?.let { updateSettings(it) }
     }
 

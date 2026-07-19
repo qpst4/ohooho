@@ -162,6 +162,8 @@ object FloatBallOverlay {
     private var lastBoundsLookupX = Float.NaN
     private var lastBoundsLookupY = Float.NaN
     private var boundsLookupThrottleRunnable: Runnable? = null
+    private val gestureHintWindow = FloatBallGestureHintWindow()
+    private var currentGestureHintType: FloatBallGestureType? = null
 
     private data class PreviewBoundsLookupProfile(
         val intervalMs: Long,
@@ -261,6 +263,7 @@ object FloatBallOverlay {
         edgeCaptureHost?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
         lineHost?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
         cursorView?.let { view -> wm?.let { runCatching { it.removeView(view) } } }
+        gestureHintWindow.detach()
         screenOffReceiver?.let { receiver ->
             appContext?.let { ctx -> runCatching { ctx.unregisterReceiver(receiver) } }
         }
@@ -309,6 +312,7 @@ object FloatBallOverlay {
         activeSideAtDragStart = null
         cancelBallLayoutThrottle()
         dragSession.reset()
+        currentGestureHintType = null
     }
 
     fun relayout() {
@@ -342,6 +346,7 @@ object FloatBallOverlay {
         ballView?.visibility = View.GONE
         edgeCaptureHost?.visibility = View.GONE
         lineHost?.visibility = View.GONE
+        hideGestureHintWindow()
         hideCursor()
     }
 
@@ -374,6 +379,11 @@ object FloatBallOverlay {
         styleVisualGenerationState = styleVisualGeneration
 
         val dragCallbacks = object {
+            fun onGestureHint(gestureType: FloatBallGestureType?) {
+                currentGestureHintType = gestureType
+                updateGestureHintWindow()
+            }
+
             fun onStart(screenX: Float, screenY: Float) {
                 activeSideAtDragStart = null
                 dragOriginatedFromLine = false
@@ -416,8 +426,10 @@ object FloatBallOverlay {
                 onDragEnd = { dragCallbacks.onEnd() },
                 onDragCancel = { dragCallbacks.onCancel() },
                 onGesture = { gestureType, rawX, rawY ->
+                    hideGestureHintWindow()
                     performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
                 },
+                onGestureHint = dragCallbacks::onGestureHint,
             )
         }
         val ballCompose = OverlayCompose.createComposeView(overlayContext, ballDialogOwner).apply {
@@ -458,8 +470,10 @@ object FloatBallOverlay {
                 onDragEnd = { dragCallbacks.onEnd() },
                 onDragCancel = { dragCallbacks.onCancel() },
                 onGesture = { gestureType, rawX, rawY ->
+                    hideGestureHintWindow()
                     performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
                 },
+                onGestureHint = dragCallbacks::onGestureHint,
             )
         }
         edgeHost.addView(
@@ -506,8 +520,10 @@ object FloatBallOverlay {
                 },
                 onGesture = { gestureType, rawX, rawY ->
                     lineDragEndedWithGesture = true
+                    hideGestureHintWindow()
                     performFloatBallGesture(settingsHolder.value, gestureType, rawX, rawY)
                 },
+                onGestureHint = dragCallbacks::onGestureHint,
             )
         }
         lineStripHost.addView(
@@ -611,8 +627,42 @@ object FloatBallOverlay {
         selectionPreviewBoundsState = selectionPreviewBounds
         appContext = hostContext
         registerScreenOffReceiver(hostContext)
+        gestureHintWindow.attach(hostContext, wm)
 
         applyAllLayouts(settings)
+    }
+
+    private fun hideGestureHintWindow() {
+        currentGestureHintType = null
+        gestureHintWindow.hide()
+    }
+
+    private fun updateGestureHintWindow() {
+        val gestureType = currentGestureHintType
+        if (gestureType == null || !isDragging) {
+            gestureHintWindow.hide()
+            return
+        }
+        val settings = settingsState?.value ?: run {
+            gestureHintWindow.hide()
+            return
+        }
+        val action = settings.floatBallGestureActions[gestureType] ?: GestureAction.None
+        if (action is GestureAction.None) {
+            gestureHintWindow.hide()
+            return
+        }
+        val view = ballView ?: return
+        val metrics = view.resources.displayMetrics
+        val density = metrics.density
+        gestureHintWindow.update(
+            action = action,
+            themeColorArgb = settings.themeColorArgb,
+            fingerX = dragSession.dragFingerX,
+            fingerY = dragSession.dragFingerY,
+            dockSide = effectiveActiveSide(settings),
+            density = density,
+        )
     }
 
     private fun performFloatBallGesture(
@@ -642,6 +692,7 @@ object FloatBallOverlay {
         edgeCaptureHost?.visibility = View.GONE
         lineHost?.visibility = View.GONE
         cursorView?.visibility = View.GONE
+        hideGestureHintWindow()
     }
 
     private fun restoreFloatBallOverlaysAfterPassthrough() {
@@ -949,6 +1000,9 @@ object FloatBallOverlay {
         }
         dragSession.onFingerMove(dx, dy)
         updatePickAndBallFromFinger(moveBallWindow = true)
+        if (currentGestureHintType != null) {
+            updateGestureHintWindow()
+        }
     }
 
     private fun finishDrag(settings: AppSettings) {
@@ -1065,8 +1119,15 @@ object FloatBallOverlay {
         val screenWidth = bounds.width
         val screenHeight = bounds.height
 
+        val (screenWidthPx, screenHeightPx) = layoutScreenSize(metrics)
         val activeSide = effectiveActiveSide(settings)
-        val (ballCenterX, ballCenterY) = FloatBallLayout.ballCenterPx(settings, metrics, activeSide)
+        val (ballCenterX, ballCenterY) = FloatBallLayout.ballCenterPx(
+            settings,
+            metrics,
+            activeSide,
+            screenWidthPx,
+            screenHeightPx,
+        )
         dragSession.armAtTouch(
             settings = settings,
             screenX = screenX,
@@ -1077,6 +1138,8 @@ object FloatBallOverlay {
             screenWidth = screenWidth,
             screenHeight = screenHeight,
             density = density,
+            dockSide = activeSide,
+            anchorPickAtFinger = dragOriginatedFromLine,
         )
 
         isDragging = true
@@ -1131,6 +1194,7 @@ object FloatBallOverlay {
         lastBoundsLookupY = Float.NaN
         dragScreenBounds = null
         dragSession.reset()
+        hideGestureHintWindow()
         cursorVisibleState?.value = false
         cursorPausedState?.value = false
         selectionStartState?.value = null
