@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -502,8 +503,13 @@ internal fun PickResultTextToolbar(
             Row(
                 modifier = Modifier
                     .height(44.dp)
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = RoundedCornerShape(22.dp),
+                        spotColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                    )
                     .background(
-                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color(0xFF202124) else androidx.compose.ui.graphics.Color(0xFFF2F3F5),
+                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color(0xFF2A2A2C) else androidx.compose.ui.graphics.Color(0xFFF2F3F5),
                         shape = RoundedCornerShape(22.dp)
                     )
                     .padding(4.dp),
@@ -621,6 +627,10 @@ private fun PickResultSourceChip(
     }
     val shape = RoundedCornerShape(18.dp)
     val chipModifier = Modifier
+        .then(
+            if (selected) Modifier.shadow(4.dp, shape, spotColor = background)
+            else Modifier
+        )
         .clip(shape)
         .background(background)
         .clickable(enabled = enabled, onClick = onClick)

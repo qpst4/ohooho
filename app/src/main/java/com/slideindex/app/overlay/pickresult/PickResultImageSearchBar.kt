@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -82,6 +83,11 @@ fun PickResultImageSearchBar(
         modifier = modifier
             .fillMaxWidth()
             .padding(bottom = ImageSearchBarBottomPadding)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = if (isDark) Color.White else Color.Black,
+            )
             .clip(RoundedCornerShape(16.dp))
             .background(if (isDark) Color(0xFF2A2A2C) else Color(0xFFF2F3F5))
             .padding(horizontal = 12.dp, vertical = 10.dp),
