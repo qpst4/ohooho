@@ -55,6 +55,8 @@ fun ShakeActionSetSettingsScreen(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var pickingGesture by remember { mutableStateOf<ShakeGestureType?>(null) }
+    var shellConfigGesture by remember { mutableStateOf<ShakeGestureType?>(null) }
+    var shellCommandDraft by remember { mutableStateOf("") }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -98,11 +100,28 @@ fun ShakeActionSetSettingsScreen(
                 current = actions[gestureType] ?: GestureAction.None,
                 onDismiss = { pickingGesture = null },
                 onSelect = { action ->
-                    onActionChange(gestureType, action)
-                    pickingGesture = null
+                    if (action is GestureAction.ExecuteShellCommand) {
+                        shellCommandDraft = action.command
+                        shellConfigGesture = gestureType
+                        pickingGesture = null
+                    } else {
+                        onActionChange(gestureType, action)
+                        pickingGesture = null
+                    }
                 },
             )
         }
+    }
+
+    shellConfigGesture?.let { gestureType ->
+        GestureExecuteShellCommandConfigDialog(
+            initialCommand = shellCommandDraft,
+            onDismissRequest = { shellConfigGesture = null },
+            onConfirm = { command ->
+                onActionChange(gestureType, GestureAction.ExecuteShellCommand(command))
+                shellConfigGesture = null
+            },
+        )
     }
 }
 

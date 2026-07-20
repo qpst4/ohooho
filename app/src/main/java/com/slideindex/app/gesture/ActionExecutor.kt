@@ -17,6 +17,8 @@ import com.slideindex.app.overlay.WidgetPopupOverlayWindow
 import com.slideindex.app.service.SlideIndexAccessibilityService
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.shell.ShellCommand
+import com.slideindex.app.shell.ShellTemplateContextFactory
+import com.slideindex.app.util.ShellCommandExecutor
 import com.slideindex.app.util.AssistantLauncher
 import com.slideindex.app.util.ContinuousAdjustController
 import com.slideindex.app.util.FlashlightHelper
@@ -110,6 +112,7 @@ class ActionExecutor(
             GestureAction.TaskSwitcher,
             -> overlayPanels.showEdgeHostedPanel(action, anchorRawY)
             GestureAction.ShellCommandPanel -> overlayPanels.openShellCommandPanelStandalone()
+            is GestureAction.ExecuteShellCommand -> executeShellCommand(action)
             GestureAction.None, GestureAction.ClickPassthrough -> false
             GestureAction.AdjustVolume -> overlayPanels.showEdgeHostedPanel(GestureAction.AdjustVolume, anchorRawY)
             GestureAction.AdjustBrightness -> overlayPanels.showEdgeHostedPanel(GestureAction.AdjustBrightness, anchorRawY)
@@ -216,6 +219,21 @@ class ActionExecutor(
             InputTapUtil.dispatchTap(rawX, rawY)
             onComplete()
         }
+    }
+
+    private fun executeShellCommand(action: GestureAction.ExecuteShellCommand): Boolean {
+        val commandLine = action.command.trim()
+        if (commandLine.isEmpty()) return false
+        Thread {
+            ShellCommandExecutor.execute(
+                ShellCommand(
+                    label = "Gesture",
+                    command = commandLine,
+                ),
+                ShellTemplateContextFactory.current(),
+            )
+        }.start()
+        return true
     }
 
     internal companion object {

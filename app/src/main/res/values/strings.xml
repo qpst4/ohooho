@@ -472,6 +472,10 @@
     <string name="gesture_action_scroll_to_bottom">快速回底部</string>
     <string name="gesture_action_scroll_to_bottom_desc">Android 7.0+ 模拟滑动</string>
     <string name="gesture_action_shell_command_panel">Shell 命令面板</string>
+    <string name="gesture_action_execute_shell_command">执行 Shell 命令</string>
+    <string name="gesture_action_execute_shell_command_named">执行 Shell：%1$s</string>
+    <string name="gesture_shell_command_config_title">配置 Shell 命令</string>
+    <string name="gesture_shell_command_config_hint">命令将绑定到当前手势，触发时后台执行。</string>
     <string name="gesture_action_quick_tools_overlay">快速工具（悬浮窗）</string>
     <string name="gesture_action_quick_tools_overlay_permission">需要开启边栏</string>
     <string name="gesture_action_widget_popup_overlay">小组件弹出窗口</string>

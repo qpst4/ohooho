@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +41,8 @@ fun FloatBallGestureSettingsScreen(
     onUpSwipeShortPercentChange: (Float) -> Unit,
 ) {
     var pickingGesture by remember { mutableStateOf<FloatBallGestureType?>(null) }
+    var shellConfigGesture by remember { mutableStateOf<FloatBallGestureType?>(null) }
+    var shellCommandDraft by remember { mutableStateOf("") }
     val controlsEnabled = settings.floatBallEnabled && accessibilityGranted
 
     SettingsScreenScaffold(
@@ -94,8 +98,17 @@ fun FloatBallGestureSettingsScreen(
                     enabled = controlsEnabled,
                     showSettings = action is GestureAction.LaunchApp ||
                         action is GestureAction.LaunchShortcut ||
-                        action is GestureAction.SimulatePointerSwipe,
+                        action is GestureAction.SimulatePointerSwipe ||
+                        action is GestureAction.ExecuteShellCommand,
                     onClick = { pickingGesture = type },
+                    onSettingsClick = if (action is GestureAction.ExecuteShellCommand) {
+                        {
+                            shellCommandDraft = action.command
+                            shellConfigGesture = type
+                        }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -108,11 +121,28 @@ fun FloatBallGestureSettingsScreen(
                 current = settings.floatBallGestureActions[type] ?: GestureAction.None,
                 onDismiss = { pickingGesture = null },
                 onSelect = { action ->
-                    onGestureActionChange(type, action)
-                    pickingGesture = null
+                    if (action is GestureAction.ExecuteShellCommand) {
+                        shellCommandDraft = action.command
+                        shellConfigGesture = type
+                        pickingGesture = null
+                    } else {
+                        onGestureActionChange(type, action)
+                        pickingGesture = null
+                    }
                 },
             )
         }
+    }
+
+    shellConfigGesture?.let { type ->
+        GestureExecuteShellCommandConfigDialog(
+            initialCommand = shellCommandDraft,
+            onDismissRequest = { shellConfigGesture = null },
+            onConfirm = { command ->
+                onGestureActionChange(type, GestureAction.ExecuteShellCommand(command))
+                shellConfigGesture = null
+            },
+        )
     }
 }
 
@@ -123,6 +153,7 @@ private fun FloatBallGestureActionRow(
     enabled: Boolean,
     showSettings: Boolean,
     onClick: () -> Unit,
+    onSettingsClick: (() -> Unit)? = null,
 ) {
     SettingNavigationRow(
         icon = { label -> Icon(Icons.Default.TouchApp, contentDescription = label) },
@@ -147,12 +178,18 @@ private fun FloatBallGestureActionRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (showSettings) {
-                    Icon(
-                        imageVector = Icons.Default.TouchApp,
-                        contentDescription = stringResource(R.string.float_ball_gesture_action_settings),
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    IconButton(
+                        onClick = { onSettingsClick?.invoke() ?: onClick() },
+                        enabled = enabled,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.float_ball_gesture_action_settings),
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,

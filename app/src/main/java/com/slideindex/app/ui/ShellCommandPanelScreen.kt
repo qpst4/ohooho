@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 
 import androidx.compose.foundation.layout.fillMaxSize
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 
 import androidx.compose.foundation.layout.height
@@ -150,9 +151,6 @@ fun ShellCommandPanelScreen(
     val context = LocalContext.current
 
     val shellTimeoutMessage = stringResource(R.string.shell_panel_execute_timeout)
-
-    val restartSuccessTemplate = stringResource(R.string.shell_panel_restart_success, "__API__")
-    val restartOutdatedTemplate = stringResource(R.string.shell_panel_restart_outdated, "__API__")
     val restartFailedMessage = stringResource(R.string.shell_panel_restart_failed)
 
     val scope = rememberCoroutineScope()
@@ -393,13 +391,13 @@ fun ShellCommandPanelScreen(
 
                                     api >= ShizukuUserServiceHost.SERVICE_BUILD -> {
 
-                                        restartSuccessTemplate.replace("__API__", api.toString())
+                                        context.getString(R.string.shell_panel_restart_success, api)
 
                                     }
 
                                     api > 0 -> {
 
-                                        restartOutdatedTemplate.replace("__API__", api.toString())
+                                        context.getString(R.string.shell_panel_restart_outdated, api)
 
                                     }
 
@@ -433,6 +431,10 @@ fun ShellCommandPanelScreen(
 
                 PermissionGatedFeature(
 
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+
                     granted = shizukuGranted,
 
                     permissionTitle = stringResource(R.string.permission_shizuku_title),
@@ -445,7 +447,10 @@ fun ShellCommandPanelScreen(
 
                 ) {
 
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
 
                         SettingsSectionTitle(
 
@@ -515,11 +520,7 @@ fun ShellCommandPanelScreen(
 
                             columns = GridCells.Fixed(2),
 
-                            modifier = Modifier
-
-                                .fillMaxWidth()
-
-                                .weight(1f),
+                            modifier = Modifier.fillMaxSize(),
 
                             contentPadding = PaddingValues(bottom = 4.dp),
 

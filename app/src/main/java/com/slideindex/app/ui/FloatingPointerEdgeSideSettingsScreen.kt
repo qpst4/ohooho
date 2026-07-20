@@ -42,6 +42,8 @@ fun FloatingPointerEdgeSideSettingsScreen(
     val bar = settings.floatingPointerEdgeActionsConfig.bar(side)
     val slots = bar.layoutSlots()
     var pickingTarget by remember { mutableStateOf<EdgeActionPickTarget?>(null) }
+    var shellConfigTarget by remember { mutableStateOf<EdgeActionPickTarget?>(null) }
+    var shellCommandDraft by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
         SettingsScreenScaffold(
@@ -102,8 +104,25 @@ fun FloatingPointerEdgeSideSettingsScreen(
                 includePointerGestureActions = false,
                 onDismiss = { pickingTarget = null },
                 onSelect = { action ->
-                    onSlotActionChange(target.slotIndex, action)
-                    pickingTarget = null
+                    if (action is GestureAction.ExecuteShellCommand) {
+                        shellCommandDraft = action.command
+                        shellConfigTarget = target
+                        pickingTarget = null
+                    } else {
+                        onSlotActionChange(target.slotIndex, action)
+                        pickingTarget = null
+                    }
+                },
+            )
+        }
+
+        shellConfigTarget?.let { target ->
+            GestureExecuteShellCommandConfigDialog(
+                initialCommand = shellCommandDraft,
+                onDismissRequest = { shellConfigTarget = null },
+                onConfirm = { command ->
+                    onSlotActionChange(target.slotIndex, GestureAction.ExecuteShellCommand(command))
+                    shellConfigTarget = null
                 },
             )
         }

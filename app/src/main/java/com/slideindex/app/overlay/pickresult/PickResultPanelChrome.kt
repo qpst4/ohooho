@@ -81,6 +81,29 @@ internal fun pickResultMaxTextHeight(textSizeSp: Float): Dp {
     val screenCap = pickResultWindowHeightDp(PickResultTextHeightScreenFractionCap)
     return minOf(contentHeight, screenCap)
 }
+/** 文本区标题行（含上下 padding）。 */
+internal val PickResultTextSectionHeaderReservedHeight = 46.dp
+
+/** 来源切换 + 编辑工具栏行。 */
+internal val PickResultTextToolbarReservedHeight = 36.dp
+
+/** 底部操作栏（分享 / 复制 / 翻译等）。 */
+internal val PickResultTextActionBarReservedHeight = 48.dp
+
+/** 工具栏、正文、操作栏之间的间距合计。 */
+internal val PickResultTextSectionInnerSpacing = 16.dp
+
+internal fun pickResultTextSectionChromeReservedHeight(textExpanded: Boolean): Dp {
+    if (!textExpanded) return PickResultTextSectionHeaderReservedHeight
+    return PickResultTextSectionHeaderReservedHeight + pickResultInteractiveTextChromeReservedHeight()
+}
+
+/** 编辑工具栏 + 操作栏 + 其间距（不含区块标题）。 */
+internal fun pickResultInteractiveTextChromeReservedHeight(): Dp =
+    PickResultTextToolbarReservedHeight +
+        PickResultTextActionBarReservedHeight +
+        PickResultTextSectionInnerSpacing
+
 internal val PickResultPanelCardCorner = 14.dp
 internal val PickResultPanelCardShape = RoundedCornerShape(PickResultPanelCardCorner)
 internal val PickResultBottomPanelShape = RoundedCornerShape(

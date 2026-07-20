@@ -74,6 +74,8 @@ fun ShakeGesturesScreen(
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var pickingGesture by remember { mutableStateOf<ShakeGestureType?>(null) }
+    var shellConfigGesture by remember { mutableStateOf<ShakeGestureType?>(null) }
+    var shellCommandDraft by remember { mutableStateOf("") }
     var showColorPicker by remember { mutableStateOf(false) }
 
     if (showColorPicker) {
@@ -288,11 +290,28 @@ fun ShakeGesturesScreen(
                 current = settings.actionFor(pickingType),
                 onDismiss = { pickingGesture = null },
                 onSelect = { action ->
-                    onBasicActionChange(pickingType, action)
-                    pickingGesture = null
+                    if (action is GestureAction.ExecuteShellCommand) {
+                        shellCommandDraft = action.command
+                        shellConfigGesture = pickingType
+                        pickingGesture = null
+                    } else {
+                        onBasicActionChange(pickingType, action)
+                        pickingGesture = null
+                    }
                 },
             )
         }
+    }
+
+    shellConfigGesture?.let { gestureType ->
+        GestureExecuteShellCommandConfigDialog(
+            initialCommand = shellCommandDraft,
+            onDismissRequest = { shellConfigGesture = null },
+            onConfirm = { command ->
+                onBasicActionChange(gestureType, GestureAction.ExecuteShellCommand(command))
+                shellConfigGesture = null
+            },
+        )
     }
 }
 

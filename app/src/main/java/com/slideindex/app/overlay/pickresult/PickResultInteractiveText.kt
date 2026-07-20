@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.slideindex.app.R
@@ -81,7 +82,7 @@ internal fun PickResultInteractiveTextSection(
     showEditingToolbar: Boolean = true,
     showActionBar: Boolean = true,
     pinActionBarOutside: Boolean = false,
-    embedInParentScroll: Boolean = false,
+    bodyMaxHeight: Dp? = null,
     showSearch: Boolean = false,
     translateEnabled: Boolean = true,
     onActiveTextChange: (String) -> Unit = {},
@@ -361,15 +362,16 @@ internal fun PickResultInteractiveTextSection(
             )
         }
         if (pinActionBarOutside) {
-            val bodyModifier = if (embedInParentScroll) {
-                Modifier
-            } else {
-                Modifier.verticalScroll(
-                    bodyScrollState,
-                    enabled = textMode != PickResultTextMode.WORD_TAP,
-                )
-            }
-            Column(modifier = bodyModifier) {
+            val maxBodyHeight = bodyMaxHeight ?: pickResultMaxTextHeight(textSizeSp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxBodyHeight)
+                    .verticalScroll(
+                        bodyScrollState,
+                        enabled = textMode != PickResultTextMode.WORD_TAP,
+                    ),
+            ) {
                 when {
                     showOcrLoading -> {
                         PickResultOcrLoadingBody(

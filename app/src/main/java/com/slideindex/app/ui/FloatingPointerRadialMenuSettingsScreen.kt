@@ -67,6 +67,8 @@ fun FloatingPointerRadialMenuSettingsScreen(
     var pickingSlot by remember { mutableIntStateOf(-1) }
     var swipeConfigSlot by remember { mutableIntStateOf(-1) }
     var swipeConfigDraft by remember { mutableStateOf(PointerSwipeConfig.DEFAULT) }
+    var shellConfigSlot by remember { mutableIntStateOf(-1) }
+    var shellCommandDraft by remember { mutableStateOf("") }
     var colorTarget by remember { mutableStateOf<RadialColorTarget?>(null) }
     var pickerInitialColor by remember { mutableIntStateOf(0) }
     var pickingLongPressAction by remember { mutableStateOf(false) }
@@ -78,6 +80,17 @@ fun FloatingPointerRadialMenuSettingsScreen(
             onConfirm = { config ->
                 onSlotActionChange(swipeConfigSlot, GestureAction.SimulatePointerSwipe(config))
                 swipeConfigSlot = -1
+            },
+        )
+    }
+
+    if (shellConfigSlot >= 0) {
+        GestureExecuteShellCommandConfigDialog(
+            initialCommand = shellCommandDraft,
+            onDismissRequest = { shellConfigSlot = -1 },
+            onConfirm = { command ->
+                onSlotActionChange(shellConfigSlot, GestureAction.ExecuteShellCommand(command))
+                shellConfigSlot = -1
             },
         )
     }
@@ -187,6 +200,10 @@ fun FloatingPointerRadialMenuSettingsScreen(
                                                 is GestureAction.SimulatePointerSwipe -> {
                                                     swipeConfigDraft = current.config
                                                     swipeConfigSlot = index
+                                                }
+                                                is GestureAction.ExecuteShellCommand -> {
+                                                    shellCommandDraft = current.command
+                                                    shellConfigSlot = index
                                                 }
                                                 else -> pickingSlot = index
                                             }
@@ -344,6 +361,9 @@ fun FloatingPointerRadialMenuSettingsScreen(
                         if (action is GestureAction.SimulatePointerSwipe) {
                             swipeConfigDraft = action.config
                             swipeConfigSlot = slot
+                        } else if (action is GestureAction.ExecuteShellCommand) {
+                            shellCommandDraft = action.command
+                            shellConfigSlot = slot
                         } else {
                             onSlotActionChange(slot, action)
                         }
@@ -373,6 +393,11 @@ private fun radialSlotActionSubtitle(action: GestureAction): String {
     val base = gestureActionLabel(action)
     return if (action is GestureAction.SimulatePointerSwipe) {
         stringResource(R.string.pointer_swipe_action_summary, base)
+    } else if (action is GestureAction.ExecuteShellCommand && action.command.isNotBlank()) {
+        stringResource(
+            R.string.gesture_action_execute_shell_command_named,
+            gestureExecuteShellCommandPreview(action.command),
+        )
     } else {
         base
     }

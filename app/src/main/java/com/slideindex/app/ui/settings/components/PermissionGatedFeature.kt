@@ -17,7 +17,12 @@ fun PermissionGatedFeature(
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.alpha(if (granted) 1f else 0.45f)) {
+        Column(
+            modifier = Modifier
+                .alpha(if (granted) 1f else 0.45f)
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
             content()
         }
         if (!granted) {

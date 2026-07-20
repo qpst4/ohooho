@@ -10,6 +10,7 @@ import com.slideindex.app.R
 import com.slideindex.app.gesture.GestureAction
 import com.slideindex.app.gesture.GestureActionType
 import com.slideindex.app.gesture.GestureShortcutPayload
+import com.slideindex.app.ui.gestureExecuteShellCommandPreview
 import com.slideindex.app.ui.compose.rememberAppRepository
 import com.slideindex.app.util.PermissionHelper
 import com.slideindex.app.util.PinyinHelper
@@ -74,6 +75,16 @@ fun gestureActionLabelText(context: Context, action: GestureAction): String = wh
             context.getString(R.string.gesture_action_launch_shortcut_named, shortcutLabel)
         }
     }
+    is GestureAction.ExecuteShellCommand -> {
+        if (action.command.isBlank()) {
+            context.getString(R.string.gesture_action_execute_shell_command)
+        } else {
+            context.getString(
+                R.string.gesture_action_execute_shell_command_named,
+                gestureExecuteShellCommandPreview(action.command),
+            )
+        }
+    }
     else -> when (action.type) {
         GestureActionType.NONE -> context.getString(R.string.gesture_action_none)
         GestureActionType.OPEN_INDEX -> context.getString(R.string.gesture_action_open_index)
@@ -103,6 +114,7 @@ fun gestureActionLabelText(context: Context, action: GestureAction): String = wh
         GestureActionType.SCROLL_TO_TOP -> context.getString(R.string.gesture_action_scroll_to_top)
         GestureActionType.SCROLL_TO_BOTTOM -> context.getString(R.string.gesture_action_scroll_to_bottom)
         GestureActionType.SHELL_COMMAND_PANEL -> context.getString(R.string.gesture_action_shell_command_panel)
+        GestureActionType.EXECUTE_SHELL_COMMAND -> context.getString(R.string.gesture_action_execute_shell_command)
         GestureActionType.QUICK_TOOLS_OVERLAY -> context.getString(R.string.gesture_action_quick_tools_overlay)
         GestureActionType.WIDGET_POPUP_OVERLAY -> context.getString(R.string.gesture_action_widget_popup_overlay)
         GestureActionType.OPEN_STASH_PANEL -> context.getString(R.string.gesture_action_stash_panel)
@@ -148,6 +160,16 @@ fun gestureActionLabel(action: GestureAction): String {
         }
     }
     is GestureAction.SimulatePointerSwipe -> stringResource(R.string.gesture_action_pointer_swipe)
+    is GestureAction.ExecuteShellCommand -> {
+        if (action.command.isBlank()) {
+            stringResource(R.string.gesture_action_execute_shell_command)
+        } else {
+            stringResource(
+                R.string.gesture_action_execute_shell_command_named,
+                gestureExecuteShellCommandPreview(action.command),
+            )
+        }
+    }
     else -> when (action.type) {
         GestureActionType.NONE -> stringResource(R.string.gesture_action_none)
         GestureActionType.OPEN_INDEX -> stringResource(R.string.gesture_action_open_index)
@@ -177,6 +199,7 @@ fun gestureActionLabel(action: GestureAction): String {
         GestureActionType.SCROLL_TO_TOP -> stringResource(R.string.gesture_action_scroll_to_top)
         GestureActionType.SCROLL_TO_BOTTOM -> stringResource(R.string.gesture_action_scroll_to_bottom)
         GestureActionType.SHELL_COMMAND_PANEL -> stringResource(R.string.gesture_action_shell_command_panel)
+        GestureActionType.EXECUTE_SHELL_COMMAND -> stringResource(R.string.gesture_action_execute_shell_command)
         GestureActionType.QUICK_TOOLS_OVERLAY -> stringResource(R.string.gesture_action_quick_tools_overlay)
         GestureActionType.WIDGET_POPUP_OVERLAY -> stringResource(R.string.gesture_action_widget_popup_overlay)
         GestureActionType.OPEN_STASH_PANEL -> stringResource(R.string.gesture_action_stash_panel)
@@ -244,7 +267,9 @@ fun gestureActionPermissionHint(action: GestureAction, context: Context): String
             if (PermissionHelper.hasNotificationPolicyAccess(context)) return null
             stringResource(R.string.gesture_action_toggle_mute_permission)
         }
-        GestureActionType.TOGGLE_WIFI, GestureActionType.TOGGLE_MOBILE_DATA -> {
+        GestureActionType.TOGGLE_WIFI, GestureActionType.TOGGLE_MOBILE_DATA,
+        GestureActionType.EXECUTE_SHELL_COMMAND,
+        -> {
             if (TaskManagerUtil.hasPermission()) return null
             stringResource(R.string.gesture_action_toggle_shell_permission)
         }

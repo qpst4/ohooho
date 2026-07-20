@@ -211,6 +211,7 @@ internal fun GestureSession.handleClassifiedGesture(
         GestureAction.PointerRealtimeGesture,
         GestureAction.OpenFloatingPointerRadialMenu,
         is GestureAction.SimulatePointerSwipe,
+        is GestureAction.ExecuteShellCommand,
         -> {
             sessionCallbacks.hapticConfirmLaunch()
             sessionActionExecutor.execute(

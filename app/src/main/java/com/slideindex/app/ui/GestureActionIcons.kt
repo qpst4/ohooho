@@ -50,6 +50,7 @@ fun gestureActionImageVector(action: GestureAction): ImageVector = when (action)
     is GestureAction.LaunchApp -> Icons.Default.Apps
     is GestureAction.LaunchShortcut -> Icons.AutoMirrored.Filled.Shortcut
     is GestureAction.SimulatePointerSwipe -> pointerSwipeDirectionIcon(action.config.direction)
+    is GestureAction.ExecuteShellCommand -> Icons.Default.PlayArrow
     else -> gestureActionTypeIcon(action.type)
 }
 
@@ -71,6 +72,7 @@ fun gestureActionTypeIcon(type: GestureActionType): ImageVector = when (type) {
     GestureActionType.QUICK_LAUNCHER -> Icons.Default.Apps
     GestureActionType.TASK_SWITCHER -> Icons.Default.ViewCarousel
     GestureActionType.SHELL_COMMAND_PANEL -> Icons.Default.Code
+    GestureActionType.EXECUTE_SHELL_COMMAND -> Icons.Default.PlayArrow
     GestureActionType.QUICK_TOOLS_OVERLAY -> OhoPanelIcons.QuickToolsGrid
     GestureActionType.WIDGET_POPUP_OVERLAY -> Icons.Default.Widgets
     GestureActionType.OPEN_STASH_PANEL -> Icons.Default.Inventory2

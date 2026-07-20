@@ -91,6 +91,8 @@ import com.slideindex.app.overlay.pickresult.PickResultInteractiveTextSection
 
 import com.slideindex.app.overlay.pickresult.PickResultPanelMaxWidth
 
+import com.slideindex.app.overlay.pickresult.PickResultTextSectionHeaderReservedHeight
+import com.slideindex.app.overlay.pickresult.pickResultInteractiveTextChromeReservedHeight
 import com.slideindex.app.overlay.pickresult.pickResultPanelCard
 import com.slideindex.app.overlay.pickresult.pickResultWindowHeightDp
 
@@ -105,6 +107,10 @@ import com.slideindex.app.ui.theme.SlideIndexTheme
 private val PANEL_HORIZONTAL_PADDING = 12.dp
 
 private val PANEL_MAX_HEIGHT_FRACTION = 0.55f
+
+private val TRANSLATE_PANEL_VERTICAL_PADDING = 12.dp
+
+private val TRANSLATE_TEXT_BODY_MIN_HEIGHT = 48.dp
 
 
 
@@ -608,6 +614,12 @@ private fun FloatBallTranslatePanelContent(
 ) {
 
     val maxPanelHeight = pickResultWindowHeightDp(PANEL_MAX_HEIGHT_FRACTION)
+    val translateTextBodyMaxHeight = (
+        maxPanelHeight -
+            PickResultTextSectionHeaderReservedHeight -
+            pickResultInteractiveTextChromeReservedHeight() -
+            TRANSLATE_PANEL_VERTICAL_PADDING
+        ).coerceAtLeast(TRANSLATE_TEXT_BODY_MIN_HEIGHT)
     val dismissInteraction = remember { MutableInteractionSource() }
 
     SlideIndexTheme {
@@ -695,7 +707,6 @@ private fun FloatBallTranslatePanelContent(
                             PickResultInteractiveTextSection(
 
                                 modifier = Modifier
-                                    .weight(1f, fill = false)
                                     .padding(horizontal = 12.dp),
 
                                 text = result,
@@ -713,6 +724,8 @@ private fun FloatBallTranslatePanelContent(
                                 translateEnabled = false,
 
                                 pinActionBarOutside = true,
+
+                                bodyMaxHeight = translateTextBodyMaxHeight,
 
                                 showSearch = true,
 

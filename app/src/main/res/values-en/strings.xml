@@ -1138,6 +1138,10 @@
     <string name="gesture_action_scroll_to_bottom">Jump to bottom</string>
     <string name="gesture_action_scroll_to_bottom_desc">Simulated swipe on Android 7.0+</string>
     <string name="gesture_action_shell_command_panel">Shell command panel</string>
+    <string name="gesture_action_execute_shell_command">Execute shell command</string>
+    <string name="gesture_action_execute_shell_command_named">Execute shell: %1$s</string>
+    <string name="gesture_shell_command_config_title">Configure shell command</string>
+    <string name="gesture_shell_command_config_hint">The command is saved for this gesture and runs in the background when triggered.</string>
     <string name="gesture_action_quick_tools_overlay">Quick tools (overlay)</string>
     <string name="gesture_action_quick_tools_overlay_permission">Requires Cebian enabled</string>
     <string name="gesture_action_widget_popup_overlay">Widget popup</string>

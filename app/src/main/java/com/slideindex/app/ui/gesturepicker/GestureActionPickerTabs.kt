@@ -71,6 +71,7 @@ internal fun ActionPickerActionsTab(
             add(GestureAction.QuickLauncher)
             add(GestureAction.TaskSwitcher)
             add(GestureAction.ShellCommandPanel)
+            add(GestureAction.ExecuteShellCommand())
             add(GestureAction.QuickToolsOverlay)
             add(GestureAction.WidgetPopupOverlay)
             add(GestureAction.StashPanel)
@@ -148,9 +149,14 @@ internal fun ActionPickerActionsTab(
                         action = action,
                         segmentIndex = index,
                         segmentCount = filtered.size,
-                        selected = action.type == current.type &&
-                            action.type != GestureActionType.LAUNCH_APP &&
-                            action.type != GestureActionType.LAUNCH_SHORTCUT,
+                        selected = when {
+                            action.type == GestureActionType.EXECUTE_SHELL_COMMAND &&
+                                current.type == GestureActionType.EXECUTE_SHELL_COMMAND -> true
+                            action.type == current.type &&
+                                action.type != GestureActionType.LAUNCH_APP &&
+                                action.type != GestureActionType.LAUNCH_SHORTCUT -> true
+                            else -> false
+                        },
                         onClick = {
                             requestPermissionForAdjustAction(context, action)
                             onSelect(action)

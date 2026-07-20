@@ -211,6 +211,11 @@ private fun SlotConfigOverlay(
 ) {
     var selectedAction by remember { mutableStateOf(currentAction) }
     var selectedMode by remember { mutableStateOf(currentMode) }
+    var shellCommandDraft by remember(currentAction) {
+        mutableStateOf(
+            (currentAction as? GestureAction.ExecuteShellCommand)?.command.orEmpty(),
+        )
+    }
     var pickingAction by remember { mutableStateOf(false) }
     var pickingMode by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -224,6 +229,9 @@ private fun SlotConfigOverlay(
             onSelect = { action ->
                 requestPermissionForAdjustAction(context, action)
                 selectedAction = action
+                if (action is GestureAction.ExecuteShellCommand) {
+                    shellCommandDraft = action.command
+                }
                 if (!selectedMode.supportsAction(action, trigger)) {
                     selectedMode = action.preferredTriggerMode(trigger)
                         ?: GestureTriggerMode.ON_RELEASE
@@ -253,7 +261,14 @@ private fun SlotConfigOverlay(
         SettingsFormScreen(
             title = triggerLabel(side, trigger),
             onBack = onDismiss,
-            onConfirm = { onConfirm(selectedAction, selectedMode) },
+            onConfirm = {
+                val actionToSave = when (val action = selectedAction) {
+                    is GestureAction.ExecuteShellCommand ->
+                        GestureAction.ExecuteShellCommand(shellCommandDraft.trim())
+                    else -> action
+                }
+                onConfirm(actionToSave, selectedMode)
+            },
         ) {
             SettingsSectionTitle(stringResource(R.string.slot_action_type))
             SettingsCard {
@@ -268,6 +283,16 @@ private fun SlotConfigOverlay(
                     subtitle = stringResource(R.string.slot_pick_action),
                     onClick = { pickingAction = true },
                 )
+            }
+            if (selectedAction is GestureAction.ExecuteShellCommand) {
+                SettingsSectionTitle(stringResource(R.string.gesture_shell_command_config_title))
+                SettingsCard {
+                    GestureExecuteShellCommandConfigSection(
+                        command = shellCommandDraft,
+                        onCommandChange = { shellCommandDraft = it },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
             }
             SettingsSectionTitle(stringResource(R.string.slot_trigger_mode))
             SettingsCard {

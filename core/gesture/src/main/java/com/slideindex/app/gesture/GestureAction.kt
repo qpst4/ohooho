@@ -44,6 +44,7 @@ enum class GestureActionType(val id: Int) {
     POINTER_REALTIME_GESTURE(41),
     OPEN_FLOATING_POINTER_RADIAL_MENU(42),
     OPEN_STASH_PANEL(43),
+    EXECUTE_SHELL_COMMAND(44),
     ;
 
     companion object {
@@ -241,6 +242,14 @@ sealed class GestureAction {
         override val payload = ""
     }
 
+    /** Runs a saved shell command when the gesture fires. */
+    data class ExecuteShellCommand(
+        val command: String = "",
+    ) : GestureAction() {
+        override val type = GestureActionType.EXECUTE_SHELL_COMMAND
+        override val payload = command
+    }
+
     /** Samsung OHO+ style quick-tools popup, rendered top-level via [com.slideindex.app.overlay.OhoQuickToolsOverlayWindow]. */
     data object QuickToolsOverlay : GestureAction() {
         override val type = GestureActionType.QUICK_TOOLS_OVERLAY
@@ -369,6 +378,7 @@ sealed class GestureAction {
                 GestureActionType.SCROLL_TO_TOP -> ScrollToTop
                 GestureActionType.SCROLL_TO_BOTTOM -> ScrollToBottom
                 GestureActionType.SHELL_COMMAND_PANEL -> ShellCommandPanel
+                GestureActionType.EXECUTE_SHELL_COMMAND -> ExecuteShellCommand(payload)
                 GestureActionType.QUICK_TOOLS_OVERLAY -> QuickToolsOverlay
                 GestureActionType.WIDGET_POPUP_OVERLAY -> WidgetPopupOverlay
                 GestureActionType.OPEN_STASH_PANEL -> StashPanel

@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -50,8 +48,9 @@ import com.slideindex.app.barcode.joinDisplayText
 import com.slideindex.app.perf.PickPerf
 import com.slideindex.app.di.OverlayDependencyAccess
 import com.slideindex.app.overlay.pickresult.PickResultTextSearchGrid
-import com.slideindex.app.overlay.pickresult.pickResultSearchGridReservedHeight
 import com.slideindex.app.overlay.pickresult.pickResultImageSectionReservedHeight
+import com.slideindex.app.overlay.pickresult.pickResultSearchGridReservedHeight
+import com.slideindex.app.overlay.pickresult.pickResultTextSectionChromeReservedHeight
 import com.slideindex.app.search.SearchEngineLauncher
 import com.slideindex.app.settings.AppSettings
 import com.slideindex.app.settings.SearchEngineStore
@@ -68,6 +67,9 @@ import kotlinx.coroutines.flow.collect
 
 private val PANEL_MAX_HEIGHT_FRACTION = 0.85f
 private val PANEL_MAX_IMAGE_HEIGHT = 160.dp
+private val PANEL_VERTICAL_PADDING = 12.dp
+private val TEXT_IMAGE_DIVIDER_HEIGHT = 9.dp
+private val TEXT_BODY_MIN_HEIGHT = 48.dp
 
 /**
  * Bottom-anchored overlay pick-result panel after float-ball text pick / regional screenshot.
@@ -717,14 +719,28 @@ private fun FloatBallPickResultContent(
     } else {
         0.dp
     }
-    val shouldScrollText = showTextSection && (hasSearchGrid || hasImageSection)
-    val textScrollMaxHeight = when {
-        hasSearchGrid -> maxPanelHeight - searchGridReservedHeight - imageSectionReservedHeight
-        hasImageSection -> maxPanelHeight - imageSectionReservedHeight
-        else -> maxPanelHeight
+    val textImageDividerHeight = if (hasImageSection && showTextSection) {
+        TEXT_IMAGE_DIVIDER_HEIGHT
+    } else {
+        0.dp
     }
-    val textScrollHeight = textScrollMaxHeight.coerceAtLeast(0.dp)
-    val scrollState = rememberScrollState()
+    val textSectionChromeHeight = if (showTextSection) {
+        pickResultTextSectionChromeReservedHeight(textExpanded)
+    } else {
+        0.dp
+    }
+    val textBodyMaxHeight = if (showTextSection && textExpanded) {
+        (
+            maxPanelHeight -
+                imageSectionReservedHeight -
+                searchGridReservedHeight -
+                textSectionChromeHeight -
+                textImageDividerHeight -
+                PANEL_VERTICAL_PADDING
+            ).coerceAtLeast(TEXT_BODY_MIN_HEIGHT)
+    } else {
+        null
+    }
 
     SlideIndexTheme {
         Box(
@@ -782,17 +798,7 @@ private fun FloatBallPickResultContent(
 
                 if (showTextSection) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (shouldScrollText) {
-                                    Modifier
-                                        .heightIn(max = textScrollHeight)
-                                        .verticalScroll(scrollState)
-                                } else {
-                                    Modifier
-                                },
-                            ),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         PickResultSectionHeader(
@@ -819,7 +825,7 @@ private fun FloatBallPickResultContent(
                                 onBackgroundOcr = onBackgroundOcr,
                                 onTextSourceChange = onTextSourceChange,
                                 pinActionBarOutside = true,
-                                embedInParentScroll = shouldScrollText,
+                                bodyMaxHeight = textBodyMaxHeight,
                                 showSearch = false,
                                 onActiveTextChange = onActiveTextChange,
                                 onShare = onShareText,
