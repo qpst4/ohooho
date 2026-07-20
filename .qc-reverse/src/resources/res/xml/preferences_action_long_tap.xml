@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <com.quickcursor.android.preferences.SeekBarDialogPreference
+        android:title="@string/action_long_tap_duration_title"
+        app:defaultValue="@integer/default_action_long_tap_duration"
+        app:description="@string/action_long_tap_duration_description"
+        app:iconSpaceReserved="false"
+        app:key="longTapDuration"
+        app:max="@integer/max_action_long_tap_duration"
+        app:min="0"
+        app:step="10"
+        app:units="ms"
+        app:updatesContinuously="false"/>
+    <com.quickcursor.android.preferences.TickSeekBarPreference
+        android:title="@string/action_gesture_multi_touch_title"
+        android:summary="@string/action_gesture_multi_touch_description"
+        app:defaultValue="1"
+        app:iconSpaceReserved="false"
+        app:key="multiTouch"
+        app:tickTexts="@array/actions_multi_touch_ticks"
+        app:ticksStartFromZero="false"/>
+</PreferenceScreen>

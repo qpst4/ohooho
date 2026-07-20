@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.quickcursor.android.views.ProOverlayView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/proOverlayView"
+    android:fitsSystemWindows="true"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <com.quickcursor.android.views.VerticalTabLayout
+            android:id="@+id/landscapeTabLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            app:tabGravity="fill"
+            app:tabMaxWidth="0dp"
+            app:tabMode="fixed"/>
+        <View
+            android:layout_gravity="center"
+            android:id="@+id/edit_separator"
+            android:background="@color/separator"
+            android:visibility="visible"
+            android:layout_width="1px"
+            android:layout_height="match_parent"/>
+        <FrameLayout
+            android:id="@+id/tabFragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+    </LinearLayout>
+</com.quickcursor.android.views.ProOverlayView>

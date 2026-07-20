@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="top"
+    android:src="@drawable/activity_top_background_gradient"
+    android:alpha="0.9"
+    android:tileModeX="mirror"/>

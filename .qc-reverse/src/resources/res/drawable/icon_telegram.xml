@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="96dp"
+    android:width="96dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+    <path
+        android:fillColor="@drawable/_icon_telegram__0_res_0x7f08001e"
+        android:pathData="M120,120m-120,0a120,120 0,1 1,240 0a120,120 0,1 1,-240 0"/>
+    <path
+        android:fillColor="#c8daea"
+        android:pathData="M98,175c-3.888,0 -3.227,-1.468 -4.568,-5.17L82,132.207 170,80"/>
+    <path
+        android:fillColor="#a9c9dd"
+        android:pathData="M98,175c3,0 4.325,-1.372 6,-3l16,-15.558 -19.958,-12.035"/>
+    <path
+        android:fillColor="@drawable/_icon_telegram__1_res_0x7f08001f"
+        android:pathData="M100.04,144.41l48.36,35.729c5.519,3.045 9.501,1.468 10.876,-5.123l19.685,-92.763c2.015,-8.08 -3.08,-11.746 -8.36,-9.349l-115.59,44.571c-7.89,3.165 -7.843,7.567 -1.438,9.528l29.663,9.259 68.673,-43.325c3.242,-1.966 6.218,-0.91 3.776,1.258"/>
+</vector>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="mi_label_grant_permission">
+        <item quantity="one">Xin Quyền Truy Cập</item>
+        <item quantity="other">Xin Quyền Truy Cập</item>
+    </plurals>
+    <plurals name="mtrl_badge_content_description">
+        <item quantity="one">%d thông báo mới</item>
+        <item quantity="other">%d thông báo mới</item>
+    </plurals>
+</resources>

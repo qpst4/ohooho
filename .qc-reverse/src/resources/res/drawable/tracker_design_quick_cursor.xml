@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="256dp"
+    android:width="256dp"
+    android:viewportWidth="540"
+    android:viewportHeight="540">
+    <path
+        android:fillColor="@drawable/_tracker_design_quick_cursor__0_res_0x7f080046"
+        android:pathData="M270,270m-270,0a270,270 0,1 1,540 0a270,270 0,1 1,-540 0"/>
+</vector>

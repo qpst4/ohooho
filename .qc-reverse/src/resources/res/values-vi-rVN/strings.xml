@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mi_content_description_back">Trở Lại</string>
+    <string name="mi_content_description_next">Tiếp Tục</string>
+    <string name="mi_content_description_skip">Bỏ Qua</string>
+    <string name="mi_label_button_cta">Bắt Đầu</string>
+</resources>

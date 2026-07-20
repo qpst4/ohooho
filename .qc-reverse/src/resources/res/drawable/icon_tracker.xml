@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="48dp"
+    android:width="48dp"
+    android:viewportWidth="540"
+    android:viewportHeight="540">
+    <group android:translateX="-1">
+        <path
+            android:fillColor="@drawable/_icon_tracker__0_res_0x7f080020"
+            android:pathData="M270,270m-250,0a250,250 0,1 1,500 0a250,250 0,1 1,-500 0"/>
+    </group>
+</vector>

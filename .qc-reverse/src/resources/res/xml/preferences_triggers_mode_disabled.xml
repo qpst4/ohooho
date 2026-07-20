@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <com.quickcursor.android.preferences.DetailedListPreference
+        android:persistent="false"
+        android:entries="@array/trigger_modes"
+        android:title="@string/triggers_mode_title"
+        android:key="triggerMode"
+        android:summary="%s"
+        android:entryValues="@array/trigger_modes_values"
+        app:defaultValue="@string/values_trigger_mode_disabled"
+        app:entryDetails="@array/trigger_modes_details"
+        app:entryFree="@array/trigger_modes_free"
+        app:iconSpaceReserved="false"/>
+</PreferenceScreen>

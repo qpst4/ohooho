@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@anim/mi_cycle_2"
+    android:duration="400"
+    android:fromXDelta="0"
+    android:toXDelta="10"/>

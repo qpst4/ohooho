@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <Preference
+        android:title="@string/backup_settings_backup_title"
+        android:key="backup"
+        android:summary="@string/backup_settings_backup_summary"
+        app:icon="@drawable/icon_backup"
+        app:persistent="false"/>
+    <Preference
+        android:title="@string/backup_settings_restore_title"
+        android:key="restore"
+        android:summary="@string/backup_settings_restore_summary"
+        app:icon="@drawable/icon_restore"
+        app:persistent="false"/>
+    <Preference
+        android:title="@string/backup_settings_reset_title"
+        android:key="reset"
+        android:summary="@string/backup_settings_reset_summary"
+        app:icon="@drawable/icon_reset"
+        app:persistent="false"/>
+    <PreferenceCategory
+        android:title="@string/backup_settings_category_permissions_title"
+        android:key="permissions"
+        app:iconSpaceReserved="false"
+        app:isPreferenceVisible="false">
+        <Preference
+            android:title="@string/missing_permissions_title"
+            android:key="ignore"
+            android:summary="@string/missing_permissions_summary"
+            app:icon="@drawable/icon_warning"
+            app:persistent="false">
+            <intent
+                android:targetPackage="@string/application_id"
+                android:targetClass="com.quickcursor.android.activities.settings.MissingPermissions"/>
+        </Preference>
+    </PreferenceCategory>
+</PreferenceScreen>

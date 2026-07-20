@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <PreferenceCategory
+        android:title="@string/blacklist_settings_category_general_title"
+        app:iconSpaceReserved="false">
+        <com.quickcursor.android.preferences.DetailedListPreference
+            android:entries="@array/app_filter_modes"
+            android:title="@string/blacklist_settings_filter_mode_title"
+            android:key="appFilterMode"
+            android:summary="%s"
+            android:entryValues="@array/app_filter_modes_values"
+            app:defaultValue="@string/default_app_filter_mode"
+            app:entryDetails="@array/app_filter_modes_details"
+            app:iconSpaceReserved="false"/>
+        <com.quickcursor.android.preferences.AppPickerPreference
+            android:enabled="false"
+            android:title="@string/blacklist_settings_filter_apps_loading_title"
+            android:key="appFilterList"
+            android:summary=""
+            app:iconSpaceReserved="false"
+            app:includeLauncher="true"
+            app:multiSelect="true"
+            app:type="App"/>
+    </PreferenceCategory>
+    <PreferenceCategory
+        android:title="@string/blacklist_settings_category_reset_title"
+        app:iconSpaceReserved="false">
+        <Preference
+            android:title="@string/blacklist_settings_reset_title"
+            android:key="app_filter_reset"
+            android:summary="@string/blacklist_settings_reset_summary"
+            app:iconSpaceReserved="false"
+            app:persistent="false"/>
+    </PreferenceCategory>
+</PreferenceScreen>

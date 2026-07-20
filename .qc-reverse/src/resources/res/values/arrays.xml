@@ -1,0 +1,936 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="action_bar_max_update_percentage_ticks">
+        <item>@string/action_bar_max_update_percentage_slow</item>
+        <item />
+        <item />
+        <item />
+        <item>@string/action_bar_max_update_percentage_medium</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/action_bar_max_update_percentage_instant</item>
+    </array>
+    <array name="action_bar_mode_details">
+        <item>@string/action_bar_mode_absolute_details</item>
+        <item>@string/action_bar_mode_relative_details</item>
+    </array>
+    <array name="action_bar_mode_titles">
+        <item>@string/action_bar_mode_absolute</item>
+        <item>@string/action_bar_mode_relative</item>
+    </array>
+    <array name="action_bar_mode_values">
+        <item>@string/action_bar_mode_value_absolute</item>
+        <item>@string/action_bar_mode_value_relative</item>
+    </array>
+    <array name="action_bar_orientation_icons">
+        <item>@drawable/icon_action_bar_horizontal</item>
+        <item>@drawable/icon_action_bar_vertical</item>
+    </array>
+    <array name="action_bar_orientation_titles">
+        <item>@string/action_bar_orientation_horizontal</item>
+        <item>@string/action_bar_orientation_vertical</item>
+    </array>
+    <array name="action_bar_orientation_values">
+        <item>@string/action_bar_orientation_value_horizontal</item>
+        <item>@string/action_bar_orientation_value_vertical</item>
+    </array>
+    <array name="action_bar_swipe_length_ticks">
+        <item />
+        <item />
+        <item>20%</item>
+        <item />
+        <item>30%</item>
+        <item />
+        <item>40%</item>
+        <item />
+        <item>50%</item>
+        <item />
+        <item>60%</item>
+        <item />
+        <item>70%</item>
+        <item />
+        <item>80%</item>
+        <item />
+        <item />
+    </array>
+    <array name="action_brightness_bar_mode_descriptions">
+        <item>@string/action_brightness_bar_mode_description_auto</item>
+        <item>@string/action_brightness_bar_mode_description_normal</item>
+        <item>@string/action_brightness_bar_mode_description_interpolator</item>
+    </array>
+    <array name="action_brightness_bar_mode_titles">
+        <item>@string/action_brightness_bar_mode_title_auto</item>
+        <item>@string/action_brightness_bar_mode_title_normal</item>
+        <item>@string/action_brightness_bar_mode_title_interpolator</item>
+    </array>
+    <array name="action_brightness_bar_mode_values">
+        <item>@string/action_brightness_bar_mode_value_auto</item>
+        <item>@string/action_brightness_bar_mode_value_normal</item>
+        <item>@string/action_brightness_bar_mode_value_interpolator</item>
+    </array>
+    <array name="action_copy_mode_descriptions">
+        <item>@string/action_copy_mode_clipboard_detail</item>
+        <item>@string/action_copy_mode_share_detail</item>
+    </array>
+    <array name="action_copy_mode_titles">
+        <item>@string/action_copy_mode_clipboard_title</item>
+        <item>@string/action_copy_mode_share_title</item>
+    </array>
+    <array name="action_copy_mode_values">
+        <item>@string/action_copy_mode_clipboard_value</item>
+        <item>@string/action_copy_mode_share_value</item>
+    </array>
+    <array name="action_gesture_pinch_duration_titles">
+        <item>@string/action_gesture_pinch_duration_short_title</item>
+        <item>@string/action_gesture_pinch_duration_medium_title</item>
+        <item>@string/action_gesture_pinch_duration_long_title</item>
+    </array>
+    <array name="action_gesture_pinch_duration_values">
+        <item>@string/action_gesture_pinch_duration_short_value</item>
+        <item>@string/action_gesture_pinch_duration_medium_value</item>
+        <item>@string/action_gesture_pinch_duration_long_value</item>
+    </array>
+    <array name="action_gesture_swipe_direction_descriptions">
+        <item />
+        <item />
+        <item />
+        <item />
+    </array>
+    <array name="action_gesture_swipe_direction_icons">
+        <item>@drawable/icon_action_gesture_swipe_left</item>
+        <item>@drawable/icon_action_gesture_swipe_top</item>
+        <item>@drawable/icon_action_gesture_swipe_right</item>
+        <item>@drawable/icon_action_gesture_swipe_bottom</item>
+    </array>
+    <array name="action_gesture_swipe_direction_titles">
+        <item>@string/action_gesture_swipe_direction_left_title</item>
+        <item>@string/action_gesture_swipe_direction_top_title</item>
+        <item>@string/action_gesture_swipe_direction_right_title</item>
+        <item>@string/action_gesture_swipe_direction_bottom_title</item>
+    </array>
+    <array name="action_gesture_swipe_direction_values">
+        <item>@string/action_gesture_swipe_direction_left_value</item>
+        <item>@string/action_gesture_swipe_direction_top_value</item>
+        <item>@string/action_gesture_swipe_direction_right_value</item>
+        <item>@string/action_gesture_swipe_direction_bottom_value</item>
+    </array>
+    <array name="action_gesture_swipe_distance_titles">
+        <item>@string/action_gesture_swipe_distance_short_title</item>
+        <item>@string/action_gesture_swipe_distance_medium_title</item>
+        <item>@string/action_gesture_swipe_distance_long_title</item>
+    </array>
+    <array name="action_gesture_swipe_distance_values">
+        <item>@string/action_gesture_swipe_distance_short_value</item>
+        <item>@string/action_gesture_swipe_distance_medium_value</item>
+        <item>@string/action_gesture_swipe_distance_long_value</item>
+    </array>
+    <array name="action_screen_rotate_rotation_modes_details">
+        <item>@string/rotation_mode_settings_details</item>
+        <item>@string/rotation_mode_force_details</item>
+    </array>
+    <array name="action_screen_rotate_rotation_modes_titles">
+        <item>@string/rotation_mode_settings_title</item>
+        <item>@string/rotation_mode_force_title</item>
+    </array>
+    <array name="action_screen_rotate_rotation_modes_values">
+        <item>@string/rotation_mode_settings_value</item>
+        <item>@string/rotation_mode_force_value</item>
+    </array>
+    <array name="action_screenshot_clipboard_execute_after_descriptions">
+        <item>@string/action_screenshot_clipboard_execute_after_nothing_description</item>
+        <item>@string/action_screenshot_clipboard_execute_after_extra_options_description</item>
+        <item>@string/action_screenshot_clipboard_execute_after_crop_description</item>
+        <item>@string/action_screenshot_clipboard_execute_after_share_description</item>
+    </array>
+    <array name="action_screenshot_clipboard_execute_after_icons">
+        <item>@drawable/icon_action_nothing</item>
+        <item>@drawable/action_picker_extra_configs_icon</item>
+        <item>@drawable/icon_crop</item>
+        <item>@drawable/icon_share</item>
+    </array>
+    <array name="action_screenshot_clipboard_execute_after_titles">
+        <item>@string/action_screenshot_clipboard_execute_after_nothing_title</item>
+        <item>@string/action_screenshot_clipboard_execute_after_extra_options_title</item>
+        <item>@string/action_screenshot_clipboard_execute_after_crop_title</item>
+        <item>@string/action_screenshot_clipboard_execute_after_share_title</item>
+    </array>
+    <array name="action_screenshot_clipboard_execute_after_values">
+        <item>@string/action_screenshot_clipboard_execute_after_nothing_value</item>
+        <item>@string/action_screenshot_clipboard_execute_after_extra_options_value</item>
+        <item>@string/action_screenshot_clipboard_execute_after_crop_value</item>
+        <item>@string/action_screenshot_clipboard_execute_after_share_value</item>
+    </array>
+    <array name="action_toggle_auto_tap_mode_descriptions">
+        <item>@string/auto_tap_mode_new_cursor_detail</item>
+        <item>@string/auto_tap_mode_every_release_detail</item>
+    </array>
+    <array name="action_toggle_auto_tap_mode_titles">
+        <item>@string/auto_tap_mode_new_cursor</item>
+        <item>@string/auto_tap_mode_every_release</item>
+    </array>
+    <array name="action_toggle_auto_tap_mode_values">
+        <item>@string/values_auto_tap_mode_new_cursor</item>
+        <item>@string/values_auto_tap_mode_every_release</item>
+    </array>
+    <array name="action_trigger_modes">
+        <item>@string/action_trigger_mode_instant_title</item>
+        <item>@string/action_trigger_mode_on_release_title</item>
+        <item>@string/action_trigger_mode_delayed_title</item>
+    </array>
+    <array name="action_trigger_modes_values">
+        <item>@string/action_trigger_mode_instant_value</item>
+        <item>@string/action_trigger_mode_on_release_value</item>
+        <item>@string/action_trigger_mode_delayed_value</item>
+    </array>
+    <array name="action_trigger_modes_values_with_default">
+        <item>@string/action_trigger_mode_default_value</item>
+        <item>@string/action_trigger_mode_instant_value</item>
+        <item>@string/action_trigger_mode_on_release_value</item>
+        <item>@string/action_trigger_mode_delayed_value</item>
+    </array>
+    <array name="action_trigger_modes_with_default">
+        <item>@string/action_trigger_mode_default_title</item>
+        <item>@string/action_trigger_mode_instant_title</item>
+        <item>@string/action_trigger_mode_on_release_title</item>
+        <item>@string/action_trigger_mode_delayed_title</item>
+    </array>
+    <array name="action_volume_bar_granularity_ticks">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+    </array>
+    <array name="action_volume_bar_mode_descriptions">
+        <item>@string/action_volume_bar_mode_description_auto</item>
+        <item />
+        <item />
+        <item />
+        <item />
+    </array>
+    <array name="action_volume_bar_mode_icons">
+        <item>@drawable/icon_action_volume_bar</item>
+        <item>@drawable/icon_action_volume_bar_ring</item>
+        <item>@drawable/icon_action_volume_bar_media</item>
+        <item>@drawable/icon_action_volume_bar_alarm</item>
+        <item>@drawable/icon_action_volume_bar_in_call</item>
+    </array>
+    <array name="action_volume_bar_mode_titles">
+        <item>@string/action_volume_bar_mode_title_auto</item>
+        <item>@string/action_volume_bar_mode_title_ring</item>
+        <item>@string/action_volume_bar_mode_title_media</item>
+        <item>@string/action_volume_bar_mode_title_alarm</item>
+        <item>@string/action_volume_bar_mode_title_in_call</item>
+    </array>
+    <array name="action_volume_bar_mode_values">
+        <item>@string/action_volume_bar_mode_value_auto</item>
+        <item>@string/action_volume_bar_mode_value_ring</item>
+        <item>@string/action_volume_bar_mode_value_media</item>
+        <item>@string/action_volume_bar_mode_value_alarm</item>
+        <item>@string/action_volume_bar_mode_value_in_call</item>
+    </array>
+    <array name="actions_multi_touch_ticks">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </array>
+    <array name="actions_volume_ticks">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+    </array>
+    <array name="app_filter_modes">
+        <item>@string/app_filter_mode_disabled</item>
+        <item>@string/app_filter_mode_blacklist</item>
+        <item>@string/app_filter_mode_whitelist</item>
+    </array>
+    <array name="app_filter_modes_details">
+        <item>@string/app_filter_mode_disabled_detailed</item>
+        <item>@string/app_filter_mode_blacklist_detailed</item>
+        <item>@string/app_filter_mode_whitelist_detailed</item>
+    </array>
+    <array name="app_filter_modes_values">
+        <item>@string/values_app_filter_mode_disabled</item>
+        <item>@string/values_app_filter_mode_blacklist</item>
+        <item>@string/values_app_filter_mode_whitelist</item>
+    </array>
+    <array name="auto_tap_modes">
+        <item>@string/auto_tap_mode_disabled</item>
+        <item>@string/auto_tap_mode_new_cursor</item>
+        <item>@string/auto_tap_mode_every_release</item>
+    </array>
+    <array name="auto_tap_modes_details">
+        <item>@string/auto_tap_mode_disabled_detail</item>
+        <item>@string/auto_tap_mode_new_cursor_detail</item>
+        <item>@string/auto_tap_mode_every_release_detail</item>
+    </array>
+    <array name="auto_tap_modes_values">
+        <item>@string/values_auto_tap_mode_disabled</item>
+        <item>@string/values_auto_tap_mode_new_cursor</item>
+        <item>@string/values_auto_tap_mode_every_release</item>
+    </array>
+    <array name="cursor_area_heights">
+        <item>@string/trigger_mode_triggers_cursor_area_small</item>
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_cursor_area_half</item>
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_cursor_area_fullscreen</item>
+    </array>
+    <array name="cursor_designs">
+        <item>@string/cursor_settings_cursor_design_quick_cursor_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow1_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow2_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow3_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow4_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow5_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow6_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow7_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow8_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow9_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow10_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow11_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow12_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow13_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow14_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow15_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow16_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow17_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow18_title</item>
+        <item>@string/cursor_settings_cursor_design_arrow19_title</item>
+        <item>@string/cursor_settings_cursor_design_hand1_title</item>
+        <item>@string/cursor_settings_cursor_design_hand2_title</item>
+        <item>@string/cursor_settings_cursor_design_hand3_title</item>
+        <item>@string/cursor_settings_cursor_design_hand4_title</item>
+        <item>@string/cursor_settings_cursor_design_hand5_title</item>
+        <item>@string/cursor_settings_cursor_design_hand6_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair1_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair2_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair3_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair4_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair5_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair6_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair7_title</item>
+        <item>@string/cursor_settings_cursor_design_crosshair8_title</item>
+        <item>@string/cursor_settings_cursor_design_custom_title</item>
+    </array>
+    <array name="cursor_designs_free">
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+    </array>
+    <array name="cursor_designs_icons">
+        <item>@drawable/icon_cursor</item>
+        <item>@drawable/cursor_design_arrow1</item>
+        <item>@drawable/cursor_design_arrow2</item>
+        <item>@drawable/cursor_design_arrow3</item>
+        <item>@drawable/cursor_design_arrow4</item>
+        <item>@drawable/cursor_design_arrow5</item>
+        <item>@drawable/cursor_design_arrow6</item>
+        <item>@drawable/cursor_design_arrow7</item>
+        <item>@drawable/cursor_design_arrow8</item>
+        <item>@drawable/cursor_design_arrow9</item>
+        <item>@drawable/cursor_design_arrow10</item>
+        <item>@drawable/cursor_design_arrow11</item>
+        <item>@drawable/cursor_design_arrow12</item>
+        <item>@drawable/cursor_design_arrow13</item>
+        <item>@drawable/cursor_design_arrow14</item>
+        <item>@drawable/cursor_design_arrow15</item>
+        <item>@drawable/cursor_design_arrow16</item>
+        <item>@drawable/cursor_design_arrow17</item>
+        <item>@drawable/cursor_design_arrow18</item>
+        <item>@drawable/cursor_design_arrow19</item>
+        <item>@drawable/cursor_design_hand1</item>
+        <item>@drawable/cursor_design_hand2</item>
+        <item>@drawable/cursor_design_hand3</item>
+        <item>@drawable/cursor_design_hand4</item>
+        <item>@drawable/cursor_design_hand5</item>
+        <item>@drawable/cursor_design_hand6</item>
+        <item>@drawable/cursor_design_crosshair1</item>
+        <item>@drawable/cursor_design_crosshair2</item>
+        <item>@drawable/cursor_design_crosshair3</item>
+        <item>@drawable/cursor_design_crosshair4</item>
+        <item>@drawable/cursor_design_crosshair5</item>
+        <item>@drawable/cursor_design_crosshair6</item>
+        <item>@drawable/cursor_design_crosshair7</item>
+        <item>@drawable/cursor_design_crosshair8</item>
+        <item>@drawable/icon_custom_image</item>
+    </array>
+    <array name="cursor_designs_values">
+        <item>@string/values_cursor_designs_design_quick_cursor</item>
+        <item>@string/values_cursor_designs_design_arrow1</item>
+        <item>@string/values_cursor_designs_design_arrow2</item>
+        <item>@string/values_cursor_designs_design_arrow3</item>
+        <item>@string/values_cursor_designs_design_arrow4</item>
+        <item>@string/values_cursor_designs_design_arrow5</item>
+        <item>@string/values_cursor_designs_design_arrow6</item>
+        <item>@string/values_cursor_designs_design_arrow7</item>
+        <item>@string/values_cursor_designs_design_arrow8</item>
+        <item>@string/values_cursor_designs_design_arrow9</item>
+        <item>@string/values_cursor_designs_design_arrow10</item>
+        <item>@string/values_cursor_designs_design_arrow11</item>
+        <item>@string/values_cursor_designs_design_arrow12</item>
+        <item>@string/values_cursor_designs_design_arrow13</item>
+        <item>@string/values_cursor_designs_design_arrow14</item>
+        <item>@string/values_cursor_designs_design_arrow15</item>
+        <item>@string/values_cursor_designs_design_arrow16</item>
+        <item>@string/values_cursor_designs_design_arrow17</item>
+        <item>@string/values_cursor_designs_design_arrow18</item>
+        <item>@string/values_cursor_designs_design_arrow19</item>
+        <item>@string/values_cursor_designs_design_hand1</item>
+        <item>@string/values_cursor_designs_design_hand2</item>
+        <item>@string/values_cursor_designs_design_hand3</item>
+        <item>@string/values_cursor_designs_design_hand4</item>
+        <item>@string/values_cursor_designs_design_hand5</item>
+        <item>@string/values_cursor_designs_design_hand6</item>
+        <item>@string/values_cursor_designs_design_crosshair1</item>
+        <item>@string/values_cursor_designs_design_crosshair2</item>
+        <item>@string/values_cursor_designs_design_crosshair3</item>
+        <item>@string/values_cursor_designs_design_crosshair4</item>
+        <item>@string/values_cursor_designs_design_crosshair5</item>
+        <item>@string/values_cursor_designs_design_crosshair6</item>
+        <item>@string/values_cursor_designs_design_crosshair7</item>
+        <item>@string/values_cursor_designs_design_crosshair8</item>
+        <item>@string/values_cursor_designs_custom</item>
+    </array>
+    <array name="cursor_horizontals">
+        <item>@string/trigger_mode_triggers_cursor_horizontal_top</item>
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_cursor_horizontal_middle</item>
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_cursor_horizontal_bottom</item>
+    </array>
+    <array name="cursor_speeds">
+        <item>1.5x</item>
+        <item />
+        <item>2x</item>
+        <item />
+        <item />
+        <item>3x</item>
+        <item />
+        <item />
+        <item>4x</item>
+        <item />
+        <item />
+        <item>5x</item>
+    </array>
+    <array name="cursor_verticals">
+        <item>@string/trigger_mode_triggers_cursor_vertical_near</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_cursor_vertical_away</item>
+    </array>
+    <array name="edge_action_trigger_modes_details">
+        <item>@string/edge_action_trigger_mode_instant_detail</item>
+        <item>@string/edge_action_trigger_mode_on_release_detail</item>
+        <item>@string/edge_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="edge_action_trigger_modes_details_with_default">
+        <item>@string/edge_action_trigger_mode_default_detail</item>
+        <item>@string/edge_action_trigger_mode_instant_detail</item>
+        <item>@string/edge_action_trigger_mode_on_release_detail</item>
+        <item>@string/edge_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="keyboard_tracker_handles">
+        <item>@string/keyboard_tracker_handle_nothing</item>
+        <item>@string/keyboard_tracker_handle_raise</item>
+        <item>@string/keyboard_tracker_handle_hide</item>
+    </array>
+    <array name="keyboard_tracker_handles_details">
+        <item>@string/keyboard_tracker_handle_nothing_detail</item>
+        <item>@string/keyboard_tracker_handle_raise_detail</item>
+        <item>@string/keyboard_tracker_handle_hide_detail</item>
+    </array>
+    <array name="keyboard_tracker_handles_values">
+        <item>@string/values_keyboard_tracker_handle_nothing</item>
+        <item>@string/values_keyboard_tracker_handle_raise</item>
+        <item>@string/values_keyboard_tracker_handle_hide</item>
+    </array>
+    <array name="keyboard_triggers_handles">
+        <item>@string/keyboard_triggers_handle_nothing</item>
+        <item>@string/keyboard_triggers_handle_raise</item>
+        <item>@string/keyboard_triggers_handle_thinner</item>
+        <item>@string/keyboard_triggers_handle_disable</item>
+    </array>
+    <array name="keyboard_triggers_handles_details">
+        <item>@string/keyboard_triggers_handle_nothing_detail</item>
+        <item>@string/keyboard_triggers_handle_raise_detail</item>
+        <item>@string/keyboard_triggers_handle_thinner_detail</item>
+        <item>@string/keyboard_triggers_handle_disable_detail</item>
+    </array>
+    <array name="keyboard_triggers_handles_values">
+        <item>@string/values_keyboard_triggers_handle_nothing</item>
+        <item>@string/values_keyboard_triggers_handle_raise</item>
+        <item>@string/values_keyboard_triggers_handle_thinner</item>
+        <item>@string/values_keyboard_triggers_handle_disable</item>
+    </array>
+    <array name="landscape_positions">
+        <item>@string/trigger_mode_triggers_landscape_positions_side_middle</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_landscape_positions_side_bottom</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_landscape_positions_bottom_middle</item>
+    </array>
+    <array name="languages">
+        <item>Arabic</item>
+        <item>Chinese simplified</item>
+        <item>Dutch</item>
+        <item>English</item>
+        <item>French</item>
+        <item>German</item>
+        <item>Hindi</item>
+        <item>Italian</item>
+        <item>Japanese</item>
+        <item>Kurdish</item>
+        <item>Malayalam</item>
+        <item>Polish</item>
+        <item>Portuguese (Brazil)</item>
+        <item>Romanian</item>
+        <item>Russian</item>
+        <item>Spanish</item>
+        <item>Turkish</item>
+        <item>Ukrainian</item>
+        <item>Vietnamese</item>
+        <item>@string/language_choice_help</item>
+    </array>
+    <array name="languages_values">
+        <item>ar</item>
+        <item>zh-CN</item>
+        <item>nl</item>
+        <item>en</item>
+        <item>fr</item>
+        <item>de</item>
+        <item>hi</item>
+        <item>it</item>
+        <item>ja</item>
+        <item>ku</item>
+        <item>ml</item>
+        <item>pl</item>
+        <item>pt-BR</item>
+        <item>ro</item>
+        <item>ru</item>
+        <item>es</item>
+        <item>tr</item>
+        <item>uk</item>
+        <item>vi</item>
+        <item>help</item>
+    </array>
+    <array name="positions">
+        <item>@string/trigger_mode_triggers_positions_bottom_nav</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_positions_bottom</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_positions_middle</item>
+    </array>
+    <array name="preview_sensitivities">
+        <item>@string/edge_actions_preview_sensitivity_off</item>
+        <item>@string/edge_actions_preview_sensitivity_low</item>
+        <item />
+        <item>@string/edge_actions_preview_sensitivity_medium</item>
+        <item />
+        <item>@string/edge_actions_preview_sensitivity_high</item>
+    </array>
+    <array name="preview_sizes">
+        <item>@string/edge_actions_preview_size_off</item>
+        <item>@string/edge_actions_preview_size_low</item>
+        <item />
+        <item />
+        <item>@string/edge_actions_preview_size_medium</item>
+        <item />
+        <item />
+        <item>@string/edge_actions_preview_size_high</item>
+    </array>
+    <array name="simple_trigger_sides">
+        <item>@string/simple_trigger_sides_left</item>
+        <item>@string/simple_trigger_sides_right</item>
+        <item>@string/simple_trigger_sides_both</item>
+    </array>
+    <array name="simple_trigger_sides_values">
+        <item>@string/values_simple_trigger_sides_left_value</item>
+        <item>@string/values_simple_trigger_sides_right_value</item>
+        <item>@string/values_simple_trigger_sides_both_value</item>
+    </array>
+    <array name="tracker_action_trigger_modes_details">
+        <item>@string/tracker_action_trigger_mode_instant_detail</item>
+        <item>@string/tracker_action_trigger_mode_on_release_detail</item>
+        <item>@string/tracker_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="tracker_action_trigger_modes_details_with_default">
+        <item>@string/tracker_action_trigger_mode_default_detail</item>
+        <item>@string/tracker_action_trigger_mode_instant_detail</item>
+        <item>@string/tracker_action_trigger_mode_on_release_detail</item>
+        <item>@string/tracker_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="tracker_designs">
+        <item>@string/tracker_settings_tracker_design_quick_cursor_title</item>
+        <item>@string/tracker_settings_tracker_design_rounded_rectangle_title</item>
+        <item>@string/tracker_settings_tracker_design_squircle_title</item>
+        <item>@string/tracker_settings_tracker_design_fingerprint1_title</item>
+        <item>@string/tracker_settings_tracker_design_flower1_title</item>
+        <item>@string/tracker_settings_tracker_design_flower2_title</item>
+        <item>@string/tracker_settings_tracker_design_flower3_title</item>
+        <item>@string/tracker_settings_tracker_design_airplane1_title</item>
+        <item>@string/tracker_settings_tracker_design_airplane2_title</item>
+        <item>@string/tracker_settings_tracker_design_airplane3_title</item>
+        <item>@string/tracker_settings_tracker_design_android_title</item>
+        <item>@string/tracker_settings_tracker_design_donut_title</item>
+        <item>@string/tracker_settings_tracker_design_sports1_title</item>
+        <item>@string/tracker_settings_tracker_design_sports2_title</item>
+        <item>@string/tracker_settings_tracker_design_sports3_title</item>
+        <item>@string/tracker_settings_tracker_design_yin_yang_title</item>
+        <item>@string/tracker_settings_tracker_design_cd_title</item>
+        <item>@string/tracker_settings_tracker_design_floppy_disk_title</item>
+        <item>@string/tracker_settings_tracker_design_ghost_title</item>
+        <item>@string/tracker_settings_tracker_design_watermelon_title</item>
+        <item>@string/tracker_settings_tracker_design_custom_title</item>
+    </array>
+    <array name="tracker_designs_free">
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+    </array>
+    <array name="tracker_designs_icons">
+        <item>@drawable/tracker_design_quick_cursor</item>
+        <item>@drawable/tracker_design_rounded_rectangle</item>
+        <item>@drawable/tracker_design_squircle</item>
+        <item>@drawable/tracker_design_fingerprint1</item>
+        <item>@drawable/tracker_design_flower1</item>
+        <item>@drawable/tracker_design_flower2</item>
+        <item>@drawable/tracker_design_flower3</item>
+        <item>@drawable/tracker_design_airplane1</item>
+        <item>@drawable/tracker_design_airplane2</item>
+        <item>@drawable/tracker_design_airplane3</item>
+        <item>@drawable/tracker_design_android</item>
+        <item>@drawable/tracker_design_donut</item>
+        <item>@drawable/tracker_design_sports1</item>
+        <item>@drawable/tracker_design_sports2</item>
+        <item>@drawable/tracker_design_sports3</item>
+        <item>@drawable/tracker_design_yin_yang</item>
+        <item>@drawable/tracker_design_cd</item>
+        <item>@drawable/tracker_design_floppy_disk</item>
+        <item>@drawable/tracker_design_ghost</item>
+        <item>@drawable/tracker_design_watermelon</item>
+        <item>@drawable/icon_custom_image</item>
+    </array>
+    <array name="tracker_designs_values">
+        <item>@string/values_tracker_designs_design_quick_cursor</item>
+        <item>@string/values_tracker_designs_design_rounded_rectangle</item>
+        <item>@string/values_tracker_designs_design_squircle</item>
+        <item>@string/values_tracker_designs_design_fingerprint1</item>
+        <item>@string/values_tracker_designs_design_flower1</item>
+        <item>@string/values_tracker_designs_design_flower2</item>
+        <item>@string/values_tracker_designs_design_flower3</item>
+        <item>@string/values_tracker_designs_design_airplane1</item>
+        <item>@string/values_tracker_designs_design_airplane2</item>
+        <item>@string/values_tracker_designs_design_airplane3</item>
+        <item>@string/values_tracker_designs_design_android</item>
+        <item>@string/values_tracker_designs_design_donut</item>
+        <item>@string/values_tracker_designs_design_sports1</item>
+        <item>@string/values_tracker_designs_design_sports2</item>
+        <item>@string/values_tracker_designs_design_sports3</item>
+        <item>@string/values_tracker_designs_design_yin_yang</item>
+        <item>@string/values_tracker_designs_design_cd</item>
+        <item>@string/values_tracker_designs_design_floppy_disk</item>
+        <item>@string/values_tracker_designs_design_ghost</item>
+        <item>@string/values_tracker_designs_design_watermelon</item>
+        <item>@string/values_tracker_designs_custom</item>
+    </array>
+    <array name="trail_type_details">
+        <item>@string/trail_off_detail</item>
+        <item>@string/trail_low_detail</item>
+        <item>@string/trail_high_detail</item>
+    </array>
+    <array name="trail_type_values">
+        <item>@string/values_trail_type_off</item>
+        <item>@string/values_trail_type_low</item>
+        <item>@string/values_trail_type_high</item>
+    </array>
+    <array name="trail_types">
+        <item>@string/trail_off</item>
+        <item>@string/trail_low</item>
+        <item>@string/trail_high</item>
+    </array>
+    <array name="trigger_action_trigger_modes_details">
+        <item>@string/trigger_action_trigger_mode_instant_detail</item>
+        <item>@string/trigger_action_trigger_mode_on_release_detail</item>
+        <item>@string/trigger_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="trigger_action_trigger_modes_details_with_default">
+        <item>@string/trigger_action_trigger_mode_default_detail</item>
+        <item>@string/trigger_action_trigger_mode_instant_detail</item>
+        <item>@string/trigger_action_trigger_mode_on_release_detail</item>
+        <item>@string/trigger_action_trigger_mode_delayed_detail</item>
+    </array>
+    <array name="trigger_actions_designs">
+        <item>@string/trigger_actions_design_off</item>
+        <item>@string/trigger_actions_design_pie</item>
+        <item>@string/trigger_actions_design_action_icon</item>
+    </array>
+    <array name="trigger_actions_designs_details">
+        <item>@string/trigger_actions_design_off_detail</item>
+        <item>@string/trigger_actions_design_pie_detail</item>
+        <item>@string/trigger_actions_design_action_icon_detail</item>
+    </array>
+    <array name="trigger_actions_designs_values">
+        <item>@string/trigger_actions_design_off_value</item>
+        <item>@string/trigger_actions_design_pie_value</item>
+        <item>@string/trigger_actions_design_action_icon_value</item>
+    </array>
+    <array name="trigger_actions_long_presets">
+        <item>@string/trigger_action_long_preset_navigation</item>
+        <item>@string/trigger_action_long_preset_navigation_and_notifications</item>
+        <item>@string/trigger_action_long_preset_tools1</item>
+        <item>@string/trigger_action_long_preset_tools2</item>
+    </array>
+    <array name="trigger_actions_long_presets_details">
+        <item>@string/trigger_action_long_preset_navigation_detail</item>
+        <item>@string/trigger_action_long_preset_navigation_and_notifications_detail</item>
+        <item>@string/trigger_action_long_preset_tools1_detail</item>
+        <item>@string/trigger_action_long_preset_tools2_detail</item>
+    </array>
+    <array name="trigger_actions_long_presets_values">
+        <item>@string/trigger_action_long_preset_navigation_value</item>
+        <item>@string/trigger_action_long_preset_navigation_and_notifications_value</item>
+        <item>@string/trigger_action_long_preset_tools1_value</item>
+        <item>@string/trigger_action_long_preset_tools2_value</item>
+    </array>
+    <array name="trigger_actions_modes">
+        <item>@string/trigger_action_mode_off</item>
+        <item>@string/trigger_action_mode_pie_single</item>
+        <item>@string/trigger_action_mode_pie_multi</item>
+    </array>
+    <array name="trigger_actions_modes_details">
+        <item>@string/trigger_action_mode_off_detail</item>
+        <item>@string/trigger_action_mode_pie_single_detail</item>
+        <item>@string/trigger_action_mode_pie_multi_detail</item>
+    </array>
+    <array name="trigger_actions_modes_free">
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+    </array>
+    <array name="trigger_actions_modes_icons">
+        <item>@drawable/icon_triggers</item>
+        <item>@drawable/icon_trigger_actions_pie_single</item>
+        <item>@drawable/icon_trigger_actions_pie_multi</item>
+    </array>
+    <array name="trigger_actions_modes_values">
+        <item>@string/trigger_action_mode_off_value</item>
+        <item>@string/trigger_action_mode_pie_single_value</item>
+        <item>@string/trigger_action_mode_pie_multi_value</item>
+    </array>
+    <array name="trigger_actions_short_presets">
+        <item>@string/trigger_action_short_preset_navigation</item>
+        <item>@string/trigger_action_short_preset_notifications</item>
+        <item>@string/trigger_action_short_preset_brightness_and_volume</item>
+        <item>@string/trigger_action_short_preset_navigation_and_notifications</item>
+        <item>@string/trigger_action_short_preset_tools1</item>
+        <item>@string/trigger_action_short_preset_tools2</item>
+    </array>
+    <array name="trigger_actions_short_presets_details">
+        <item>@string/trigger_action_short_preset_navigation_detail</item>
+        <item>@string/trigger_action_short_preset_notifications_detail</item>
+        <item>@string/trigger_action_short_preset_brightness_and_volume_detail</item>
+        <item>@string/trigger_action_short_preset_navigation_and_notifications_detail</item>
+        <item>@string/trigger_action_short_preset_tools1_detail</item>
+        <item>@string/trigger_action_short_preset_tools2_detail</item>
+    </array>
+    <array name="trigger_actions_short_presets_free">
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+        <item>0</item>
+    </array>
+    <array name="trigger_actions_short_presets_values">
+        <item>@string/trigger_action_short_preset_navigation_value</item>
+        <item>@string/trigger_action_short_preset_notifications_value</item>
+        <item>@string/trigger_action_short_preset_brightness_and_volume_value</item>
+        <item>@string/trigger_action_short_preset_navigation_and_notifications_value</item>
+        <item>@string/trigger_action_short_preset_tools1_value</item>
+        <item>@string/trigger_action_short_preset_tools2_value</item>
+    </array>
+    <array name="trigger_design_rectangle_corner_radius_modes">
+        <item>@string/trigger_design_corner_radius_outside</item>
+        <item>@string/trigger_design_corner_radius_all</item>
+    </array>
+    <array name="trigger_design_rectangle_corner_radius_modes_details">
+        <item>@string/trigger_design_corner_radius_outside_details</item>
+        <item>@string/trigger_design_corner_radius_all_details</item>
+    </array>
+    <array name="trigger_design_rectangle_corner_radius_modes_values">
+        <item>@string/trigger_design_corner_radius_outside_value</item>
+        <item>@string/trigger_design_corner_radius_all_value</item>
+    </array>
+    <array name="trigger_design_rectangle_presets">
+        <item>@string/trigger_design_rectangle_preset_bar</item>
+        <item>@string/trigger_design_rectangle_preset_line</item>
+        <item>@string/trigger_design_rectangle_preset_rounded_rectangle</item>
+        <item>@string/trigger_design_rectangle_preset_glow</item>
+        <item>@string/trigger_design_rectangle_preset_line_and_glow</item>
+    </array>
+    <array name="trigger_design_rectangle_presets_free">
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+        <item>0</item>
+    </array>
+    <array name="trigger_design_rectangle_presets_values">
+        <item>@string/trigger_design_rectangle_preset_bar_value</item>
+        <item>@string/trigger_design_rectangle_preset_line_value</item>
+        <item>@string/trigger_design_rectangle_preset_rounded_rectangle_value</item>
+        <item>@string/trigger_design_rectangle_preset_glow_value</item>
+        <item>@string/trigger_design_rectangle_preset_line_and_glow_value</item>
+    </array>
+    <array name="trigger_design_types">
+        <item>@string/trigger_design_type_off</item>
+        <item>@string/trigger_design_type_rectangle</item>
+        <item>@string/trigger_design_type_custom</item>
+    </array>
+    <array name="trigger_design_types_free">
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+    </array>
+    <array name="trigger_design_types_values">
+        <item>@string/trigger_design_type_off_value</item>
+        <item>@string/trigger_design_type_rectangle_value</item>
+        <item>@string/trigger_design_type_custom_value</item>
+    </array>
+    <array name="trigger_lengths">
+        <item>@string/trigger_mode_triggers_length_short</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_length_medium</item>
+        <item />
+        <item />
+        <item />
+        <item />
+        <item>@string/trigger_mode_triggers_length_tall</item>
+    </array>
+    <array name="trigger_modes">
+        <item>@string/trigger_mode_disabled</item>
+        <item>@string/trigger_mode_triggers</item>
+        <item>@string/trigger_mode_advanced_triggers</item>
+        <item>@string/trigger_mode_floating</item>
+    </array>
+    <array name="trigger_modes_details">
+        <item>@string/trigger_mode_disabled_detail</item>
+        <item>@string/trigger_mode_triggers_detail</item>
+        <item>@string/trigger_mode_advanced_triggers_detail</item>
+        <item>@string/trigger_mode_floating_detail</item>
+    </array>
+    <array name="trigger_modes_free">
+        <item>1</item>
+        <item>1</item>
+        <item>1</item>
+        <item>0</item>
+    </array>
+    <array name="trigger_modes_values">
+        <item>@string/values_trigger_mode_disabled</item>
+        <item>@string/values_trigger_mode_simple_triggers</item>
+        <item>@string/values_trigger_mode_advanced_triggers</item>
+        <item>@string/values_trigger_mode_floating</item>
+    </array>
+    <array name="windowed_launch_mode_titles">
+        <item>@string/windowed_launch_mode_mode1_title</item>
+        <item>@string/windowed_launch_mode_mode2_title</item>
+        <item>@string/windowed_launch_mode_mode3_title</item>
+        <item>@string/windowed_launch_mode_mode4_title</item>
+    </array>
+    <array name="windowed_launch_mode_values">
+        <item>@string/windowed_launch_mode_mode1_value</item>
+        <item>@string/windowed_launch_mode_mode2_value</item>
+        <item>@string/windowed_launch_mode_mode3_value</item>
+        <item>@string/windowed_launch_mode_mode4_value</item>
+    </array>
+</resources>

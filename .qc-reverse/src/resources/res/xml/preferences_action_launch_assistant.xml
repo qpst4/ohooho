@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <SwitchPreference
+        android:title="@string/action_launch_assistant_hide_cursor_title"
+        android:key="hideCursor"
+        android:summary="@string/action_launch_assistant_hide_cursor_summary"
+        android:defaultValue="@bool/default_action_launch_assistant_hide_cursor"
+        app:iconSpaceReserved="false"/>
+</PreferenceScreen>

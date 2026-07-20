@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <PreferenceCategory
+        android:title="@string/tracker_actions_center_action_category_title"
+        app:iconSpaceReserved="false">
+        <Preference
+            android:title="@string/tracker_actions_center_action_type_title"
+            android:key="trackerActionsCenterAction"
+            android:summary=""
+            app:iconSpaceReserved="false"
+            app:persistent="false"/>
+        <SwitchPreference
+            android:title="@string/tracker_actions_center_action_icon_title"
+            android:key="trackerActionsCenterActionIcon"
+            android:summary="@string/tracker_actions_center_action_icon_description"
+            android:defaultValue="@bool/default_tracker_actions_center_action_icon"
+            app:iconSpaceReserved="false"/>
+        <com.quickcursor.android.preferences.DetailedListPreference
+            android:entries="@array/action_trigger_modes"
+            android:title="@string/tracker_actions_center_action_trigger_title"
+            android:key="trackerActionsCenterActionTriggerMode"
+            android:summary="%s"
+            android:entryValues="@array/action_trigger_modes_values"
+            app:defaultValue="@string/action_trigger_mode_on_release_value"
+            app:entryDetails="@array/tracker_action_trigger_modes_details"
+            app:iconSpaceReserved="false"/>
+        <com.quickcursor.android.preferences.SeekBarDialogPreference
+            android:title="@string/tracker_actions_center_action_trigger_delay_title"
+            app:defaultValue="@integer/default_tracker_actions_trigger_delay"
+            app:description="@string/tracker_actions_center_action_trigger_delay_description"
+            app:floatValue="false"
+            app:iconSpaceReserved="false"
+            app:isPreferenceVisible="false"
+            app:key="trackerActionsCenterActionTriggerDelay"
+            app:max="@integer/max_tracker_actions_on_release_delay"
+            app:min="50"
+            app:step="5"
+            app:units="ms"
+            app:updatesContinuously="true"/>
+    </PreferenceCategory>
+</PreferenceScreen>

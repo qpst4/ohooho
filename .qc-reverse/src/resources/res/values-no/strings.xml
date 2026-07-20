@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mi_content_description_back">Tilbake</string>
+    <string name="mi_content_description_next">Neste</string>
+    <string name="mi_content_description_skip">Hopp over</string>
+    <string name="mi_label_button_cta">Kom i gang</string>
+</resources>

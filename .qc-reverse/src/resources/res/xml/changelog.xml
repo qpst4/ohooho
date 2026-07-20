@@ -1,0 +1,1332 @@
+<?xml version="1.0" encoding="utf-8"?>
+<changelog>
+    <release
+        date="2026-05-28"
+        versionCode="248"
+        versionName="3.0.1">
+        <new>Quick Cursor app is now an accessibility tool designed to support people with disabilities
+        </new>
+        <info>update translations
+        </info>
+        <info>add Ukrainian language
+        </info>
+    </release>
+    <release
+        date="2026-05-22"
+        versionCode="246"
+        versionName="2.4.1">
+        <new>new tracker designs
+        </new>
+        <new>add bottom edge action bar
+        </new>
+        <info>hide trigger designs on screenshot action
+        </info>
+        <info>fix brightness action config crash
+        </info>
+        <info>fix volume action granular change on new Samsung versions
+        </info>
+        <info>fix crashes
+        </info>
+    </release>
+    <release
+        date="2026-01-20"
+        versionCode="243"
+        versionName="2.3.3">
+        <info>fix crashes
+        </info>
+    </release>
+    <release
+        date="2026-01-11"
+        versionCode="242"
+        versionName="2.3.2">
+        <info>fix app picker dialog bug (launch app action, blacklist/icon pack app picker)
+        </info>
+        <info>fix backup/restore crash
+        </info>
+        <info>fix layout misalign
+        </info>
+        <info>fix icon pack bug
+        </info>
+    </release>
+    <release
+        date="2026-01-07"
+        versionCode="237"
+        versionName="2.3.0">
+        <new>add &quot;Select All&quot; action
+        </new>
+        <new>add &quot;Timed disable&quot; action
+        </new>
+        <new>&quot;volume bar action&quot; more granular for Samsung devices
+        </new>
+        <new>add &quot;Hide cursor&quot; option to &quot;Launch assistant&quot; action
+        </new>
+        <info>improve backup/restore on different screen resolutions
+        </info>
+        <info>improve Material You colors setting
+        </info>
+        <info>fix &quot;volume bar action&quot; for OnePlus/Oppo/Realme when app is in background
+        </info>
+        <info>fix app picker dialog crash
+        </info>
+        <info>fix backup/restore issue on &quot;Simple triggers&quot; on different resolution
+        </info>
+        <info>fix cursor tap/gestures over tracker/triggers
+        </info>
+        <info>update for Android 16 edge-to-edge enforcement
+        </info>
+        <info>update to targetSdkVersion 36
+        </info>
+        <info>update dependencies
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2025-05-29"
+        versionCode="234"
+        versionName="2.2.1">
+        <info>Implement a better Android 15 bug workaround
+        </info>
+        <info>fix settings bugs
+        </info>
+    </release>
+    <release
+        date="2025-05-19"
+        versionCode="232"
+        versionName="2.1.1">
+        <new>add &quot;Real-time gestures&quot; action on Android 16 (drag &amp; drop, swipe, scroll, etc)
+        </new>
+        <new>add &quot;Thinner triggers&quot; option when keyboard is visible
+        </new>
+        <info>add Android 15 click issue info and workarounds
+        </info>
+        <info>fix settings crashes
+        </info>
+        <info>fix free version settings reset bug
+        </info>
+        <info>add trigger length customization (short, medium, tall) on simple triggers mode
+        </info>
+    </release>
+    <release
+        date="2025-01-21"
+        versionCode="227"
+        versionName="2.0.0">
+        <new>Quick Cursor 2.0
+        </new>
+        <new>Trigger actions
+        </new>
+        <info>Pie actions - custom actions when you swipe vertically, diagonally or horizontally
+        </info>
+        <info>Multi pie actions - an extra number of long swipe actions
+        </info>
+        <info>Trigger actions designs
+        </info>
+        <info>Tap and long tap trigger actions
+        </info>
+        <info>------------------------
+        </info>
+        <new>Trigger design
+        </new>
+        <info>Configurable rectangle design with some presets
+        </info>
+        <info>Custom image
+        </info>
+        <info>------------------------
+        </info>
+        <new>Foldable device support - different triggers config for each resolution and orientation
+        </new>
+        <info>------------------------
+        </info>
+        <info>add &quot;When keyboard opens&quot; config
+        </info>
+        <info>fix blacklist checkbox bug
+        </info>
+        <info>cursor area fully configurable
+        </info>
+        <info>tracker area scale from cursor area option
+        </info>
+        <info>enhance brightness and volume bar actions
+        </info>
+        <info>add &apos;Hide tracker after&apos; option to tracker actions
+        </info>
+        <info>enhance &apos;Toggle sound profile&apos; action
+        </info>
+        <info>update SDK to Android 15 (35)
+        </info>
+        <info>update dependencies
+        </info>
+        <info>update translations
+        </info>
+        <info>------------------------
+        </info>
+        <new>Add new configs to the FREE version:
+        </new>
+        <info>advanced triggers, some trigger designs and trigger actions presets
+        </info>
+        <info>limited tracker actions, limited long and second tap actions
+        </info>
+        <info>limited edge actions
+        </info>
+        <info>8 cursor designs, cursor size and trail type
+        </info>
+        <info>tracker size, hide on outside tap, vibration duration, visual feedback size, vibration on new cursr
+        </info>
+    </release>
+    <release
+        date="2024-09-15"
+        versionCode="221"
+        versionName="1.28.2">
+        <info>workaround for Pixel 9 Fold black screen delay bug
+        </info>
+        <info>increase maximum cursor speed on simple triggers mode
+        </info>
+    </release>
+    <release
+        date="2024-08-01"
+        versionCode="219"
+        versionName="1.28.1">
+        <info>fix app not starting on reinstall on some devices
+        </info>
+        <info>fix app crash on blacklist/whitelist app picker
+        </info>
+    </release>
+    <release
+        date="2024-07-05"
+        versionCode="218"
+        versionName="1.28.0">
+        <new>Add support for Icon Packs
+        </new>
+        <new>Samsung S Pen detection - disable while detached
+        </new>
+        <info>fix tracker disappear when clicking the trigger
+        </info>
+        <info>configurable long tap action duration
+        </info>
+        <info>improve blacklist/whitelist app picker
+        </info>
+        <info>add new &apos;relative&apos; mode for volume/brightness actions
+        </info>
+        <info>update dependencies (Google Play Billing library)
+        </info>
+        <info>add Vietnamese translation
+        </info>
+    </release>
+    <release
+        date="2024-03-26"
+        versionCode="215"
+        versionName="1.27.0">
+        <info>update translations
+        </info>
+        <new>add &apos;toggle&apos; option to expand notification and expand quick settings actions
+        </new>
+        <new>edge action new visual option
+        </new>
+        <new>add two finger bottom swipe action (Samsung multi-window shortcut)
+        </new>
+        <new>add vertical option for Volume and Brightness bar actions
+        </new>
+        <info>fix tracker actions center action bugs
+        </info>
+        <info>fix bug on foldables that turned on the app when folding/closing the device
+        </info>
+        <new>add foldable state auto pause (app can be configured to work only in one state)
+        </new>
+        <info>Blacklist/Whitelist feature available in the FREE version
+        </info>
+        <info>remove QUERY_ALL_PACKAGES permission
+        </info>
+        <info>fix Surface Duo Android 12 bugs
+        </info>
+        <info>fix Foldable landscape scale bug
+        </info>
+    </release>
+    <release
+        date="2024-01-22"
+        versionCode="208"
+        versionName="1.25.7">
+        <info>update translations
+        </info>
+        <info>add logcat message on new cursor
+        </info>
+        <info>fix Samsung OneUI 6 lockscreen bug
+        </info>
+        <info>fix gesture recorder bug: point remains visible on screen
+        </info>
+        <info>fix toggle brightness action bug
+        </info>
+        <info>fix pinch out/in naming
+        </info>
+    </release>
+    <release
+        date="2023-11-04"
+        versionCode="207"
+        versionName="1.25.6">
+        <new>add new configs for &quot;Change brightness&quot; and &quot;Change volume&quot; actions
+        </new>
+        <new>update dependencies and target Android 14
+        </new>
+        <info>update translations
+        </info>
+        <info>fix difference between Add new edge action and Add new tracker action
+        </info>
+        <info>fix tracker action tabs bug
+        </info>
+        <info>fix Automate action
+        </info>
+        <info>add swipe duration config on swipe action
+        </info>
+        <info>update &quot;Change brightness&quot;, &quot;Change volume&quot;, &quot;Swipe&quot;, &quot;Pinch&quot;, &quot;Media volume&quot; action config
+        </info>
+        <new>add &quot;Screenshot to clipboard&quot; action
+        </new>
+        <info>improve tap behaviour action picker
+        </info>
+        <new>add &quot;force rotation&quot; mode on &quot;Rotate screen&quot; action
+        </new>
+        <info>add Search on &quot;Launch app&quot; and &quot;Launch shortcut&quot; actions
+        </info>
+        <new>add option for &quot;windowed mode&quot; in &quot;Launch app&quot; action
+        </new>
+        <info>fix dynamic shortcut bug
+        </info>
+        <info>add new experimental &quot;vibration amplitude&quot;
+        </info>
+        <info>rename &quot;vibration intensity&quot; to &quot;vibration duration&quot;
+        </info>
+    </release>
+    <release
+        date="2023-08-04"
+        versionCode="199"
+        versionName="1.24.4">
+        <info>fix &quot;cursor action vibration&quot; toggle not applying instantly
+        </info>
+    </release>
+    <release
+        date="2023-07-22"
+        versionCode="198"
+        versionName="1.24.3">
+        <info>&quot;toggle tracker actions always visible&quot; action can be used inside tracker actions
+        </info>
+    </release>
+    <release
+        date="2023-07-02"
+        versionCode="197"
+        versionName="1.24.2">
+        <info>&quot;stop app&quot; persistent after device restart
+        </info>
+        <info>add &quot;flip&quot; option to cursor designs
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2023-05-16"
+        versionCode="196"
+        versionName="1.24.1">
+        <new>add pinch in/out action
+        </new>
+        <new>add increase, decrease and mute volume action
+        </new>
+        <new>add rotate screen action
+        </new>
+        <info>add dynamic icons for launcher shortcuts
+        </info>
+        <info>add &quot;create a flipped copy&quot; in advanced mode
+        </info>
+        <info>add &quot;app enabled on lockscreen&quot; in debug settings
+        </info>
+        <info>add multi tap action
+        </info>
+        <info>add multi touch support for long tap, double tap and swipe actions
+        </info>
+        <info>add French translation
+        </info>
+        <info>add Hindi translation
+        </info>
+        <info>update translations
+        </info>
+        <info>fix crash in zone/area editor settings
+        </info>
+    </release>
+    <release
+        date="2023-04-22"
+        versionCode="194"
+        versionName="1.23.1">
+        <info>add &apos;Double tap&apos; action
+        </info>
+        <info>add calibration process for brightness slider action
+        </info>
+        <info>refactor and improve launcher shortcuts
+        </info>
+        <info>improve action picker
+        </info>
+        <info>update translation tool
+        </info>
+        <info>update translations
+        </info>
+        <info>update dependencies
+        </info>
+        <info>added Malayalam translation
+        </info>
+        <info>fix Tasker, MacroDroid, Automate actions crash
+        </info>
+        <info>fix tracker actions settings crash
+        </info>
+    </release>
+    <release
+        date="2023-03-18"
+        versionCode="187"
+        versionName="1.22.5">
+        <info>fix shortcuts bug
+        </info>
+        <info>change support email address to new support@quickcursor.app
+        </info>
+        <info>fix bugs on &quot;Launch shortcut&quot; action
+        </info>
+    </release>
+    <release
+        date="2023-03-09"
+        versionCode="186"
+        versionName="1.22.4">
+        <new>add &apos;Material You&apos; support
+        </new>
+        <info>add &apos;Cut&apos; action
+        </info>
+        <info>add &apos;Toggle auto tap&apos; action
+        </info>
+        <info>add &apos;missing permissions&apos; page
+        </info>
+        <info>add &apos;Hide cursor on tracker release&apos; option
+        </info>
+        <info>fix some UI in Edge actions settings
+        </info>
+        <info>fix second tap action detection bug for OnePlus Android 13
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2023-02-06"
+        versionCode="180"
+        versionName="1.21.9">
+        <info>fix crash on foldable devices
+        </info>
+        <info>fix backup/restore screen resolution info. backups created in version 1.21.0 - 1.21.6 are missing screen resolution info because of a bug
+        </info>
+        <info>actions can be chosen even if the system reports as not supported (some system wrongly reports support)
+        </info>
+        <info>adjust swipe actions (miui quick settings, app menu open) to use the new swipe gesture action
+        </info>
+        <info>increase the gesture recorder time limit
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2023-01-30"
+        versionCode="177"
+        versionName="1.21.6">
+        <info>fix tracker actions bug with auto tap mode &quot;on every release&quot;
+        </info>
+        <info>prevent triggering edge actions on floating tracker positioning
+        </info>
+    </release>
+    <release
+        date="2023-01-29"
+        versionCode="176"
+        versionName="1.21.5">
+        <info>small bug fixes with tracker actions
+        </info>
+        <info>fix crash in action picker dialog
+        </info>
+    </release>
+    <release
+        date="2023-01-26"
+        versionCode="175"
+        versionName="1.21.4">
+        <new>add new feature: tracker actions
+        </new>
+        <new>add new double tap tracker config
+        </new>
+        <new>add new second tap config
+        </new>
+        <new>&quot;long tap&quot; added to free version
+        </new>
+        <new>add new actions: copy, swipe
+        </new>
+        <new>add advanced actions: Tasker, MacroDroid and Automate
+        </new>
+        <new>add material you themed icon support
+        </new>
+        <new>add PRO subscription with trial option
+        </new>
+        <info>added search on actions list
+        </info>
+        <info>fix how to use dialog bug
+        </info>
+        <info>change feedback &quot;long click&quot; to &quot;cursor action&quot;
+        </info>
+        <info>fix gesture recorder issues. smoother on newer Android versions
+        </info>
+    </release>
+    <release
+        date="2023-01-05"
+        versionCode="156"
+        versionName="1.19.5">
+        <info>add support for Android &quot;dynamic shortcuts&quot; because not all apps support classic shortcuts
+        </info>
+    </release>
+    <release
+        date="2023-01-02"
+        versionCode="154"
+        versionName="1.19.4">
+        <info>add configurable extra space between triggers and keyboard when they are moved automatically above
+        </info>
+        <info>fix keyboard height detection on some edge cases
+        </info>
+        <info>fix settings crash
+        </info>
+    </release>
+    <release
+        date="2022-12-29"
+        versionCode="153"
+        versionName="1.19.3">
+        <info>improve edge actions list requirements and info
+        </info>
+        <info>fix a few settings crashes
+        </info>
+        <info>moved FAQ from app to external Github page
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2022-10-25"
+        versionCode="150"
+        versionName="1.19.0">
+        <new>new cursor designs
+        </new>
+        <new>custom cursor design from own images
+        </new>
+        <info>fix shortcuts in Android 13
+        </info>
+        <info>update Chinese translations
+        </info>
+    </release>
+    <release
+        date="2022-10-17"
+        versionCode="149"
+        versionName="1.18.4">
+        <info>new edge actions: &quot;Long tap&quot;, &quot;Start gesture recorder&quot;, &quot;Cancel auto tap&quot;
+        </info>
+        <info>fix click bug when cursor, tracker and trigger are overlapping
+        </info>
+        <info>fix &quot;accessibility service bug&quot; popup bug
+        </info>
+        <info>fix &quot;hide on fling&quot; and &quot;hide cursor&quot; edge action with floating tracker mode
+        </info>
+        <info>update translations
+        </info>
+        <info>update dependencies and targetSdkVersion
+        </info>
+        <info>update Play Store billing library
+        </info>
+    </release>
+    <release
+        date="2022-10-11"
+        versionCode="145"
+        versionName="1.18.0">
+        <new>new &quot;auto tap&quot; mode: taps automatically on tracker release
+        </new>
+        <info>fix bug with backup on Google Drive on some devices
+        </info>
+        <info>reduce the app size by optimising some files
+        </info>
+        <info>fix click bug when moving the cursor back to the initial position
+        </info>
+        <info>fix &quot;hide cursor&quot; edge action bug
+        </info>
+        <info>fix &quot;Paste&quot; edge action on website inputs inside Chrome (and other browsers)
+        </info>
+        <info>fix bug with settings disabled when portrait mode is disabled
+        </info>
+        <info>fix blacklist/whitelist loading crash bug
+        </info>
+        <info>update Chinese translation
+        </info>
+    </release>
+    <release
+        date="2022-09-29"
+        versionCode="142"
+        versionName="1.17.11">
+        <new>add Chinese simplified translation
+        </new>
+        <info>update Dutch, Italian, Japan, Spanish, Portuguese (Brazil), Turkish translations
+        </info>
+    </release>
+    <release
+        date="2022-07-25"
+        versionCode="141"
+        versionName="1.17.10">
+        <new>New edge actions features
+        </new>
+        <info>add possibility to configure multiple edge actions per side
+        </info>
+        <info>add edge action preview before triggering
+        </info>
+        <info>add new types of edge actions: screenshot, flashlight, lockscreen, switch to prev app, power menu, brightness control and more
+        </info>
+        <info>add new edge action trigger modes: instant, on release, delayed
+        </info>
+        <new>free version: pull down notifications with Cursor (top edge action)
+        </new>
+        <new>free version: keyboard detection is configurable 
+        </new>
+        <info>fix keyboard detection mechanism for Android 13
+        </info>
+        <info>fix a bug with &quot;triggers above&quot; on landscape
+        </info>
+        <info>remove Canvas drawer from debug menu
+        </info>
+        <info>add &apos;Default&apos; option on color preference dialog
+        </info>
+    </release>
+    <release
+        date="2022-06-08"
+        versionCode="128"
+        versionName="1.16.1">
+        <info>FIXED Samsung Android 12 crash bug!
+        </info>
+        <info>add accessibility service consent dialog (Google requirement for Android 12)
+        </info>
+        <info>update targetSdkVersion to 31 (Android 12)
+        </info>
+        <info>update third-party dependencies
+        </info>
+        <info>add Portuguese (Brazil) translation
+        </info>
+        <info>update translations
+        </info>
+        <info>fix bug with gesture navigation on tracker fling
+        </info>
+    </release>
+    <release
+        date="2022-01-24"
+        versionCode="118"
+        versionName="1.15.2">
+        <info>fix app detection bug for blacklist on Android 12
+        </info>
+        <info>fix overlay bug when the app is stopped
+        </info>
+        <info>update &quot;Debug visuals&quot; functionality
+        </info>
+    </release>
+    <release
+        date="2022-01-17"
+        versionCode="116"
+        versionName="1.15.1">
+        <new>PRO version on sale between January 17-31: 0.99$
+        </new>
+    </release>
+    <release
+        date="2022-01-12"
+        versionCode="115"
+        versionName="1.15.0">
+        <info>prepare for January sale
+        </info>
+        <info>added Italian translation (Thanks to D4.gma)
+        </info>
+        <info>added Arabic translation
+        </info>
+        <info>added Japanese translation
+        </info>
+        <info>added Romanian translation
+        </info>
+        <info>fix landscape/portrait rotation bug in Quick Cursor settings
+        </info>
+        <info>added new software for community translation help
+        </info>
+        <info>updated multiple translations
+        </info>
+        <info>changed font and adjusted layout
+        </info>
+    </release>
+    <release
+        date="2021-12-21"
+        versionCode="110"
+        versionName="1.14.0">
+        <info>improved keyboard detection on Android 12
+        </info>
+        <info>refactored and optimized keyboard/blacklist/whitelist detection mechanism
+        </info>
+        <info>optimized app when keyboard and blacklist app detection are both turned off
+        </info>
+    </release>
+    <release
+        date="2021-12-19"
+        versionCode="109"
+        versionName="1.13.4">
+        <new>long click shortcut from gesture recorder (advanced mode): release the tracker after the record starts
+        </new>
+        <new>added &quot;Thank you&quot; page after buying PRO
+        </new>
+    </release>
+    <release
+        date="2021-12-12"
+        versionCode="104"
+        versionName="1.12.0">
+        <new>add &quot;hide on fling&quot; feature (enabled by default)
+        </new>
+        <info>fix crash on experimental canvas drawer
+        </info>
+        <info>fix crash on swipe zones settings
+        </info>
+        <info>fix some rare crashes
+        </info>
+    </release>
+    <release
+        date="2021-10-03"
+        versionCode="103"
+        versionName="1.11.4">
+        <info>fix &quot;how to use&quot; bug
+        </info>
+    </release>
+    <release
+        date="2021-09-21"
+        versionCode="102"
+        versionName="1.11.3">
+        <info>fix bug on dimension changes on Galaxy Fold
+        </info>
+        <info>fix bug on dimension changes on Surface Duo
+        </info>
+    </release>
+    <release
+        date="2021-08-09"
+        versionCode="101"
+        versionName="1.11.2">
+        <info>fix quick settings popup not opening bug
+        </info>
+    </release>
+    <release
+        date="2021-08-09"
+        versionCode="100"
+        versionName="1.11.1">
+        <info>fix landscape default config bug
+        </info>
+    </release>
+    <release
+        date="2021-08-08"
+        versionCode="99"
+        versionName="1.11.0">
+        <new>Landscape mode - fully customizable
+        </new>
+        <new>Tablet support
+        </new>
+        <info>add &quot;Reset to default&quot; warning popup on &quot;How to use&quot;
+        </info>
+    </release>
+    <release
+        date="2021-08-03"
+        versionCode="98"
+        versionName="1.10.0">
+        <new>improve simple triggers config (more options and easier to config)
+        </new>
+        <new>more trigger config for free version
+        </new>
+        <info>fix cursor preview when cursor stroke size is bigger than cursor size
+        </info>
+        <info>switch to limited mode manually instead of automatically in case of dispatch bug
+        </info>
+        <info>add more debug options
+        </info>
+    </release>
+    <release
+        date="2021-06-07"
+        versionCode="97"
+        versionName="1.9.5">
+        <info>fix wrong value displayed on Advanced mode edit
+        </info>
+    </release>
+    <release
+        date="2021-05-26"
+        versionCode="96"
+        versionName="1.9.4">
+        <new>first stable version (no beta)
+        </new>
+        <info>Please rate the new version on Play Store, the older &quot;beta feedback&quot; was only for developer (not public)
+        </info>
+    </release>
+    <release
+        date="2021-05-26"
+        versionCode="95"
+        versionName="1.9.3 Beta">
+        <info>fix &quot;Quick actions&quot; bottom sheet back button bug
+        </info>
+        <info>fix crash when settings are outside of min-max range
+        </info>
+        <info>create adaptive icon
+        </info>
+        <info>change icon to respect Android guidelines
+        </info>
+    </release>
+    <release
+        date="2021-05-07"
+        versionCode="94"
+        versionName="1.9.2 Beta">
+        <info>fix error toast on unlocking phone
+        </info>
+    </release>
+    <release
+        date="2021-03-07"
+        versionCode="93"
+        versionName="1.9.1 Beta">
+        <info>small crash fix
+        </info>
+    </release>
+    <release
+        date="2021-03-06"
+        versionCode="92"
+        versionName="1.9.0 Beta">
+        <new>add support for devices with adjustable screens (foldable devices)
+        </new>
+        <new>add support for devices with configurable resolution. scale preferences based on resolution change
+        </new>
+        <info>refactor all size preferences to float
+        </info>
+        <info>fix floating tracker mode with move triggers above keyboard bug
+        </info>
+        <info>fix trail bug on &quot;hide cursor&quot; edge action
+        </info>
+    </release>
+    <release
+        date="2021-02-23"
+        versionCode="91"
+        versionName="1.8.2 Beta">
+        <info>add new visual debugs
+        </info>
+        <info>fix crash from Google Play store feedvback
+        </info>
+    </release>
+    <release
+        date="2021-02-21"
+        versionCode="90"
+        versionName="1.8.1 Beta">
+        <info>fix crash introduced in 1.8.0 beta. Sorry for that!
+        </info>
+        <info>fix bug with app shown as stopped in the main screen
+        </info>
+        <info>fix bug on first use tutorial
+        </info>
+    </release>
+    <release
+        date="2021-02-20"
+        versionCode="89"
+        versionName="1.8.0 Beta">
+        <new>add blacklist/whitelist functionality
+        </new>
+        <info>add action to add an app to blacklist from Quick Settings
+        </info>
+    </release>
+    <release
+        date="2021-02-19"
+        versionCode="88"
+        versionName="1.7.0 Beta">
+        <info>improve the debug system with debug logs
+        </info>
+        <info>change the configurable long click distance threshold to be used for click also
+        </info>
+        <info>fix quick settings popup bug
+        </info>
+    </release>
+    <release
+        date="2021-02-18"
+        versionCode="87"
+        versionName="1.6.13 Beta">
+        <info>add configurable long click distance threshold
+        </info>
+        <info>fix quick settings tile crash
+        </info>
+        <info>fix not registered click on fast tracker tapping
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2021-02-17"
+        versionCode="86"
+        versionName="1.6.12 Beta">
+        <info>add gesture recorder cancel edge action
+        </info>
+    </release>
+    <release
+        date="2021-02-17"
+        versionCode="85"
+        versionName="1.6.11 Beta">
+        <info>add debug for Quick Actions popup to identify a bug
+        </info>
+        <info>fix some crashes on app opening reported on Play Store
+        </info>
+    </release>
+    <release
+        date="2021-01-30"
+        versionCode="84"
+        versionName="1.6.10 Beta">
+        <info>add Russian translation (thanks to Alex Procopovich)
+        </info>
+        <info>fix translation bug on Quick Actions popup
+        </info>
+    </release>
+    <release
+        date="2021-01-20"
+        versionCode="83"
+        versionName="1.6.9 Beta">
+        <info>fix temporarily pause feature on Android 11
+        </info>
+    </release>
+    <release
+        date="2021-01-18"
+        versionCode="82"
+        versionName="1.6.8 Beta">
+        <info>fix crash on first use tutorial
+        </info>
+    </release>
+    <release
+        date="2021-01-17"
+        versionCode="81"
+        versionName="1.6.7 Beta">
+        <info>add info about how to prevent Android killing the app
+        </info>
+        <info>fix gesture replay crash
+        </info>
+        <info>fix start/stop app bug
+        </info>
+    </release>
+    <release
+        date="2021-01-16"
+        versionCode="80"
+        versionName="1.6.6 Beta">
+        <info>update accessibility service tutorial design and screenshot
+        </info>
+        <info>add how to use tutorial on the main screen
+        </info>
+        <info>update PRO features description and layout
+        </info>
+        <info>improve debug logging
+        </info>
+    </release>
+    <release
+        date="2021-01-16"
+        versionCode="79"
+        versionName="1.6.5 Beta">
+        <info>update main app activity design
+        </info>
+        <info>fix top crashes from Google Play store reports
+        </info>
+        <info>fix crash with trail effect on some edge case
+        </info>
+        <info>fix crash on edge cases clicking outside screen
+        </info>
+        <info>fix crash on quick settings tile add
+        </info>
+        <info>fix bug when clicking with cursor on the tracker (or gesture replay on tracker)
+        </info>
+        <info>fix wrong edge tracker position on floating mode
+        </info>
+        <info>fix gesture recorder animation when dot color is the same as recorder trail color
+        </info>
+        <info>fix FPS debug text in debug mode
+        </info>
+        <info>try to fix bug with keyboard detection after app update (fixed by an app restart)
+        </info>
+    </release>
+    <release
+        date="2020-12-31"
+        versionCode="78"
+        versionName="1.6.4 Beta">
+        <info>add Kurdish translation (thanks to Alân Yalçın)
+        </info>
+        <info>update Turkish translations (thanks to Alân Yalçın)
+        </info>
+        <info>fix annoying &quot;service interrupted by Android&quot; toast message on some devices
+        </info>
+    </release>
+    <release
+        date="2020-12-30"
+        versionCode="77"
+        versionName="1.6.3 Beta">
+        <info>add German translation (thanks to Holger Hartwig)
+        </info>
+    </release>
+    <release
+        date="2020-12-30"
+        versionCode="76"
+        versionName="1.6.2 Beta">
+        <info>fix shortcut with Tap-tap app
+        </info>
+        <info>fix shortcut toggle bug
+        </info>
+    </release>
+    <release
+        date="2020-12-30"
+        versionCode="75"
+        versionName="1.6.1 Beta">
+        <info>fix stuck click animation with ripple duration too low
+        </info>
+        <info>fix click animation not updating in real time when changing ripple duration and size
+        </info>
+        <info>fix app not starting after landscape mode in some devices
+        </info>
+    </release>
+    <release
+        date="2020-12-29"
+        versionCode="74"
+        versionName="1.6.0 Beta">
+        <info>change cursor when recording gesture
+        </info>
+        <info>add cursor animation on click (need to enable visual feedback on click)
+        </info>
+        <info>add toggle zone app shortcut
+        </info>
+    </release>
+    <release
+        date="2020-12-28"
+        versionCode="73"
+        versionName="1.5.0 Beta">
+        <new>add trail animation
+        </new>
+        <info>improve drawing performance by unifying all drawings (cursor, tracker, ripple, trail, etc)
+        </info>
+        <info>improve animations
+        </info>
+        <info>fix wrong detection of accessibility service as stopped
+        </info>
+        <info>fix &quot;accessibility settings&quot; button not opening menu in some edge cases
+        </info>
+        <info>fix crash on accessibility service tutorial slider
+        </info>
+        <info>fix haptic feedback lag on some devices (ex: OnePlus)
+        </info>
+        <info>add more features to &quot;debug mode&quot;
+        </info>
+    </release>
+    <release
+        date="2020-11-15"
+        versionCode="72"
+        versionName="1.4.0 Beta">
+        <info>add a reset to default for all settings
+        </info>
+        <info>fix bug with preferences format and with backup (not a breaking change)
+        </info>
+        <info>fix bug with backup not exporting the default values
+        </info>
+        <info>update translations
+        </info>
+    </release>
+    <release
+        date="2020-11-11"
+        versionCode="71"
+        versionName="1.3.1 Beta">
+        <info>fix Firefox Beta bug by increasing the time of the simulated tap from 1ms to 5ms
+        </info>
+        <info>possible fix for a backup bug
+        </info>
+    </release>
+    <release
+        date="2020-11-06"
+        versionCode="70"
+        versionName="1.3.0 Beta">
+        <new>add translations: Dutch, Polish, Spanish, Turkish
+        </new>
+        <info>fix wrong alignment of disable service
+        </info>
+        <info>change warning icon
+        </info>
+    </release>
+    <release
+        date="2020-11-06"
+        versionCode="69"
+        versionName="1.2.0 Beta">
+        <new>add backup and restore functionality for all settings
+        </new>
+        <info>fix edge actions wrong defaults
+        </info>
+    </release>
+    <release
+        date="2020-11-05"
+        versionCode="68"
+        versionName="1.1.0 Beta">
+        <new>add option to not block the system gesture navigation with triggers/tracker because of the OnePlus bug
+        </new>
+        <info>fix wrong cursor position when using the app shortcuts (trigger the cursor from another apps)
+        </info>
+        <info>fix overlapping triggers when multiple triggers are moved above keyboard
+        </info>
+    </release>
+    <release
+        date="2020-10-14"
+        versionCode="66"
+        versionName="1.0.0 Beta">
+        <info>use semantic versioning MAJOR.MINOR.PATCH (major for incompatible changes, minor for new features, patch for bug fixing)
+        </info>
+        <info>refactor all screen coordinates and sizes
+        </info>
+        <info>refactor all defaults and constants
+        </info>
+        <info>refactor horizontal/vertical to left/top
+        </info>
+        <new>all size or positioning preferences have been reset to work with the new system
+        </new>
+        <info>fix wrong positions on devices with cutouts
+        </info>
+        <info>fix pixelated cursor/tracker/ripple by enabling smooth anti aliasing
+        </info>
+    </release>
+    <release
+        date="2020-09-21"
+        versionCode="65"
+        versionName="0.9.42 Beta">
+        <info>fix bug with turn off/on
+        </info>
+        <info>change information in FAQ
+        </info>
+    </release>
+    <release
+        date="2020-09-21"
+        versionCode="64"
+        versionName="0.9.41 Beta">
+        <new>add new debug mode for better remote debugging
+        </new>
+        <new>fix keyboard detection bug in Android 11 (change the detection mechanism)
+        </new>
+        <info>fix keyboard detection bug when opening the status bar
+        </info>
+        <info>fix keyboard detection bug with AnySoft keyboard
+        </info>
+        <info>fix bug on first tutorial auto start
+        </info>
+        <info>fix bug with gesture recorder together with disable triggers when keyboard is visible
+        </info>
+        <new>fix stop/start bugs when the app is stopped from combinations of quick toggles/app shortcuts/temporarily disable etc
+        </new>
+        <info>disable/enable the Android System Bug popup
+        </info>
+        <info>move quick actions menu above navigation bar
+        </info>
+    </release>
+    <release
+        date="2020-08-30"
+        versionCode="63"
+        versionName="0.9.40 Beta">
+        <new>add quick settings tile to toggle start/stop
+        </new>
+        <info>add a way to stop the app without disabling the accessibility service
+        </info>
+        <info>refactor the old stop the app into specific &quot;disable service&quot; button
+        </info>
+        <info>fix shortcut glitch that happens randomly
+        </info>
+        <info>add new shortcuts (start, stop, toggle and hide cursor) that can be triggered by launcher or from other apps (tasker, fluid navigation gesture, etc)
+        </info>
+    </release>
+    <release
+        date="2020-08-30"
+        versionCode="62"
+        versionName="0.9.39 Beta">
+        <info>fix crash on application startup on some devices
+        </info>
+        <info>revert update of third party library that caused the above crash
+        </info>
+    </release>
+    <release
+        date="2020-08-29"
+        versionCode="61"
+        versionName="0.9.38 Beta">
+        <info>fix bug with &apos;limited mode&apos; in the free version
+        </info>
+        <info>fix problems with PRO overlay in the free version for tap behaviour
+        </info>
+    </release>
+    <release
+        date="2020-08-28"
+        versionCode="60"
+        versionName="0.9.37 Beta">
+        <info>fix gesture recorder preview trail position on some devices
+        </info>
+    </release>
+    <release
+        date="2020-08-28"
+        versionCode="59"
+        versionName="0.9.36 Beta">
+        <new>added gesture support in advanced mode (drag and drop, scroll, swipe, etc)
+        </new>
+        <info>updated dev libraries
+        </info>
+    </release>
+    <release
+        versionCode="58"
+        versionName="0.9.35 Beta">
+        <info>highlight the Quick Cursor accessibility service on Android settings open
+        </info>
+        <info>improve first run of the app
+        </info>
+    </release>
+    <release
+        date="2020-07-23"
+        versionCode="57"
+        versionName="0.9.34 Beta">
+        <new>implemented an experimental &apos;limited mode&apos; for those where the app stops working after some time or doesn&apos;t work at all
+        </new>
+        <info>prepare settings UI for a more advanced mode that supports gesture (swipe, drag, scroll, etc)
+        </info>
+        <info>fix a bug with changelog popup
+        </info>
+        <info>add button for changelog popup in About section
+        </info>
+    </release>
+    <release
+        date="2020-07-20"
+        versionCode="55"
+        versionName="0.9.32 Beta">
+        <info>fix a bug with slider preference
+        </info>
+        <info>fix multiple floating bubbles bug
+        </info>
+    </release>
+    <release
+        date="2020-07-02"
+        versionCode="54"
+        versionName="0.9.31 Beta">
+        <info>add description on list preferences for better UI (when keyboard is visible, edge actions, swipe mode, etc)
+        </info>
+        <info>change almost all sliders in the settings with a new one
+        </info>
+        <info>fix tracker glitch on &quot;hide cursor&quot; edge action
+        </info>
+        <info>fix frame drops on &quot;hide cursor&quot; visual feedback (ripple)
+        </info>
+    </release>
+    <release
+        versionCode="53"
+        versionName="0.9.30 Beta">
+        <new>add changelog popup on first use after update
+        </new>
+        <info>fix bug on &quot;hide cursor&quot; edge action
+        </info>
+        <info>add info when the accessibility service can&apos;t send gesture anymore (in some devices)
+        </info>
+        <info>fix bug on tap not recognized as tap on OnePlus launcher in some scenario
+        </info>
+        <info>fix bug with &quot;Hide cursor&quot; edge action when triggered faster than the reveal animation
+        </info>
+        <info>fix bug when tracker is tapped when the hide animation is in progress
+        </info>
+    </release>
+    <release
+        versionCode="51"
+        versionName="0.9.29 Beta">
+        <info>fix crash on first time use tutorial slide
+        </info>
+        <info>fix crash on phone rotate
+        </info>
+        <info>fix crash on long click through trigger zone
+        </info>
+        <info>fix crash when trying to detect the keyboard open/close
+        </info>
+        <info>fix crash on tutorial auto slide
+        </info>
+        <info>fix crash when stopping the app
+        </info>
+        <info>fix crash on click
+        </info>
+    </release>
+    <release
+        versionCode="50"
+        versionName="0.9.28 Beta">
+        <info>fix bug: QC activated while the keyboard was visible on some keyboard apps actions (many SwiftKey actions, share dialog from Google Keyboard, etc)
+        </info>
+    </release>
+    <release
+        versionCode="49"
+        versionName="0.9.27 Beta">
+        <info>fix bug: connection to Google Play store remained open in some cases and the &quot;buy pro&quot; dialog was displayed any time the connection was reconnected
+        </info>
+        <info>fix bug: show the toast &quot;PRO version activated&quot; more times, in some rare situations, after the PRO was bought
+        </info>
+    </release>
+    <release
+        versionCode="48"
+        versionName="0.9.26 Beta">
+        <info>fix bug with buy pro Google Play popup randomly appear in some rare situation on the free version
+        </info>
+        <info>sorry to all free users that had this bug, this was not intentional to spam the pro version, it should be fixed now
+        </info>
+    </release>
+    <release
+        versionCode="47"
+        versionName="0.9.25 Beta">
+        <new>add &quot;FAQ and troubleshooting&quot; based on all the feedback received
+        </new>
+    </release>
+    <release
+        versionCode="46"
+        versionName="0.9.24 Beta">
+        <info>try to fix &quot;Open Settings&quot; from &quot;Quick Settings&quot; on some phones
+        </info>
+        <info>clean up some old code
+        </info>
+        <info>fix some leaked IntentReceiver
+        </info>
+    </release>
+    <release
+        versionCode="45"
+        versionName="0.9.23 Beta">
+        <info>fix crash with raise triggers above keyboard on landscape
+        </info>
+        <info>fix QC enabled on landscape on keyboard action
+        </info>
+    </release>
+    <release
+        versionCode="44"
+        versionName="0.9.22 Beta">
+        <info>fix bug with some lock screen configurations that never re-enabled the QC after phone unlock
+        </info>
+    </release>
+    <release
+        versionCode="43"
+        versionName="0.9.21 Beta">
+        <new>disable QC on lock screen
+        </new>
+        <info>fix bug with quick settings opening when phone is locked / unlocked
+        </info>
+        <info>fix trigger size not saving correctly on simple mode with location bottom
+        </info>
+    </release>
+    <release
+        versionCode="42"
+        versionName="0.9.20 Beta">
+        <new>add accessibility tutorial for Samsung
+        </new>
+        <new>add accessibility tutorial for Xiaomi
+        </new>
+    </release>
+    <release
+        versionCode="41"
+        versionName="0.9.19 Beta">
+        <info>fix bug on accessibility service enabled and exit back to tutorial
+        </info>
+    </release>
+    <release
+        versionCode="40"
+        versionName="0.9.18 Beta">
+        <new>add share button in About section
+        </new>
+        <new>add tutorial for how to enable accessibility service on generic device
+        </new>
+        <new>add first time use tutorial
+        </new>
+        <info>add trigger size config on first time use tutorial
+        </info>
+        <info>fixed bug on advanced mode: cursor height was not saved correctly
+        </info>
+    </release>
+</changelog>

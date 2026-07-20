@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:height="100dp"
+    android:width="69.5721dp"
+    android:viewportWidth="26.5"
+    android:viewportHeight="38.09">
+    <path
+        android:fillColor="@drawable/_cursor_design_arrow2__0_res_0x7f080009"
+        android:pathData="m15.65,24 l5.47,10.63 3.61,-1.73 -5.47,-10.63z"/>
+    <path
+        android:fillColor="@drawable/_cursor_design_arrow2__1_res_0x7f08000a"
+        android:pathData="m15.63,24.01 l9.61,-2.39 1.26,-4.23 -8.68,1.94z"/>
+    <path
+        android:fillColor="@drawable/_cursor_design_arrow2__2_res_0x7f08000b"
+        android:pathData="m8.43,27.46 l5.48,10.63 3.61,-1.73 -5.48,-10.63z"/>
+    <path
+        android:fillColor="@drawable/_cursor_design_arrow2__3_res_0x7f08000c"
+        android:pathData="m12.04,25.73 l-8.05,6.27 -3.91,-1.94 6.94,-5.55z"/>
+    <path
+        android:fillColor="@drawable/_cursor_design_arrow2__4_res_0x7f08000d"
+        android:pathData="M4,32.03L4,0.5L0,2.03v28z"/>
+    <path
+        android:fillColor="#b2b2b2"
+        android:pathData="M25.24,21.62 L0,2.01 4.18,0 26.5,17.39z"/>
+</vector>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <SwitchPreference
+        android:title="@string/action_toggle_expand_notification_title"
+        android:key="expandToggle"
+        android:summary="@string/action_toggle_expand_notification_summary"
+        android:defaultValue="@bool/default_action_expand_notification_toggle"
+        app:iconSpaceReserved="false"/>
+</PreferenceScreen>

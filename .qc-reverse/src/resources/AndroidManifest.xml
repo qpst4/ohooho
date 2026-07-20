@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="248"
+    android:versionName="3.0.1"
+    android:compileSdkVersion="36"
+    android:compileSdkVersionCodename="16"
+    package="com.quickcursor"
+    platformBuildVersionCode="36"
+    platformBuildVersionName="16">
+    <uses-sdk
+        android:minSdkVersion="24"
+        android:targetSdkVersion="36"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="com.android.vending.BILLING"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false"/>
+    <queries>
+        <intent>
+            <action android:name="*"/>
+        </intent>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT"/>
+            <category android:name="android.intent.category.OPENABLE"/>
+            <data android:mimeType="*/*"/>
+        </intent>
+        <intent>
+            <action android:name="com.android.vending.billing.InAppBillingService.BIND"/>
+        </intent>
+        <intent>
+            <action android:name="com.google.android.apps.play.billingtestcompanion.BillingOverrideService.BIND"/>
+        </intent>
+        <package android:name="com.miui.securitycenter"/>
+        <package android:name="com.miui.permcenter"/>
+        <package android:name="com.letv.android.letvsafe"/>
+        <package android:name="com.asus.mobilemanager"/>
+        <package android:name="com.huawei.systemmanager"/>
+        <package android:name="com.coloros.safecenter"/>
+        <package android:name="com.oppo.safe"/>
+        <package android:name="com.iqoo.secure"/>
+        <package android:name="com.vivo.permissionmanager"/>
+        <package android:name="com.evenwell.powersaving"/>
+        <package android:name="com.samsung.android"/>
+        <package android:name="com.oneplus"/>
+        <package android:name="com.android.settings"/>
+        <package android:name="androidx.test.orchestrator"/>
+        <package android:name="androidx.test.services"/>
+        <package android:name="com.google.android.apps.common.testing.services"/>
+    </queries>
+    <permission
+        android:name="com.quickcursor.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature"/>
+    <uses-permission android:name="com.quickcursor.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"/>
+    <application
+        android:theme="@style/AppTheme"
+        android:label="@string/app_name"
+        android:icon="@mipmap/launcher_icon"
+        android:name="com.quickcursor.App"
+        android:description="@string/app_name"
+        android:allowBackup="true"
+        android:supportsRtl="true"
+        android:extractNativeLibs="false"
+        android:roundIcon="@mipmap/launcher_icon_round"
+        android:appComponentFactory="androidx.core.app.CoreComponentFactory">
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true"/>
+        <activity
+            android:name="com.quickcursor.android.activities.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:theme="@style/Theme.AppCompat.Translucent"
+            android:name="com.quickcursor.android.activities.ShortcutActivity"
+            android:exported="true"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="android.intent.action.CREATE_SHORTCUT"/>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="com.quickcursor.android.activities.AboutActivity"
+            android:parentActivityName="com.quickcursor.android.activities.MainActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.OpenSourceActivity"
+            android:parentActivityName="com.quickcursor.android.activities.AboutActivity"/>
+        <activity android:name="com.quickcursor.android.activities.BuyProActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.ThanksProActivity"
+            android:parentActivityName="com.quickcursor.android.activities.MainActivity"/>
+        <activity android:name="com.quickcursor.android.activities.AccessibilityStoppedActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.fragments.triggermode.tabs.AdvancedTriggerActivity"
+            android:screenOrientation="locked"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.fragments.triggermode.tabs.extra.TriggerActionsListActivity"
+            android:screenOrientation="locked"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.fragments.triggermode.tabs.extra.TriggerActionEditActivity"
+            android:screenOrientation="locked"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.fragments.triggermode.tabs.extra.design.TriggerActionsDesignPieActivity"
+            android:screenOrientation="locked"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.fragments.triggermode.tabs.extra.design.TriggerActionsDesignActionIconActivity"
+            android:screenOrientation="locked"/>
+        <activity
+            android:name="com.quickcursor.android.activities.SettingsActivity"
+            android:parentActivityName="com.quickcursor.android.activities.MainActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.HowToUseActivity"
+            android:parentActivityName="com.quickcursor.android.activities.MainActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.BatteryOptimizationsActivity"
+            android:parentActivityName="com.quickcursor.android.activities.MainActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.TriggersSettings"
+            android:screenOrientation="locked"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.TapBehaviourSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.CursorSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.TrackerSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.EdgeActionsSettings"
+            android:configChanges="fontScale|layoutDirection|density|smallestScreenSize|screenSize|uiMode|screenLayout|orientation|navigation|keyboardHidden|keyboard|touchscreen|locale"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.TrackerActionsSettings"
+            android:configChanges="fontScale|layoutDirection|density|smallestScreenSize|screenSize|uiMode|screenLayout|orientation|navigation|keyboardHidden|keyboard|touchscreen|locale"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.VibrationsAndVisualSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.BlacklistSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.BackupAndRestoreSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity android:name="com.quickcursor.android.activities.settings.MissingPermissions"/>
+        <activity android:name="com.quickcursor.android.activities.settings.InputDispatcherBug"/>
+        <activity
+            android:name="com.quickcursor.android.activities.settings.DebugSettings"
+            android:parentActivityName="com.quickcursor.android.activities.SettingsActivity"/>
+        <activity
+            android:theme="@style/TransparentActivity"
+            android:name="com.quickcursor.android.activities.actions.ToggleFlashlightActivity"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:noHistory="true"/>
+        <activity
+            android:theme="@style/Theme.AppCOmpat.WindowConfigTransparent"
+            android:name="com.quickcursor.android.activities.WindowConfigActivity"/>
+        <service
+            android:label="@string/accessibility_service_label"
+            android:name="com.quickcursor.android.services.CursorAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:description="@string/accessibility_service_description">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/cursor_accessibility_service"/>
+        </service>
+        <service
+            android:label="@string/app_name"
+            android:icon="@drawable/icon_quick_settings_tile"
+            android:name="com.quickcursor.android.services.QuickSettingsTileService"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE"/>
+            </intent-filter>
+        </service>
+        <provider
+            android:name="com.quickcursor.android.providers.ActionScreenshotClipboardProvider"
+            android:exported="false"
+            android:authorities="@string/screenshot_clipboard_provider_authority"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/action_screenshot_clipboard_file_provider_paths"/>
+        </provider>
+        <activity android:name="com.michaelflisar.changelog.internal.ChangelogActivity"/>
+        <activity
+            android:theme="@style/Theme.Transparent.ImagePicker"
+            android:name="com.github.dhaval2404.imagepicker.ImagePickerActivity"
+            android:screenOrientation="unspecified"/>
+        <activity
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"/>
+        <provider
+            android:name="com.github.dhaval2404.imagepicker.ImagePickerFileProvider"
+            android:exported="false"
+            android:authorities="com.quickcursor.imagepicker.provider"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/image_picker_provider_paths"/>
+        </provider>
+        <provider
+            android:name="com.canhub.cropper.CropFileProvider"
+            android:exported="false"
+            android:authorities="com.quickcursor.cropper.fileprovider"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/library_file_paths"/>
+        </provider>
+        <activity
+            android:name="com.canhub.cropper.CropImageActivity"
+            android:exported="true"/>
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:exported="false"
+            android:authorities="com.quickcursor.androidx-startup">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                android:value="androidx.startup"/>
+            <meta-data
+                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+                android:value="androidx.startup"/>
+            <meta-data
+                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+                android:value="androidx.startup"/>
+        </provider>
+        <meta-data
+            android:name="com.google.android.play.billingclient.version"
+            android:value="7.1.1"/>
+        <activity
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:name="com.android.billingclient.api.ProxyBillingActivity"
+            android:exported="false"
+            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard"/>
+        <activity
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:name="com.android.billingclient.api.ProxyBillingActivityV2"
+            android:exported="false"
+            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden|keyboard"/>
+        <activity
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+            android:exported="false"/>
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version"/>
+        <uses-library
+            android:name="androidx.window.extensions"
+            android:required="false"/>
+        <uses-library
+            android:name="androidx.window.sidecar"
+            android:required="false"/>
+        <activity
+            android:theme="@style/Permissions.TransparentTheme"
+            android:name="com.nabinbhandari.android.permissions.PermissionsActivity"/>
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            android:permission="android.permission.DUMP"
+            android:enabled="true"
+            android:exported="true"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SKIP_FILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION"/>
+            </intent-filter>
+        </receiver>
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            android:exported="false">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                android:value="cct"/>
+        </service>
+        <service
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.JobInfoSchedulerService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false"/>
+        <receiver
+            android:name="com.google.android.datatransport.runtime.scheduling.jobscheduling.AlarmManagerSchedulerBroadcastReceiver"
+            android:exported="false"/>
+        <meta-data
+            android:name="com.android.vending.derived.apk.id"
+            android:value="1"/>
+    </application>
+</manifest>

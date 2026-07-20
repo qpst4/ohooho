@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <SwitchPreference
+        android:title="@string/action_timed_disable_preferences_popup_title"
+        android:key="popup"
+        android:summary="@string/action_timed_disable_preferences_popup_summary"
+        android:defaultValue="true"
+        app:iconSpaceReserved="false"/>
+    <PreferenceCategory
+        android:persistent="false"
+        android:title="@string/action_timed_disable_preferences_category_duration"
+        android:key="duration"
+        app:iconSpaceReserved="false">
+        <com.quickcursor.android.preferences.SeekBarDialogPreference
+            android:title="@string/action_timed_disable_preferences_seconds_title"
+            app:defaultValue="0"
+            app:iconSpaceReserved="false"
+            app:key="chooseSeconds"
+            app:max="59"
+            app:min="0"
+            app:step="1"
+            app:units="s"
+            app:updatesContinuously="false"/>
+        <com.quickcursor.android.preferences.SeekBarDialogPreference
+            android:title="@string/action_timed_disable_preferences_minutes_title"
+            app:defaultValue="0"
+            app:iconSpaceReserved="false"
+            app:key="chooseMinutes"
+            app:max="59"
+            app:min="0"
+            app:step="1"
+            app:units="m"
+            app:updatesContinuously="false"/>
+        <com.quickcursor.android.preferences.SeekBarDialogPreference
+            android:title="@string/action_timed_disable_preferences_hours_title"
+            app:defaultValue="0"
+            app:iconSpaceReserved="false"
+            app:key="chooseHours"
+            app:max="12"
+            app:min="0"
+            app:step="1"
+            app:units="h"
+            app:updatesContinuously="false"/>
+    </PreferenceCategory>
+</PreferenceScreen>

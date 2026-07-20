@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <PreferenceCategory
+        android:title="@string/action_toggle_sound_profile_category_title"
+        app:iconSpaceReserved="false">
+        <SwitchPreference
+            android:title="@string/action_toggle_sound_profile_profile_0"
+            android:key="profile0"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_toggle_sound_profile_profile_1"
+            android:key="profile1"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_toggle_sound_profile_profile_2"
+            android:key="profile2"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false"/>
+    </PreferenceCategory>
+</PreferenceScreen>

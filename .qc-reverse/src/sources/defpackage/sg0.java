@@ -1,0 +1,23 @@
+package defpackage;
+
+/* JADX INFO: compiled from: r8-map-id-cf80f8abcb113d5feb50392a150ad1aafcd9a0d68b58b47d245bdd7749062c30 */
+/* JADX INFO: loaded from: classes.dex */
+public final class sg0 extends vm0 {
+    public final String f;
+    public final String g;
+
+    public sg0(String str, String str2) {
+        this.f = str;
+        this.g = str2;
+    }
+
+    @Override // defpackage.vm0
+    public final void a(g7 g7Var) {
+        g7Var.x(this);
+    }
+
+    @Override // defpackage.vm0
+    public final String e() {
+        return "destination=" + this.f + ", title=" + this.g;
+    }
+}

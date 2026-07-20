@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <com.quickcursor.android.preferences.DetailedListPreference
+        android:entries="@array/action_gesture_swipe_distance_titles"
+        android:title="@string/action_gesture_swipe_distance_title"
+        android:key="pinchDistance"
+        android:summary="%s"
+        android:defaultValue="@string/default_action_gesture_pinch_distance"
+        android:entryValues="@array/action_gesture_swipe_distance_values"
+        app:iconSpaceReserved="false"/>
+    <com.quickcursor.android.preferences.DetailedListPreference
+        android:entries="@array/action_gesture_pinch_duration_titles"
+        android:title="@string/action_gesture_swipe_duration_title"
+        android:key="pinchDuration"
+        android:summary="%s"
+        android:defaultValue="@string/default_action_gesture_pinch_duration"
+        android:entryValues="@array/action_gesture_pinch_duration_values"
+        app:iconSpaceReserved="false"/>
+</PreferenceScreen>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <com.quickcursor.android.preferences.DetailedListPreference
+        android:entries="@array/action_screen_rotate_rotation_modes_titles"
+        android:title="@string/action_screen_rotate_mode_title"
+        android:key="rotationMode"
+        android:summary="%s"
+        android:defaultValue="settings"
+        android:entryValues="@array/action_screen_rotate_rotation_modes_values"
+        app:entryDetails="@array/action_screen_rotate_rotation_modes_details"
+        app:iconSpaceReserved="false"/>
+    <PreferenceCategory
+        android:title="@string/action_screen_rotate_category_rotations_title"
+        app:iconSpaceReserved="false">
+        <SwitchPreference
+            android:title="@string/action_screen_rotate_rotation_0"
+            android:key="rotation0"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_screen_rotate_rotation_90"
+            android:key="rotation1"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_screen_rotate_rotation_180"
+            android:key="rotation2"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_screen_rotate_rotation_270"
+            android:key="rotation3"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false"/>
+        <SwitchPreference
+            android:title="@string/action_screen_rotate_rotation_clear"
+            android:key="rotation-1"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false"/>
+    </PreferenceCategory>
+</PreferenceScreen>

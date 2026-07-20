@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" app:iconSpaceReserved="false">
+    <com.quickcursor.android.preferences.TickSeekBarPreference
+        android:title="@string/action_volume_steps_title"
+        app:defaultValue="@integer/default_action_volume_steps"
+        app:iconSpaceReserved="false"
+        app:key="steps"
+        app:tickTexts="@array/actions_volume_ticks"
+        app:ticksStartFromZero="false"/>
+    <SwitchPreference
+        android:title="@string/action_volume_bar_show_ui_title"
+        android:key="showUI"
+        android:summary="@string/action_volume_bar_show_ui_summary"
+        android:defaultValue="@bool/default_action_volume_show_ui"
+        app:iconSpaceReserved="false"/>
+</PreferenceScreen>

@@ -1,0 +1,9 @@
+package defpackage;
+
+/* JADX INFO: compiled from: r8-map-id-cf80f8abcb113d5feb50392a150ad1aafcd9a0d68b58b47d245bdd7749062c30 */
+/* JADX INFO: loaded from: classes.dex */
+public final class iq1 extends RuntimeException {
+    public iq1() {
+        super("Message was missing required fields.  (Lite runtime could not determine which fields were missing).");
+    }
+}
